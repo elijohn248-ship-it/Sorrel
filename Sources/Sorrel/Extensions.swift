@@ -798,7 +798,27 @@ final class Extensions: NSObject {
     /// Runs an extension's toolbar button: opens its pop-up, or sends it a click.
     func performAction(_ entry: ExtensionEntry) {
         guard let context = entry.context else { return }
-        context.performAction(for: Store.shared.selected?.extensionTab)
+        let tab = Store.shared.selected?.extensionTab
+        wakeBackground(of: entry, context: context) { context.performAction(for: tab) }
+    }
+
+    /// WebKit stops an idle extension's background script after 30 s. If a pop-up is what brings a service
+    /// worker back (Proton Pass), WebKit starts the worker in the pop-up's own process, reports it loaded
+    /// before its install step has run, and shuts it down again a few milliseconds later. The pop-up is left
+    /// with nobody to talk to and stays an empty 50×50 box. So the background is woken first, and the pop-up
+    /// opens once the worker has had a moment to finish starting (it needs ~50 ms; 0.1 s passed in tests).
+    /// When the background is already running, WebKit answers at once and nothing waits.
+    private func wakeBackground(of entry: ExtensionEntry, context: WKWebExtensionContext, then run: @escaping () -> Void) {
+        guard context.webExtension.hasBackgroundContent else { run(); return }
+        let started = Date()
+        context.loadBackgroundContent { error in
+            guard entry.context === context else { return }
+            let cold = Date().timeIntervalSince(started) > 0.03
+            if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil {
+                FileHandle.standardError.write("ext: woke background of \(entry.id) first (\(cold ? "it had stopped" : "already running"))\(error.map { ": \($0.localizedDescription)" } ?? "")\n".data(using: .utf8)!)
+            }
+            if cold { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: run) } else { run() }
+        }
     }
 
     /// The extension's toolbar button as it stands for a tab (the selected one unless told otherwise):
@@ -814,7 +834,12 @@ final class Extensions: NSObject {
     /// checked first by the caller, so they win over an extension's.
     func handleKey(_ event: NSEvent) -> Bool {
         for entry in loaded {
-            guard let context = entry.context, context.command(for: event) != nil else { continue }
+            guard let context = entry.context, let command = context.command(for: event) else { continue }
+            // The shortcut that opens the pop-up gets the same wake-up as a click (see wakeBackground).
+            if command.id == "_execute_action" || command.id == "_execute_browser_action" {
+                performAction(entry)
+                return true
+            }
             if context.performCommand(for: event) { return true }
         }
         return false

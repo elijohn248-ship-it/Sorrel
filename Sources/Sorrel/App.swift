@@ -904,10 +904,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                 group.notify(queue: .main) { NSApp.terminate(nil) }
                             }
                           }
-                          if ubol.isLoaded { run() } else {
+                          if ubol.isLoaded {
+                              DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_PREWAIT"] ?? "") ?? 0)) { run() }
+                          } else {
                               Extensions.shared.setEnabled(ubol, true) { ok in
                                   log("ui: enabled \(ubol.name) ok=\(ok) error=\(ubol.error ?? "none")")
-                                  DispatchQueue.main.asyncAfter(deadline: .now() + 6) { run() }
+                                  // SORREL_UI_PREWAIT: leave the extension idle first (WebKit stops idle background scripts).
+                                  DispatchQueue.main.asyncAfter(deadline: .now() + 6 + (Double(env["SORREL_UI_PREWAIT"] ?? "") ?? 0)) { run() }
                               }
                           }
                           return
