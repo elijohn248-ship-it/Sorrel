@@ -1,0 +1,974 @@
+import AppKit
+
+// MARK: - Item (a tab or a folder)
+
+final class Item: NSObject, Codable {
+    var id = UUID()
+    var isFolder = false
+    var title = ""
+    var customTitle: String?
+    var url: String?
+    /// The URL a pinned tab or favorite returns to when it is closed.
+    var pinnedURL: String?
+    var children: [Item] = []
+    var expanded = true
+    var lastActive = Date()
+    /// Set when this item is a split view: two to four tabs shown side by side, kept in `children`.
+    var split: SplitLayout?
+
+    // Runtime only.
+    var page: Page?
+    weak var parent: Item?
+    /// A sleeping tab's back/forward history and scroll position, restored when it wakes.
+    var savedState: Any?
+    /// How extensions refer to this tab.
+    lazy var extensionTab = ExtensionTab(item: self)
+
+    enum CodingKeys: String, CodingKey {
+        case id, isFolder, title, customTitle, url, pinnedURL, children, expanded, lastActive, split
+    }
+
+    override init() { super.init() }
+
+    convenience init(url: String, title: String = "") {
+        self.init()
+        self.url = url
+        self.title = title
+    }
+
+    static func folder(named name: String) -> Item {
+        let f = Item()
+        f.isFolder = true
+        f.title = name
+        return f
+    }
+
+    var isSplit: Bool { split != nil }
+    /// Folders and split views hold other items.
+    var isContainer: Bool { isFolder || isSplit }
+
+    var displayTitle: String {
+        if isSplit { return children.map(\.displayTitle).joined(separator: " | ") }
+        if let c = customTitle, !c.isEmpty { return c }
+        if !title.isEmpty { return title }
+        if isFolder { return "Folder" }
+        if let u = url, let host = URL(string: u)?.host { return host }
+        return "New Tab"
+    }
+
+    var host: String? { url.flatMap { URL(string: $0)?.host } }
+
+    func isDescendant(of other: Item) -> Bool {
+        var p = parent
+        while let cur = p {
+            if cur === other { return true }
+            p = cur.parent
+        }
+        return false
+    }
+}
+
+/// How a split view arranges its tabs.
+struct SplitLayout: Codable {
+    /// false = side by side, true = stacked top to bottom.
+    var stacked = false
+    /// Each pane's share of the space, in order. Empty or mismatched = equal shares.
+    var fractions: [Double] = []
+
+    static let maxPanes = 4
+
+    func normalized(count: Int) -> [Double] {
+        guard count > 0 else { return [] }
+        guard fractions.count == count, fractions.allSatisfy({ $0 > 0 }) else {
+            return Array(repeating: 1 / Double(count), count: count)
+        }
+        let total = fractions.reduce(0, +)
+        return fractions.map { $0 / total }
+    }
+}
+
+// MARK: - Space
+
+final class Space: NSObject, Codable {
+    var id = UUID()
+    var name = "Space"
+    var icon = "●"
+    var theme = Theme.presets[0]
+    var pinned: [Item] = []
+    var today: [Item] = []
+    /// nil = shared default logins. A UUID = this space keeps its own cookies and logins.
+    var profileID: UUID?
+    var selectedID: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, theme, pinned, today, profileID, selectedID
+    }
+
+    override init() { super.init() }
+
+    convenience init(name: String, icon: String, theme: Theme) {
+        self.init()
+        self.name = name
+        self.icon = icon
+        self.theme = theme
+    }
+}
+
+/// An unpinned tab that was put away after going unused.
+struct ArchivedTab: Codable {
+    var url: String
+    var title: String
+    var spaceID: UUID
+    var date: Date
+}
+
+struct AppState: Codable {
+    var version = 1
+    var spaces: [Space]
+    var favorites: [Item]
+    var currentSpaceID: UUID
+    var sidebarCollapsed = false
+    var sidebarWidth: Double = 250
+}
+
+extension Notification.Name {
+    /// Tabs, folders or favorites were added, removed or moved.
+    static let driftStructure = Notification.Name("driftStructure")
+    /// The selected tab changed.
+    static let driftSelection = Notification.Name("driftSelection")
+    /// One item's title, icon or loading state changed. `object` is the Item.
+    static let driftItem = Notification.Name("driftItem")
+    /// The current space changed, or spaces were added, removed or renamed.
+    static let driftSpace = Notification.Name("driftSpace")
+    /// A space's theme changed.
+    static let driftTheme = Notification.Name("driftTheme")
+}
+
+// MARK: - Store
+
+final class Store {
+    static let shared = Store()
+
+    enum Location {
+        case favorites
+        case pinned(Space, Item?)   // parent folder, or nil for the top level
+        case today(Space)
+    }
+
+    private(set) var state: AppState
+    private let saver = Debouncer(delay: 0.8)
+    private var closedStack: [(url: String, title: String, spaceID: UUID)] = []
+    /// Direction of the last space switch, for the slide animation. +1 = forward.
+    private(set) var lastSwitchDirection = 1
+
+    private(set) var archive: [ArchivedTab] = []
+
+    private init() {
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        if let data = try? Data(contentsOf: Paths.archive),
+           let list = try? dec.decode([ArchivedTab].self, from: data) { archive = list }
+        if let data = try? Data(contentsOf: Paths.state),
+           let s = try? dec.decode(AppState.self, from: data), !s.spaces.isEmpty {
+            state = s
+        } else {
+            if FileManager.default.fileExists(atPath: Paths.state.path) {
+                // Never silently discard a state file we could not read.
+                let backup = Paths.support.appendingPathComponent("state.unreadable-\(Int(Date().timeIntervalSince1970)).json")
+                try? FileManager.default.copyItem(at: Paths.state, to: backup)
+            }
+            state = Store.seed()
+        }
+        rebuildParents()
+    }
+
+    private static func seed() -> AppState {
+        let personal = Space(name: "Personal", icon: "🏠", theme: Theme.presets[0])
+        let school = Space(name: "School", icon: "🩺", theme: Theme.presets[1])
+        let welcome = Item(url: "drift://welcome", title: "Welcome to Drift")
+        personal.today = [welcome]
+        personal.selectedID = welcome.id
+
+        let study = Item.folder(named: "Study")
+        let pubmed = Item(url: "https://pubmed.ncbi.nlm.nih.gov/", title: "PubMed")
+        pubmed.pinnedURL = pubmed.url
+        study.children = [pubmed]
+        school.pinned = [study]
+
+        return AppState(spaces: [personal, school], favorites: [], currentSpaceID: personal.id)
+    }
+
+    // MARK: Reading
+
+    var spaces: [Space] { state.spaces }
+    var favorites: [Item] { state.favorites }
+
+    var currentSpace: Space {
+        state.spaces.first { $0.id == state.currentSpaceID } ?? state.spaces[0]
+    }
+
+    var selected: Item? {
+        guard let id = currentSpace.selectedID else { return nil }
+        return item(id: id)
+    }
+
+    var sidebarCollapsed: Bool {
+        get { state.sidebarCollapsed }
+        set { state.sidebarCollapsed = newValue; scheduleSave() }
+    }
+
+    var sidebarWidth: Double {
+        get { state.sidebarWidth }
+        set { state.sidebarWidth = newValue; scheduleSave() }
+    }
+
+    /// All tabs (no folders) in a list, depth first.
+    func tabs(in items: [Item]) -> [Item] {
+        var out: [Item] = []
+        for i in items {
+            if i.isContainer { out.append(contentsOf: tabs(in: i.children)) } else { out.append(i) }
+        }
+        return out
+    }
+
+    private func find(_ id: UUID, in items: [Item]) -> Item? {
+        for i in items {
+            if i.id == id { return i }
+            if i.isContainer, let hit = find(id, in: i.children) { return hit }
+        }
+        return nil
+    }
+
+    func item(id: UUID) -> Item? {
+        if let hit = find(id, in: state.favorites) { return hit }
+        for s in state.spaces {
+            if let hit = find(id, in: s.pinned) { return hit }
+            if let hit = find(id, in: s.today) { return hit }
+        }
+        return nil
+    }
+
+    func space(id: UUID) -> Space? { state.spaces.first { $0.id == id } }
+
+    func space(containing item: Item) -> Space? {
+        for s in state.spaces {
+            if find(item.id, in: s.pinned) != nil || find(item.id, in: s.today) != nil { return s }
+        }
+        return nil
+    }
+
+    func isFavorite(_ item: Item) -> Bool { state.favorites.contains { $0 === item } }
+
+    func isPinned(_ item: Item) -> Bool {
+        state.spaces.contains { find(item.id, in: $0.pinned) != nil }
+    }
+
+    /// Every tab the user can cycle through in the current space, in sidebar order.
+    var cycleOrder: [Item] {
+        state.favorites + tabs(in: currentSpace.pinned) + tabs(in: currentSpace.today)
+    }
+
+    /// Every tab anywhere, for searching.
+    var allTabs: [(item: Item, space: Space?)] {
+        var out: [(Item, Space?)] = state.favorites.map { ($0, nil) }
+        for s in state.spaces {
+            out.append(contentsOf: tabs(in: s.pinned).map { ($0, s) })
+            out.append(contentsOf: tabs(in: s.today).map { ($0, s) })
+        }
+        return out
+    }
+
+    func locate(_ item: Item) -> (Location, Int)? {
+        if let i = state.favorites.firstIndex(where: { $0 === item }) { return (.favorites, i) }
+        for s in state.spaces {
+            if let i = s.today.firstIndex(where: { $0 === item }) { return (.today(s), i) }
+            if let i = s.pinned.firstIndex(where: { $0 === item }) { return (.pinned(s, nil), i) }
+            // Tabs inside a split view move with it; they have no place of their own.
+            if let p = item.parent, p.isFolder, find(p.id, in: s.pinned) != nil,
+               let i = p.children.firstIndex(where: { $0 === item }) {
+                return (.pinned(s, p), i)
+            }
+        }
+        return nil
+    }
+
+    // MARK: Notifications and saving
+
+    private func post(_ name: Notification.Name, _ object: Any? = nil) {
+        NotificationCenter.default.post(name: name, object: object)
+    }
+
+    func itemChanged(_ item: Item) {
+        post(.driftItem, item)
+        scheduleSave()
+    }
+
+    func scheduleSave() {
+        saver.schedule { [weak self] in self?.saveNow() }
+    }
+
+    func saveNow() {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        enc.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        guard let data = try? enc.encode(state) else { return }
+        try? data.write(to: Paths.state, options: .atomic)
+    }
+
+    private func rebuildParents() {
+        func walk(_ items: [Item], parent: Item?) {
+            for i in items {
+                i.parent = parent
+                if i.isContainer { walk(i.children, parent: i) }
+            }
+        }
+        walk(state.favorites, parent: nil)
+        for s in state.spaces {
+            walk(s.pinned, parent: nil)
+            walk(s.today, parent: nil)
+        }
+    }
+
+    // MARK: Selection
+
+    func select(_ item: Item?) {
+        // Selecting a split view focuses the pane used most recently.
+        if let sv = item, sv.isSplit {
+            select(sv.children.max { $0.lastActive < $1.lastActive })
+            return
+        }
+        if let item, let sp = space(containing: item), sp.id != state.currentSpaceID {
+            setCurrentSpace(sp)
+        }
+        let previous = selected
+        currentSpace.selectedID = item?.id
+        // Every pane of a split view is on screen, so none of them counts as idle.
+        if let item, let sv = split(containing: item) {
+            let now = Date()
+            for t in sv.children where t !== item { t.lastActive = now.addingTimeInterval(-0.001) }
+        }
+        item?.lastActive = Date()
+        Extensions.shared.tabActivated(item, previous: previous)
+        // Make sure the folders around the selected tab are open.
+        var p = item?.parent
+        var opened = false
+        while let folder = p {
+            if !folder.expanded { folder.expanded = true; opened = true }
+            p = folder.parent
+        }
+        if opened { post(.driftStructure) }
+        post(.driftSelection)
+        scheduleSave()
+    }
+
+    func selectRelative(_ offset: Int) {
+        let order = cycleOrder
+        guard !order.isEmpty else { return }
+        guard let cur = selected, let idx = order.firstIndex(where: { $0 === cur }) else {
+            select(order[0]); return
+        }
+        select(order[(idx + offset + order.count) % order.count])
+    }
+
+    // MARK: Tabs
+
+    @discardableResult
+    func newTab(url: String, title: String = "", in space: Space? = nil, after: Item? = nil,
+                select shouldSelect: Bool = true, page: Page? = nil) -> Item {
+        let sp = space ?? currentSpace
+        let item = Item(url: url, title: title)
+        if let page {
+            item.page = page
+            page.item = item
+        }
+        if let after = after.map(unit), let idx = sp.today.firstIndex(where: { $0 === after }) {
+            sp.today.insert(item, at: idx + 1)
+        } else {
+            sp.today.insert(item, at: 0)
+        }
+        post(.driftStructure)
+        Extensions.shared.tabOpened(item)
+        if shouldSelect { select(item) }
+        scheduleSave()
+        return item
+    }
+
+    func close(_ item: Item) {
+        if item.isSplit {
+            for t in item.children { close(t) }
+            return
+        }
+        guard !item.isFolder else { return }
+        if let sv = split(containing: item), !isPinned(sv) {
+            closePane(item, of: sv)
+            return
+        }
+        let wasSelected = selected === item
+        for s in state.spaces where s.selectedID == item.id && s.id != state.currentSpaceID {
+            s.selectedID = nil
+        }
+
+        if isFavorite(item) || isPinned(item) {
+            // Pinned tabs and favorites stay in the sidebar; closing puts them to sleep.
+            item.page?.teardown()
+            item.page = nil
+            if let p = item.pinnedURL { item.url = p }
+            post(.driftItem, item)
+            if wasSelected {
+                // In a pinned split view, focus moves to a pane that is still open.
+                let sibling = split(containing: item)?.children.first { $0 !== item && $0.page != nil }
+                select(sibling ?? mostRecentLoaded(excluding: item))
+            }
+        } else if let sp = space(containing: item), let idx = sp.today.firstIndex(where: { $0 === item }) {
+            if let u = item.url, !u.isEmpty {
+                closedStack.append((u, item.title, sp.id))
+                if closedStack.count > 50 { closedStack.removeFirst() }
+            }
+            sp.today.remove(at: idx)
+            Extensions.shared.tabClosed(item)
+            item.page?.teardown()
+            item.page = nil
+            post(.driftStructure)
+            if wasSelected {
+                let neighbor = idx < sp.today.count ? sp.today[idx] : sp.today.last
+                select(neighbor ?? mostRecentLoaded(excluding: item))
+            }
+        }
+        scheduleSave()
+    }
+
+    /// Takes a pinned tab out of the sidebar altogether. Reopen Closed Tab brings it back, unpinned.
+    func closeAndUnpin(_ item: Item) {
+        if item.isSplit { closeSplitAndUnpin(item); return }
+        guard !item.isContainer, isPinned(item), let sp = space(containing: item) else { return }
+        let wasSelected = selected === item
+        let sv = split(containing: item)
+        let sibling = sv?.children.filter { $0 !== item && $0.page != nil }.max { $0.lastActive < $1.lastActive }
+        if sv != nil {
+            guard detachFromSplit(item) != nil else { return }
+        } else {
+            guard let (loc, idx) = locate(item) else { return }
+            remove(at: loc, index: idx)
+        }
+        for s in state.spaces where s.selectedID == item.id && s.id != state.currentSpaceID {
+            s.selectedID = nil
+        }
+        if let u = item.url, !u.isEmpty {
+            closedStack.append((u, item.displayTitle, sp.id))
+            if closedStack.count > 50 { closedStack.removeFirst() }
+        }
+        item.pinnedURL = nil
+        Extensions.shared.tabClosed(item)
+        item.page?.teardown()
+        item.page = nil
+        rebuildParents()
+        post(.driftStructure)
+        if wasSelected { select(sibling ?? mostRecentLoaded(excluding: item)) } else { post(.driftSelection) }
+        scheduleSave()
+    }
+
+    /// A whole pinned split view leaves the sidebar. Reopen Closed Tab brings its tabs back one at a time.
+    private func closeSplitAndUnpin(_ sv: Item) {
+        guard isPinned(sv), let sp = space(containing: sv), let (loc, idx) = locate(sv) else { return }
+        let kids = sv.children
+        let wasSelected = kids.contains { $0 === selected }
+        remove(at: loc, index: idx)
+        for t in kids {
+            for s in state.spaces where s.selectedID == t.id && s.id != state.currentSpaceID { s.selectedID = nil }
+            if let u = t.url, !u.isEmpty {
+                closedStack.append((u, t.displayTitle, sp.id))
+                if closedStack.count > 50 { closedStack.removeFirst() }
+            }
+            t.pinnedURL = nil
+            Extensions.shared.tabClosed(t)
+            t.page?.teardown()
+            t.page = nil
+        }
+        rebuildParents()
+        post(.driftStructure)
+        if wasSelected { select(mostRecentLoaded(excluding: sv)) } else { post(.driftSelection) }
+        scheduleSave()
+    }
+
+    private func mostRecentLoaded(excluding: Item) -> Item? {
+        cycleOrder.filter { $0 !== excluding && $0.page != nil }
+            .max { $0.lastActive < $1.lastActive }
+    }
+
+    func reopenClosed() {
+        guard let last = closedStack.popLast() else { return }
+        newTab(url: last.url, title: last.title, in: space(id: last.spaceID))
+    }
+
+    /// Closes every unpinned tab in a space.
+    func clearToday(in space: Space) {
+        for item in tabs(in: space.today) { close(item) }
+    }
+
+    func rename(_ item: Item, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if item.isFolder {
+            if !trimmed.isEmpty { item.title = trimmed }
+        } else {
+            item.customTitle = (trimmed.isEmpty || trimmed == item.title) ? nil : trimmed
+        }
+        itemChanged(item)
+    }
+
+    // MARK: Sleeping tabs
+
+    /// Unloads tabs nobody has looked at for a while. They stay in the sidebar and reload, with their
+    /// history and scroll position, when opened again. Returns how many were put to sleep.
+    @discardableResult
+    func sleepIdleTabs(olderThanMinutes minutes: Double) -> Int {
+        guard minutes > 0 else { return 0 }
+        let cutoff = Date().addingTimeInterval(-minutes * 60)
+        let visible = selected.map { sel in split(containing: sel)?.children ?? [sel] } ?? []
+        var count = 0
+        for (item, _) in allTabs {
+            guard let page = item.page, !visible.contains(where: { $0 === item }), item.lastActive < cutoff else { continue }
+            let wv = page.webView
+            // Never interrupt a call, something playing, a page mid-load, or an extension's own page.
+            if wv.isLoading || wv.cameraCaptureState != .none || wv.microphoneCaptureState != .none { continue }
+            if wv.responds(to: Selector(("_isPlayingAudio"))), (wv.value(forKey: "_isPlayingAudio") as? Bool) == true { continue }
+            if let u = wv.url, !(u.scheme ?? "").hasPrefix("http") { continue }
+            item.savedState = wv.interactionState
+            page.teardown()
+            item.page = nil
+            post(.driftItem, item)
+            count += 1
+        }
+        return count
+    }
+
+    // MARK: Archive
+
+    private func saveArchive() {
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        if let data = try? enc.encode(archive) { try? data.write(to: Paths.archive, options: .atomic) }
+    }
+
+    /// Puts away unpinned tabs that have not been used for `hours`. Returns how many were archived.
+    /// The tab on screen in each space is never touched, and neither are pinned tabs or favorites.
+    @discardableResult
+    func archiveStaleTabs(olderThanHours hours: Double) -> Int {
+        guard hours > 0 else { return 0 }
+        let cutoff = Date().addingTimeInterval(-hours * 3600)
+        var count = 0
+        for space in state.spaces {
+            // A split view goes only when none of its panes has been used, and none is on screen.
+            let stale = space.today.filter { entry in
+                (entry.isSplit ? entry.children : [entry]).allSatisfy { $0.lastActive < cutoff && $0.id != space.selectedID }
+            }
+            for entry in stale {
+                space.today.removeAll { $0 === entry }
+                for item in entry.isSplit ? entry.children : [entry] {
+                    if let u = item.url, u.hasPrefix("http") {
+                        archive.insert(ArchivedTab(url: u, title: item.displayTitle, spaceID: space.id, date: Date()), at: 0)
+                    }
+                    Extensions.shared.tabClosed(item)
+                    item.page?.teardown()
+                    item.page = nil
+                    count += 1
+                }
+            }
+        }
+        guard count > 0 else { return 0 }
+        if archive.count > 500 { archive = Array(archive.prefix(500)) }
+        saveArchive()
+        post(.driftStructure)
+        scheduleSave()
+        return count
+    }
+
+    func restoreArchived(at index: Int) {
+        guard archive.indices.contains(index) else { return }
+        let entry = archive.remove(at: index)
+        saveArchive()
+        newTab(url: entry.url, title: entry.title, in: space(id: entry.spaceID))
+    }
+
+    func clearArchive() {
+        archive = []
+        saveArchive()
+    }
+
+    // MARK: Moving
+
+    private func count(at loc: Location) -> Int {
+        switch loc {
+        case .favorites: return state.favorites.count
+        case .pinned(let s, let parent): return parent?.children.count ?? s.pinned.count
+        case .today(let s): return s.today.count
+        }
+    }
+
+    private func remove(at loc: Location, index: Int) {
+        switch loc {
+        case .favorites: state.favorites.remove(at: index)
+        case .pinned(let s, let parent):
+            if let parent { parent.children.remove(at: index) } else { s.pinned.remove(at: index) }
+        case .today(let s): s.today.remove(at: index)
+        }
+    }
+
+    private func insert(_ item: Item, at loc: Location, index: Int) {
+        switch loc {
+        case .favorites: state.favorites.insert(item, at: index)
+        case .pinned(let s, let parent):
+            if let parent { parent.children.insert(item, at: index) } else { s.pinned.insert(item, at: index) }
+        case .today(let s): s.today.insert(item, at: index)
+        }
+    }
+
+    private func same(_ a: Location, _ b: Location) -> Bool {
+        switch (a, b) {
+        case (.favorites, .favorites): return true
+        case (.today(let x), .today(let y)): return x === y
+        case (.pinned(let x, let px), .pinned(let y, let py)): return x === y && px === py
+        default: return false
+        }
+    }
+
+    /// Moves an item. `index` nil means "at the end".
+    func move(_ item: Item, to loc: Location, index: Int? = nil) {
+        guard let (oldLoc, oldIdx) = locate(item) else { return }
+        // Only folders take items inside them.
+        if case .pinned(_, let parent) = loc, let parent, !parent.isFolder { return }
+        if item.isSplit, case .favorites = loc { return }
+        if item.isFolder {
+            switch loc {
+            case .favorites, .today: return
+            case .pinned(_, let parent):
+                if let parent, parent === item || parent.isDescendant(of: item) { return }
+            }
+        }
+        remove(at: oldLoc, index: oldIdx)
+        var idx = index ?? count(at: loc)
+        if same(oldLoc, loc), oldIdx < idx { idx -= 1 }
+        idx = max(0, min(idx, count(at: loc)))
+        insert(item, at: loc, index: idx)
+
+        if !item.isFolder {
+            for t in item.isSplit ? item.children : [item] {
+                switch loc {
+                case .today: t.pinnedURL = nil
+                case .favorites, .pinned: if t.pinnedURL == nil { t.pinnedURL = t.url }
+                }
+            }
+        }
+        rebuildParents()
+        post(.driftStructure)
+        scheduleSave()
+    }
+
+    func togglePin(_ item: Item) {
+        let item = unit(item)   // a tab in a split view pins the whole split
+        guard !item.isFolder, !isFavorite(item), let sp = space(containing: item) else { return }
+        if isPinned(item) {
+            move(item, to: .today(sp), index: 0)
+        } else {
+            move(item, to: .pinned(sp, nil))
+        }
+    }
+
+    func toggleFavorite(_ item: Item) {
+        guard !item.isContainer else { return }
+        // Favorites are single tabs, so a tab leaves its split view first.
+        if split(containing: item) != nil { removeFromSplit(item) }
+        if isFavorite(item) {
+            move(item, to: .pinned(currentSpace, nil))
+        } else {
+            move(item, to: .favorites)
+        }
+    }
+
+    func moveToSpace(_ item: Item, _ target: Space) {
+        let item = unit(item)
+        guard let source = space(containing: item), source !== target else { return }
+        let wasPinned = isPinned(item)
+        if source.selectedID == item.id || item.children.contains(where: { $0.id == source.selectedID }) {
+            source.selectedID = nil
+            if source === currentSpace { post(.driftSelection) }
+        }
+        if wasPinned { move(item, to: .pinned(target, nil)) } else { move(item, to: .today(target), index: 0) }
+    }
+
+    // MARK: Split view
+
+    /// The split view a tab is shown in, if any.
+    func split(containing item: Item) -> Item? {
+        guard let p = item.parent, p.isSplit else { return nil }
+        return p
+    }
+
+    /// What moves, pins and archives as one: the split view a tab belongs to, or the tab itself.
+    func unit(_ item: Item) -> Item { split(containing: item) ?? item }
+
+    /// Can `item` be shown in a split view?
+    func canSplit(_ item: Item) -> Bool { !item.isContainer && !isFavorite(item) && space(containing: item) != nil }
+
+    /// Puts two tabs side by side, where `base` is now. If `base` is already in a split view, `other` joins it.
+    /// `otherFirst` puts `other` before `base` (on the left, or on top). Returns the split view, or nil if
+    /// either tab can't be split (favorites stay single tabs) or the split view is full.
+    @discardableResult
+    func makeSplit(_ base: Item, with other: Item, otherFirst: Bool = false, stacked: Bool? = nil,
+                   focus: Item? = nil) -> Item? {
+        guard base !== other, canSplit(base), canSplit(other) else { return nil }
+        if let existing = split(containing: base) {
+            if existing === split(containing: other) {
+                if let s = stacked { existing.split?.stacked = s }
+                select(focus ?? other)
+                return existing
+            }
+            guard existing.children.count < SplitLayout.maxPanes else { return nil }
+            if split(containing: other) != nil { detachFromSplit(other) } else if !detachSingle(other) { return nil }
+            let at = existing.children.firstIndex { $0 === base } ?? existing.children.count - 1
+            existing.children.insert(other, at: otherFirst ? at : at + 1)
+            existing.split?.fractions = []
+            if let s = stacked { existing.split?.stacked = s }
+            finishSplitChange(existing, focus: focus ?? other)
+            return existing
+        }
+        // `other` leaves wherever it was first, so `base`'s place is read after that.
+        if split(containing: other) != nil { detachFromSplit(other) } else if !detachSingle(other) { return nil }
+        guard let (loc, idx) = locate(base) else { return nil }
+        let sv = Item()
+        sv.split = SplitLayout(stacked: stacked ?? false)
+        sv.lastActive = Date()
+        remove(at: loc, index: idx)
+        sv.children = otherFirst ? [other, base] : [base, other]
+        insert(sv, at: loc, index: idx)
+        finishSplitChange(sv, focus: focus ?? other)
+        return sv
+    }
+
+    /// Takes a tab that is not in a split view out of its list. Returns false if it couldn't be found.
+    private func detachSingle(_ item: Item) -> Bool {
+        guard let (loc, idx) = locate(item) else { return false }
+        if selected !== item {
+            for s in state.spaces where s.selectedID == item.id { s.selectedID = nil }
+        }
+        remove(at: loc, index: idx)
+        return true
+    }
+
+    private func finishSplitChange(_ sv: Item, focus: Item?) {
+        let pinned = isPinned(sv)
+        for t in sv.children {
+            if pinned { if t.pinnedURL == nil { t.pinnedURL = t.url } } else { t.pinnedURL = nil }
+        }
+        rebuildParents()
+        post(.driftStructure)
+        if let focus { select(focus) } else { post(.driftSelection) }
+        scheduleSave()
+    }
+
+    /// Takes a tab out of its split view. If only one tab is left, the split view becomes that tab.
+    /// Returns where the split view (or the tab left behind) now sits.
+    @discardableResult
+    private func detachFromSplit(_ item: Item) -> (Location, Int)? {
+        guard let sv = split(containing: item), let (loc, idx) = locate(sv) else { return nil }
+        sv.children.removeAll { $0 === item }
+        sv.split?.fractions = []
+        item.parent = nil
+        if sv.children.count == 1 {
+            let last = sv.children[0]
+            sv.children = []
+            remove(at: loc, index: idx)
+            insert(last, at: loc, index: idx)
+        }
+        rebuildParents()
+        return (loc, idx)
+    }
+
+    /// "Remove from Split View": the tab becomes a tab of its own, right after the split view.
+    func removeFromSplit(_ item: Item) {
+        guard let sv = split(containing: item) else { return }
+        let wasSelected = selected === item
+        let sibling = sv.children.filter { $0 !== item }.max { $0.lastActive < $1.lastActive }
+        guard let (loc, idx) = detachFromSplit(item) else { return }
+        insert(item, at: loc, index: min(idx + 1, count(at: loc)))
+        switch loc {
+        case .today: item.pinnedURL = nil
+        case .favorites, .pinned: if item.pinnedURL == nil { item.pinnedURL = item.url }
+        }
+        rebuildParents()
+        post(.driftStructure)
+        // Focus stays with the tabs that are still side by side.
+        if wasSelected { select(sibling) } else { post(.driftSelection) }
+        scheduleSave()
+    }
+
+    /// Closes one pane of an unpinned split view.
+    private func closePane(_ item: Item, of sv: Item) {
+        let wasSelected = selected === item
+        let sibling = sv.children.filter { $0 !== item }.max { $0.lastActive < $1.lastActive }
+        let home = space(containing: sv)
+        detachFromSplit(item)
+        if let u = item.url, !u.isEmpty, let home {
+            closedStack.append((u, item.title, home.id))
+            if closedStack.count > 50 { closedStack.removeFirst() }
+        }
+        Extensions.shared.tabClosed(item)
+        item.page?.teardown()
+        item.page = nil
+        post(.driftStructure)
+        if wasSelected { select(sibling) } else { post(.driftSelection) }
+        scheduleSave()
+    }
+
+    /// "Separate": every tab of the split view goes back to being a tab of its own, in the same place.
+    func unsplit(_ sv: Item) {
+        guard sv.isSplit, let (loc, idx) = locate(sv) else { return }
+        let kids = sv.children
+        sv.children = []
+        remove(at: loc, index: idx)
+        for (offset, kid) in kids.enumerated() { insert(kid, at: loc, index: idx + offset) }
+        rebuildParents()
+        post(.driftStructure)
+        post(.driftSelection)
+        scheduleSave()
+    }
+
+    func setSplitStacked(_ sv: Item, _ stacked: Bool) {
+        guard sv.isSplit else { return }
+        sv.split?.stacked = stacked
+        post(.driftSelection)
+        scheduleSave()
+    }
+
+    func setSplitFractions(_ sv: Item, _ fractions: [Double]) {
+        guard sv.isSplit, fractions.count == sv.children.count else { return }
+        sv.split?.fractions = fractions
+        scheduleSave()
+    }
+
+    /// Moves the first pane to the end (with two panes, they swap places).
+    func rotatePanes(_ sv: Item) {
+        guard sv.isSplit, sv.children.count > 1 else { return }
+        sv.children.append(sv.children.removeFirst())
+        if let f = sv.split?.fractions, f.count == sv.children.count {
+            sv.split?.fractions = Array(f.dropFirst()) + [f[0]]
+        }
+        post(.driftStructure)
+        post(.driftSelection)
+        scheduleSave()
+    }
+
+    /// Moves focus to the next (+1) or previous (-1) pane of the split view on screen.
+    func focusPane(offset: Int) {
+        guard let sel = selected, let sv = split(containing: sel),
+              let idx = sv.children.firstIndex(where: { $0 === sel }) else { return }
+        let n = sv.children.count
+        select(sv.children[(idx + offset + n) % n])
+    }
+
+    // MARK: Folders
+
+    @discardableResult
+    func addFolder(named name: String = "New Folder", in space: Space? = nil, parent: Item? = nil) -> Item {
+        let sp = space ?? currentSpace
+        let folder = Item.folder(named: name)
+        if let parent { parent.children.append(folder); parent.expanded = true } else { sp.pinned.append(folder) }
+        rebuildParents()
+        post(.driftStructure)
+        scheduleSave()
+        return folder
+    }
+
+    /// Removes a folder but keeps what was inside it, in the folder's place.
+    func ungroup(_ folder: Item) {
+        guard folder.isFolder, let (loc, idx) = locate(folder) else { return }
+        let kids = folder.children
+        folder.children = []
+        remove(at: loc, index: idx)
+        for (offset, kid) in kids.enumerated() { insert(kid, at: loc, index: idx + offset) }
+        rebuildParents()
+        post(.driftStructure)
+        scheduleSave()
+    }
+
+    func setExpanded(_ folder: Item, _ expanded: Bool) {
+        folder.expanded = expanded
+        scheduleSave()
+    }
+
+    // MARK: Spaces
+
+    private func setCurrentSpace(_ space: Space) {
+        let oldIdx = state.spaces.firstIndex { $0.id == state.currentSpaceID } ?? 0
+        let newIdx = state.spaces.firstIndex { $0 === space } ?? 0
+        lastSwitchDirection = newIdx >= oldIdx ? 1 : -1
+        state.currentSpaceID = space.id
+        post(.driftSpace)
+    }
+
+    func switchSpace(to space: Space) {
+        guard space.id != state.currentSpaceID else { return }
+        setCurrentSpace(space)
+        post(.driftSelection)
+        scheduleSave()
+    }
+
+    func switchSpace(offset: Int) {
+        guard let idx = state.spaces.firstIndex(where: { $0.id == state.currentSpaceID }) else { return }
+        let next = idx + offset
+        guard next >= 0, next < state.spaces.count else { return }
+        switchSpace(to: state.spaces[next])
+    }
+
+    @discardableResult
+    func addSpace(name: String = "New Space", icon: String = "✨", theme: Theme? = nil) -> Space {
+        let t = theme ?? Theme.presets[state.spaces.count % Theme.presets.count]
+        let sp = Space(name: name, icon: icon, theme: t)
+        state.spaces.append(sp)
+        switchSpace(to: sp)
+        return sp
+    }
+
+    func removeSpace(_ space: Space) {
+        guard state.spaces.count > 1, let idx = state.spaces.firstIndex(where: { $0 === space }) else { return }
+        for t in tabs(in: space.pinned) + tabs(in: space.today) {
+            t.page?.teardown()
+            t.page = nil
+        }
+        let wasCurrent = space.id == state.currentSpaceID
+        state.spaces.remove(at: idx)
+        if wasCurrent {
+            state.currentSpaceID = state.spaces[max(0, idx - 1)].id
+            post(.driftSpace)
+            post(.driftSelection)
+        } else {
+            post(.driftSpace)
+        }
+        scheduleSave()
+    }
+
+    func updateSpace(_ space: Space, name: String? = nil, icon: String? = nil) {
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { space.name = name }
+        if let icon, !icon.isEmpty { space.icon = icon }
+        post(.driftSpace)
+        scheduleSave()
+    }
+
+    func setTheme(_ theme: Theme, for space: Space) {
+        space.theme = theme
+        post(.driftTheme)
+        scheduleSave()
+    }
+
+    /// Gives a space its own cookies and logins, or returns it to the shared set.
+    func setSeparateLogins(_ separate: Bool, for space: Space) {
+        space.profileID = separate ? (space.profileID ?? UUID()) : nil
+        // Pages keep the storage they were created with, so reload them from scratch.
+        for t in tabs(in: space.pinned) + tabs(in: space.today) {
+            t.page?.teardown()
+            t.page = nil
+        }
+        post(.driftSpace)
+        post(.driftSelection)
+        scheduleSave()
+    }
+}

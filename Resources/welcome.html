@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome to Drift</title>
+<style>
+  :root { color-scheme: light dark; --ink: #1c1d22; --dim: #6b6f7b; --line: #e4e5ea; --key: #f1f2f5; --bg: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #ececf1; --dim: #9a9eab; --line: #2e3038; --key: #26282f; --bg: #17181c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 -apple-system, system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 72px 24px 96px; }
+  h1 { font-size: 34px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .lede { color: var(--dim); font-size: 17px; margin: 0 0 40px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim);
+       margin: 36px 0 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 9px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  td:first-child { width: 190px; white-space: nowrap; }
+  kbd { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--key);
+        border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--key);
+         border-radius: 5px; padding: 1px 5px; }
+  p { margin: 0 0 10px; }
+  .note { color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Welcome to Drift</h1>
+  <p class="lede">Spaces, a sidebar that gets out of the way, and bangs — on Safari’s engine.</p>
+
+  <h2>Start here</h2>
+  <table>
+    <tr><td><kbd>⌘T</kbd></td><td>New tab. Type a search, an address, a <code>!bang</code>, an open tab’s name, or a command.</td></tr>
+    <tr><td><kbd>⌘L</kbd></td><td>Edit the current tab’s address, right in the sidebar’s address box. Clicking the box does the same.</td></tr>
+    <tr><td><kbd>⌘S</kbd></td><td>Hide or show the sidebar. While hidden, move the cursor to the left edge to peek at it.</td></tr>
+    <tr><td><kbd>⌘D</kbd></td><td>Pin or unpin the tab in this space.</td></tr>
+    <tr><td><kbd>⌘⇧D</kbd></td><td>Add the tab to Favorites, the tiles that stay put in every space.</td></tr>
+    <tr><td><kbd>⌘⇧C</kbd></td><td>Copy the page’s link. Hovering the address box shows a copy button too.</td></tr>
+    <tr><td><kbd>⌘W</kbd> <kbd>⌘⇧T</kbd></td><td>Close a tab, reopen the last one closed.</td></tr>
+  </table>
+
+  <h2>Spaces and folders</h2>
+  <table>
+    <tr><td><kbd>⌥⌘←</kbd> <kbd>⌥⌘→</kbd></td><td>Previous and next space. A two-finger swipe on the sidebar does the same.</td></tr>
+    <tr><td><kbd>⌃1</kbd> … <kbd>⌃9</kbd></td><td>Jump to a space.</td></tr>
+    <tr><td><kbd>⌘1</kbd> … <kbd>⌘9</kbd></td><td>Jump to a favorite or pinned tab.</td></tr>
+    <tr><td><kbd>⌃⌘N</kbd></td><td>New folder. Drag pinned tabs and other folders into it.</td></tr>
+    <tr><td><kbd>⌘K</kbd> <kbd>⌘T</kbd></td><td>Customize this space: name, icon, colors and gradient.</td></tr>
+  </table>
+  <p class="note">Right-click any empty part of the sidebar and choose Customize Space. Right-click a space’s icon at the bottom to give it its own separate logins or delete it.</p>
+
+  <h2>Previews and mini windows</h2>
+  <table>
+    <tr><td>Click a link</td><td>A link to another site opens as a preview over the page, so you keep your place. Search results open normally. Shift-click previews any link.</td></tr>
+    <tr><td><kbd>⌘O</kbd> <kbd>Esc</kbd></td><td>Turn the preview into a full tab, or close it. The buttons at its top right do the same.</td></tr>
+    <tr><td><kbd>⌥⌘N</kbd></td><td>Open a mini window. Once Drift is your default browser, links from other apps open in one too.</td></tr>
+    <tr><td><kbd>⌘O</kbd></td><td>Also turns a mini window into a full tab, as does “Open in …” at its top right.</td></tr>
+  </table>
+
+  <h2>Privacy</h2>
+  <table>
+    <tr><td>Ads and trackers</td><td>uBlock Origin Lite is built in and already on. Click the puzzle piece at the bottom left of the sidebar to open it, change how strict it is on a site, or remove an element from a page.</td></tr>
+    <tr><td>Extensions</td><td>Drift runs Safari-style extensions. The ones already on your Mac are listed in Settings ▸ Extensions, switched off until you turn them on.</td></tr>
+    <tr><td><kbd>⌘⇧N</kbd></td><td>New private window. It keeps no history, cookies or logins.</td></tr>
+    <tr><td>Old tabs</td><td>Unpinned tabs you haven’t used for a day are archived. Find them under Tabs ▸ Archived Tabs.</td></tr>
+    <tr><td>Memory</td><td>Tabs left alone for two hours go to sleep and reload where you left them. Change either in Settings ▸ Tabs.</td></tr>
+  </table>
+
+  <h2>Bangs</h2>
+  <p>Bangs are handled on your Mac. <code>!w kidney</code> goes straight to Wikipedia without passing through a search engine.</p>
+  <table>
+    <tr><td><code>!pm</code> <code>!up</code> <code>!amb</code></td><td>PubMed, UpToDate, AMBOSS</td></tr>
+    <tr><td><code>!rad</code> <code>!mdc</code></td><td>Radiopaedia, MDCalc</td></tr>
+    <tr><td><code>!w</code> <code>!yt</code> <code>!g</code> <code>!gh</code></td><td>Wikipedia, YouTube, Google, GitHub — and about 13,000 more</td></tr>
+  </table>
+  <p class="note">Add your own in <code>bangs.json</code>.</p>
+
+  <h2>Make it yours</h2>
+  <p>Press <kbd>⌘,</kbd> for Settings: search engine, privacy, tabs, how the sidebar reveals itself, and every keyboard shortcut. Double-click a command there to record a new shortcut for it.</p>
+  <p class="note">Everything is also plain files in the settings folder (Drift ▸ Settings Folder…). <code>keybindings.json</code> can hold two-step shortcuts like <code>"cmd+k cmd+s"</code>, and <kbd>⌘K</kbd> <kbd>⌘R</kbd> reloads the files without restarting.</p>
+</main>
+</body>
+</html>
