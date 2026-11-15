@@ -394,28 +394,61 @@ private final class NewTabCell: NSTableCellView {
 // MARK: - Address pill
 
 /// An extension's icon in the address box. Click runs the extension; right-click offers its settings.
+/// It shows the extension's button as it stands for the selected tab: extensions swap the icon per site
+/// (uBlock Origin Lite's filtering level), add a badge (Proton Pass's count of logins for the site) or
+/// switch it off where they can't work.
 private final class ExtensionIconButton: NSButton {
-    let entryID: String
+    let entry: ExtensionEntry
+    var entryID: String { entry.id }
     var onClick: (() -> Void)?
     var menuProvider: (() -> NSMenu)?
+    private var badge = ""
+    private var dimmed = false
 
     init(entry: ExtensionEntry) {
-        entryID = entry.id
+        self.entry = entry
         super.init(frame: .zero)
-        let icon = (entry.icon?.copy() as? NSImage) ?? symbol("puzzlepiece.extension", size: 12) ?? NSImage()
-        icon.size = NSSize(width: 16, height: 16)
-        image = icon
         imagePosition = .imageOnly
         imageScaling = .scaleProportionallyDown
         isBordered = false
-        toolTip = entry.name
         target = self
         action = #selector(fire)
         translatesAutoresizingMaskIntoConstraints = false
         widthAnchor.constraint(equalToConstant: 22).isActive = true
         heightAnchor.constraint(equalToConstant: 22).isActive = true
+        refresh()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    /// Reads the button's current state from the extension.
+    func refresh() {
+        let live = Extensions.shared.action(for: entry)
+        let icon = (live?.icon(for: NSSize(width: 16, height: 16)) ?? entry.icon?.copy() as? NSImage)
+            ?? symbol("puzzlepiece.extension", size: 12) ?? NSImage()
+        icon.size = NSSize(width: 16, height: 16)
+        image = icon
+        badge = live?.badgeText ?? ""
+        dimmed = !(live?.isEnabled ?? true)
+        alphaValue = dimmed ? 0.4 : 1
+        let label = live?.label ?? ""
+        toolTip = (label.isEmpty ? entry.name : label) + (badge.isEmpty ? "" : " · \(badge)")
+        live?.hasUnreadBadgeText = false
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard !badge.isEmpty else { return }
+        // A small count in the bottom-right corner, like Safari's.
+        let text = NSAttributedString(string: badge.count > 4 ? String(badge.prefix(3)) + "…" : badge, attributes: [
+            .font: NSFont.systemFont(ofSize: 7.5, weight: .bold), .foregroundColor: NSColor.white])
+        let size = text.size()
+        let w = max(11, size.width + 5), h: CGFloat = 11
+        let box = NSRect(x: bounds.maxX - w - 1, y: 1, width: w, height: h)
+        NSColor.systemRed.setFill()
+        NSBezierPath(roundedRect: box, xRadius: h / 2, yRadius: h / 2).fill()
+        text.draw(at: NSPoint(x: box.midX - size.width / 2, y: box.midY - size.height / 2))
+    }
 
     @objc private func fire() { onClick?() }
     override func menu(for event: NSEvent) -> NSMenu? { menuProvider?() }
@@ -480,6 +513,11 @@ private final class URLPill: NSView {
 
     /// The icon for one extension, so its pop-up can open from it.
     func extensionButton(id: String) -> NSView? { extensionButtons.first { $0.entryID == id } }
+
+    /// Re-reads each icon's state (badge, icon, enabled) for the selected tab.
+    func refreshExtensionStates(only id: String? = nil) {
+        for b in extensionButtons where id == nil || b.entryID == id { b.refresh() }
+    }
 
     func set(_ text: String?, canCopy: Bool) {
         label.stringValue = text ?? "Search or enter address"
@@ -768,6 +806,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         nc.addObserver(self, selector: #selector(spaceChanged), name: .sorrelSpace, object: nil)
         nc.addObserver(self, selector: #selector(downloadsChanged), name: .sorrelDownloads, object: nil)
         nc.addObserver(self, selector: #selector(extensionsChanged), name: .sorrelExtensions, object: nil)
+        nc.addObserver(self, selector: #selector(extensionActionChanged(_:)), name: .sorrelExtensionAction, object: nil)
+        nc.addObserver(self, selector: #selector(extensionTabChanged), name: .sorrelSelection, object: nil)
         reloadAll(animated: false)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -1419,15 +1459,38 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         pill.setExtensions(Extensions.shared.loaded) { [weak self] entry in self?.menu(forExtension: entry) ?? NSMenu() }
     }
 
+    @objc private func extensionActionChanged(_ note: Notification) {
+        pill.refreshExtensionStates(only: (note.object as? ExtensionEntry)?.id)
+    }
+
+    /// Extension buttons are per tab, so a different tab can mean different icons and badges.
+    @objc private func extensionTabChanged() { pill.refreshExtensionStates() }
+
     private func menu(forExtension entry: ExtensionEntry) -> NSMenu {
         let m = NSMenu()
         m.addItem(ActionMenuItem("Open \(entry.name)") { Extensions.shared.performAction(entry) })
+        Self.addExtensionItems(to: m, for: entry)
         if entry.context?.optionsPageURL != nil {
             m.addItem(ActionMenuItem("\(entry.name) Settings") { Extensions.shared.openOptions(entry) })
         }
         m.addItem(.separator())
         m.addItem(ActionMenuItem("Manage Extensions…") { Commands.shared.run("extensions.manage") })
         return m
+    }
+
+    /// The extension's own menu items for the selected tab, and its keyboard shortcuts (shown with their keys),
+    /// as WebKit hands them out ready to perform.
+    static func addExtensionItems(to m: NSMenu, for entry: ExtensionEntry) {
+        let own = Extensions.shared.action(for: entry)?.menuItems ?? []
+        if !own.isEmpty {
+            m.addItem(.separator())
+            for item in own { m.addItem(item) }
+        }
+        let commands = Extensions.shared.commands(for: entry)
+        if !commands.isEmpty {
+            m.addItem(.separator())
+            for command in commands { m.addItem(command.menuItem) }
+        }
     }
 
     /// Where an extension's pop-up should open from: its icon in the address box, or the extensions button.
@@ -1494,10 +1557,19 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             m.addItem(none)
         }
         for entry in loaded {
-            let item = ActionMenuItem(entry.name) { Extensions.shared.performAction(entry) }
-            if let icon = entry.icon?.copy() as? NSImage {
+            let live = Extensions.shared.action(for: entry)
+            let badge = live?.badgeText ?? ""
+            let item = ActionMenuItem(entry.name + (badge.isEmpty ? "" : "  (\(badge))")) { Extensions.shared.performAction(entry) }
+            if let icon = live?.icon(for: NSSize(width: 16, height: 16)) ?? entry.icon?.copy() as? NSImage {
                 icon.size = NSSize(width: 16, height: 16)
                 item.image = icon
+            }
+            item.isEnabled = live?.isEnabled ?? true
+            live?.hasUnreadBadgeText = false
+            if let first = Extensions.shared.commands(for: entry).first(where: { $0.id == "_execute_action" }),
+               let key = first.activationKey, !key.isEmpty {
+                item.keyEquivalent = key
+                item.keyEquivalentModifierMask = first.modifierFlags
             }
             m.addItem(item)
         }

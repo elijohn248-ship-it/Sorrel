@@ -447,9 +447,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let add = button("Add Extension…") { [weak self] in self?.addExtension() }
         let store = button("Add from Chrome Web Store…") { [weak self] in self?.addFromChromeStore() }
         let reveal = button("Show Folder") { NSWorkspace.shared.open(Extensions.shared.folder) }
-        let buttons = NSStackView(views: [store, add, reveal])
+        let update = button("Check for Updates") { Commands.shared.run("extensions.update") }
+        let buttons = NSStackView(views: [store, add, update, reveal])
         buttons.spacing = 8
-        let hint = note("Safari extensions already on this Mac are listed here, switched off until you turn them on. Chrome extensions can be added by pasting their Web Store link; many work, but ones that lean on Chrome-only features may not. Extensions do not run in private windows.")
+        let hint = note("Safari extensions already on this Mac are listed here, switched off until you turn them on. Chrome extensions can be added by pasting their Web Store link; many work, but ones that lean on Chrome-only features may not. Extensions from the Web Store and uBlock Origin Lite are kept up to date automatically; an update is used the next time Sorrel opens. Extensions do not run in private windows.")
         hint.preferredMaxLayoutWidth = 560
 
         for v in [scroll, buttons, hint] as [NSView] {
@@ -490,6 +491,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             if entry.isLoading { detail += " · starting…" }
             else if entry.isLoaded { detail += " · on" }
             if !entry.summary.isEmpty, entry.isLoaded { detail += "\n" + entry.summary }
+            if ext.hasPendingUpdate(entry) { detail += "\nAn update is ready and will be used the next time Sorrel opens." }
+            // Its keyboard shortcuts, so they can be discovered (and clashes with Sorrel's own noticed).
+            let shortcuts = ext.commands(for: entry).compactMap { c in Extensions.shortcutText(for: c).map { "\(c.title) \($0)" } }
+            if !shortcuts.isEmpty { detail += "\nShortcuts: " + shortcuts.joined(separator: " · ") }
             let info = note(detail)
             info.preferredMaxLayoutWidth = 470
 

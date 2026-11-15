@@ -33,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.main.dismissPeek()
                 return nil
             }
-            return Keybindings.shared.handle(event) ? nil : event
+            // Sorrel's own shortcuts first, then the ones extensions declare (their manifest `commands`).
+            return (Keybindings.shared.handle(event) || Extensions.shared.handleKey(event)) ? nil : event
         }
 
         if isQuietTest { main.window?.orderBack(nil) } else { main.showWindow(nil) }
@@ -325,6 +326,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.showToast("Checking for a uBlock Origin Lite update…")
             Extensions.shared.updateBlockerIfNeeded(force: true) { message in self.main.showToast(message) }
         }
+        c.register("extensions.update", "Check for Extension Updates") { [unowned self] in
+            self.main.showToast("Checking for extension updates…")
+            Extensions.shared.updateBlockerIfNeeded(force: true) { message in self.main.showToast(message) }
+            Extensions.shared.updateChromeExtensionsIfNeeded(force: true) { message in self.main.showToast(message) }
+        }
         c.register("archive.now", "Archive Unused Tabs Now") { [unowned self] in
             let hours = Settings.current.archiveAfterHours > 0 ? Settings.current.archiveAfterHours : 24
             let n = self.store.archiveStaleTabs(olderThanHours: hours)
@@ -546,7 +552,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .separator(),
             item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"),
             .separator(),
-            item("blocking.toggleSite"), item("blocking.updateExtension"), item("extensions.manage"),
+            item("blocking.toggleSite"), item("blocking.updateExtension"), item("extensions.update"), item("extensions.manage"),
             .separator(),
             std("Enter Full Screen", "toggleFullScreen:", "f", [.command, .control]),
         ])
@@ -702,6 +708,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { waitForLists() }
+        }
+        if env["SORREL_EXTACTIONTEST"] != nil {
+            // Toolbar button state (icon, badge, enabled) and keyboard shortcuts of every loaded extension,
+            // then the first shortcut is pressed to see that WebKit routes it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                for e in Extensions.shared.loaded {
+                    let a = Extensions.shared.action(for: e)
+                    let icon = a?.icon(for: NSSize(width: 16, height: 16))
+                    log("action[\(e.id)]: label=\(a?.label ?? "nil") badge=\(a?.badgeText ?? "nil") enabled=\(a?.isEnabled ?? false) popup=\(a?.presentsPopup ?? false) icon=\(icon.map { "\(Int($0.size.width))x\(Int($0.size.height)) reps=\($0.representations.count)" } ?? "nil") menuItems=\(a?.menuItems.map { $0.title } ?? [])")
+                    for c in Extensions.shared.commands(for: e) {
+                        log("command[\(e.id)]: \(c.id) | \(c.title) | key=\(c.activationKey ?? "nil") mods=\(c.modifierFlags.rawValue) shown=\(Extensions.shortcutText(for: c) ?? "nil") menu=\(c.menuItem.title) [\(c.menuItem.keyEquivalent) \(c.menuItem.keyEquivalentModifierMask.rawValue)]")
+                    }
+                }
+                let which = env["SORREL_EXTACTIONTEST"] ?? ""
+                guard let e = Extensions.shared.loaded.first(where: { $0.id.contains(which) }),
+                      let c = Extensions.shared.commands(for: e).first(where: { $0.activationKey != nil }),
+                      let key = c.activationKey, let window = self.main.window,
+                      let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: c.modifierFlags, timestamp: 0,
+                                                   windowNumber: window.windowNumber, context: nil, characters: key,
+                                                   charactersIgnoringModifiers: key, isARepeat: false, keyCode: 0) else {
+                    log("action: no extension shortcut to press")
+                    return
+                }
+                let handled = Extensions.shared.handleKey(event)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    log("action: pressed \(Extensions.shortcutText(for: c) ?? "?") for \(c.id) handled=\(handled) popupOpen=\(Extensions.shared.isPopupOpen)")
+                }
+            }
+        }
+        if env["SORREL_EXTUPDATETEST"] != nil {
+            // Chrome Web Store update check against SORREL_CRX_DIR (a folder of <id>.crx files), then what is on disk.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                Extensions.shared.updateChromeExtensionsIfNeeded(force: true) { message in
+                    log("extupdate result: \(message.replacingOccurrences(of: "\n", with: " | "))")
+                    for e in Extensions.shared.entries where e.chromeID != nil {
+                        log("extupdate state: \(e.id) version=\(e.version) loaded=\(e.isLoaded) pending=\(Extensions.shared.hasPendingUpdate(e))")
+                    }
+                }
+            }
         }
         if let mode = env["SORREL_EXTTEST"] {
             let started = Date()
