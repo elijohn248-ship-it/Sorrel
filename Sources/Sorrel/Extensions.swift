@@ -271,6 +271,8 @@ final class Extensions: NSObject {
 
     /// Looks for a newer official uBlock Origin Lite release and fetches it. It is used from the next launch.
     func updateBlockerIfNeeded(force: Bool = false, completion: ((String) -> Void)? = nil) {
+        // Test runs never reach outside services on their own (see CLAUDE.md, Testing).
+        if isTestProfile { completion?("Update checks are off in test runs"); return }
         guard force || Settings.current.autoUpdateBlocker, let current = blocker,
               case .bundled(let dir) = current.source, let have = Self.manifestVersion(at: dir) else {
             completion?("uBlock Origin Lite isn’t installed")
@@ -356,6 +358,8 @@ final class Extensions: NSObject {
             }
         }
         let source = Self.chromeStoreSource(for: id)
+        // Second safeguard: whatever asks (update check or a new install), a test run never contacts the store.
+        if isTestProfile && !source.isFileURL { fail("Test runs never contact the Chrome Web Store (use SORREL_CRX_DIR)"); return }
         URLSession(configuration: .ephemeral).dataTask(with: source) { data, response, _ in
             let status = (response as? HTTPURLResponse)?.statusCode ?? (source.isFileURL ? 200 : 0)
             guard let data, status == 200, data.count > 16, data.prefix(4) == Data("Cr24".utf8) else {
@@ -463,6 +467,11 @@ final class Extensions: NSObject {
     /// A newer copy is fetched now and used from the next launch, so a running extension is never disturbed.
     /// The message says what happened, in a sentence.
     func updateChromeExtensionsIfNeeded(force: Bool = false, completion: ((String) -> Void)? = nil) {
+        // Test runs only ever read local .crx files (SORREL_CRX_DIR), never the Chrome Web Store.
+        if isTestProfile && ProcessInfo.processInfo.environment["SORREL_CRX_DIR"] == nil {
+            completion?("Update checks are off in test runs")
+            return
+        }
         guard force || Settings.current.autoUpdateBlocker else { return }
         let candidates = entries.filter { $0.chromeID != nil }
         guard !candidates.isEmpty else { completion?("No Chrome Web Store extensions to update"); return }
