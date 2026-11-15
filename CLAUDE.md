@@ -4,7 +4,7 @@ Sorrel (formerly Drift) is the owner's daily macOS browser: Arc-style Spaces and
 
 ## Name, and the rename from Drift
 
-The app was called **Drift** until 2026-11-14; it is now **Sorrel** ("Sorrel Browser"). The name was chosen after conflict checks: Flow, Breeze, Cove, Wren, Lagoon, Tern, Fern and Moss are already used by other browsers (many are new Arc replacements from Oct–Nov 2026, as Arc shuts down on 2026-12-22). `sorrelbrowser.com`, `sorrel-browser.com` and the GitHub names `sorrelbrowser`/`sorrel-browser` were free then; the US trademark search is still the owner's to do. The icon is an arrow-shaped sorrel leaf on the original gradient tile (`tools/make-icon.swift`).
+The app was called **Drift** until 2026-11-14; it is now **Sorrel** ("Sorrel Browser"). The name was chosen after conflict checks: Flow, Breeze, Cove, Wren, Lagoon, Tern, Fern and Moss are already used by other browsers (many are new Arc replacements from Oct–Nov 2026, as Arc shuts down on 2026-12-22). `sorrelbrowser.com`, `sorrel-browser.com` and the GitHub names `sorrelbrowser`/`sorrel-browser` were free then; the US trademark search is still the owner's to do. The icon (redrawn 2026-11-14) is one solid deep-green sorrel leaf with a single cut-through midrib, leaning right on a quiet lavender -> sky -> mint tile; `tools/make-icon.swift` holds the design constants and also writes `Resources/logo.svg`, the vector master of the same mark.
 
 Everything is renamed: bundle id `app.sorrel.browser`, `Sources/Sorrel`, the `Sorrel` SwiftPM target, `SORREL_*` test variables, `sorrel://` for bundled pages, the profile folder `~/Library/Application Support/Sorrel`, and the project folder `~/sorrel` (`~/drift` is a symlink to it so old references still resolve). The only deliberate "drift" left in code is a `drift://` -> `sorrel://` fallback in `Engine.load`.
 
@@ -82,10 +82,10 @@ Sources/Sorrel/
   Blocker.swift       EasyList/EasyPrivacy -> WKContentRuleList converter and lifecycle
   Extensions.swift    WKWebExtension host: discovery, loading, tabs/windows adapters, pop-ups, Chrome Web Store installs, uBOL self-update
   ChromeCompat.swift  script injected into Chrome-store extensions so they run on WebKit
-Resources/            Info.plist, welcome.html (sorrel://welcome), bangs.json (slimmed Kagi list), emoji.tsv, AppIcon.icns
+Resources/            Info.plist, welcome.html (sorrel://welcome), bangs.json (slimmed Kagi list), emoji.tsv, AppIcon.icns, logo.svg (generated; not bundled)
 vendor/ubol/ext       uBlock Origin Lite (Safari build, unmodified, GPL-3.0); build.sh bundles it
 vendor/kagi-bangs     bang source list (MIT)
-tools/make-icon.swift app icon generator (Sorrel leaf; `swift tools/make-icon.swift X.iconset && iconutil -c icns X.iconset -o Resources/AppIcon.icns`)
+tools/make-icon.swift app icon generator (Sorrel leaf; `swift tools/make-icon.swift X.iconset Resources/logo.svg && iconutil -c icns X.iconset -o Resources/AppIcon.icns`)
 tools/make-emoji-list.py  Resources/emoji.tsv from Unicode's emoji-test.txt (rerun when a new Emoji version ships; emoji the Mac's font can't draw are hidden at runtime)
 ```
 
