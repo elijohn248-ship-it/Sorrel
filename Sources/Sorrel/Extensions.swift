@@ -4,6 +4,8 @@ import WebKit
 extension Notification.Name {
     /// The list of extensions, or one's state, changed.
     static let sorrelExtensions = Notification.Name("sorrelExtensions")
+    /// An extension changed its toolbar button (icon, badge, label or enabled state). `object` is the ExtensionEntry, or nil.
+    static let sorrelExtensionAction = Notification.Name("sorrelExtensionAction")
 }
 
 /// One extension Sorrel knows about, loaded or not.
@@ -336,22 +338,27 @@ final class Extensions: NSObject {
         }.resume()
     }
 
-    /// Installs an extension from its Chrome Web Store page address (or its 32-letter id).
-    func addFromChromeStore(_ text: String, completion: @escaping (Result<ExtensionEntry, Error>) -> Void) {
+    /// Where a Chrome Web Store extension is fetched from. Tests point SORREL_CRX_DIR at a folder of <id>.crx files
+    /// (the store itself is off limits to tests).
+    private static func chromeStoreSource(for id: String) -> URL {
+        if let dir = ProcessInfo.processInfo.environment["SORREL_CRX_DIR"] {
+            return URL(fileURLWithPath: dir).appendingPathComponent("\(id).crx")
+        }
+        return URL(string: "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=131.0.0.0&acceptformat=crx2,crx3&x=id%3D\(id)%26installsource%3Dondemand%26uc")!
+    }
+
+    /// Fetches a Chrome Web Store extension and unpacks it into `dest` (replacing whatever is there).
+    /// Reports the unpacked copy's version. Runs its completion on the main queue.
+    private func fetchChromeExtension(id: String, into dest: URL, completion: @escaping (Result<String, Error>) -> Void) {
         func fail(_ message: String) {
             DispatchQueue.main.async {
                 completion(.failure(NSError(domain: "Sorrel", code: 3, userInfo: [NSLocalizedDescriptionKey: message])))
             }
         }
-        guard let range = text.range(of: "[a-p]{32}", options: .regularExpression) else {
-            fail("That doesn’t look like a Chrome Web Store link. It should contain a 32-letter extension id.")
-            return
-        }
-        let id = String(text[range])
-        let address = "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=131.0.0.0&acceptformat=crx2,crx3&x=id%3D\(id)%26installsource%3Dondemand%26uc"
-        URLSession(configuration: .ephemeral).dataTask(with: URL(string: address)!) { data, response, _ in
-            guard let data, (response as? HTTPURLResponse)?.statusCode == 200, data.count > 16,
-                  data.prefix(4) == Data("Cr24".utf8) else {
+        let source = Self.chromeStoreSource(for: id)
+        URLSession(configuration: .ephemeral).dataTask(with: source) { data, response, _ in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? (source.isFileURL ? 200 : 0)
+            guard let data, status == 200, data.count > 16, data.prefix(4) == Data("Cr24".utf8) else {
                 fail("The Chrome Web Store didn’t return that extension. It may have been removed, or need a paid account.")
                 return
             }
@@ -361,10 +368,10 @@ final class Extensions: NSObject {
             let zipStart = version == 2 ? 16 + u32(8) + u32(12) : 12 + u32(8)
             guard zipStart < data.count else { fail("That extension file couldn’t be read."); return }
             let fm = FileManager.default
-            let zip = fm.temporaryDirectory.appendingPathComponent("sorrel-\(id).zip")
-            let dest = self.folder.appendingPathComponent("chrome-\(id)", isDirectory: true)
+            let zip = fm.temporaryDirectory.appendingPathComponent("sorrel-\(id)-\(UUID().uuidString).zip")
             do {
                 try data.subdata(in: zipStart..<data.count).write(to: zip)
+                defer { try? fm.removeItem(at: zip) }
                 try? fm.removeItem(at: dest)
                 try fm.createDirectory(at: dest, withIntermediateDirectories: true)
                 let unzip = Process()
@@ -372,19 +379,34 @@ final class Extensions: NSObject {
                 unzip.arguments = ["-x", "-k", zip.path, dest.path]
                 try unzip.run()
                 unzip.waitUntilExit()
-                try? fm.removeItem(at: zip)
                 // Chrome's signature folder is not part of the extension.
                 try? fm.removeItem(at: dest.appendingPathComponent("_metadata"))
-                guard fm.fileExists(atPath: dest.appendingPathComponent("manifest.json").path) else {
+                guard unzip.terminationStatus == 0, let got = Self.manifestVersion(at: dest) else {
                     try? fm.removeItem(at: dest)
                     fail("That download wasn’t a usable extension.")
                     return
                 }
+                DispatchQueue.main.async { completion(.success(got)) }
             } catch {
+                try? fm.removeItem(at: dest)
                 fail(error.localizedDescription)
-                return
             }
-            DispatchQueue.main.async {
+        }.resume()
+    }
+
+    /// Installs an extension from its Chrome Web Store page address (or its 32-letter id).
+    func addFromChromeStore(_ text: String, completion: @escaping (Result<ExtensionEntry, Error>) -> Void) {
+        guard let range = text.range(of: "[a-p]{32}", options: .regularExpression) else {
+            completion(.failure(NSError(domain: "Sorrel", code: 3, userInfo: [NSLocalizedDescriptionKey:
+                "That doesn’t look like a Chrome Web Store link. It should contain a 32-letter extension id."])))
+            return
+        }
+        let id = String(text[range])
+        fetchChromeExtension(id: id, into: folder.appendingPathComponent("chrome-\(id)", isDirectory: true)) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success:
                 self.discover()
                 if let entry = self.entries.first(where: { $0.id == "added-" + Self.slug("chrome-\(id)") }) {
                     completion(.success(entry))
@@ -392,7 +414,97 @@ final class Extensions: NSObject {
                     completion(.failure(NSError(domain: "Sorrel", code: 4, userInfo: [NSLocalizedDescriptionKey: "The extension was downloaded but couldn’t be listed."])))
                 }
             }
-        }.resume()
+        }
+    }
+
+    // MARK: Keeping Chrome Web Store extensions current
+
+    /// A newer copy of a Chrome Web Store extension waits here until it can be swapped in.
+    private func pendingUpdateFolder(for id: String) -> URL {
+        folder.appendingPathComponent("chrome-\(id).update", isDirectory: true)
+    }
+
+    /// Fetched updates are swapped in while the extension is not running: at launch (before anything loads),
+    /// or right away for one that is switched off. Its settings and sign-ins live in WebKit's store under
+    /// the extension's id, not in this folder, so they carry over.
+    private func applyPendingChromeUpdates() {
+        let fm = FileManager.default
+        for pending in (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+        where pending.pathExtension == "update" {
+            let live = pending.deletingPathExtension()
+            let name = live.lastPathComponent
+            if let running = entries.first(where: { if case .folder(let u) = $0.source { return u.lastPathComponent == name } else { return false } }),
+               running.isLoaded {
+                continue   // next launch
+            }
+            guard let newVersion = Self.manifestVersion(at: pending) else { try? fm.removeItem(at: pending); continue }
+            if let old = Self.manifestVersion(at: live), !Self.version(newVersion, isNewerThan: old) {
+                try? fm.removeItem(at: pending)   // already current (reinstalled by hand, say)
+                continue
+            }
+            let aside = folder.appendingPathComponent(name + ".old", isDirectory: true)
+            try? fm.removeItem(at: aside)
+            if fm.fileExists(atPath: live.path) { try? fm.moveItem(at: live, to: aside) }
+            if (try? fm.moveItem(at: pending, to: live)) != nil {
+                try? fm.removeItem(at: aside)
+            } else if fm.fileExists(atPath: aside.path) {
+                try? fm.moveItem(at: aside, to: live)   // put the old one back; try again next time
+            }
+        }
+    }
+
+    /// True when a newer copy of this extension is waiting for the next launch.
+    func hasPendingUpdate(_ entry: ExtensionEntry) -> Bool {
+        guard let id = entry.chromeID else { return false }
+        return FileManager.default.fileExists(atPath: pendingUpdateFolder(for: id).appendingPathComponent("manifest.json").path)
+    }
+
+    /// Looks for newer versions of the extensions added from the Chrome Web Store (every few days, or on request).
+    /// A newer copy is fetched now and used from the next launch, so a running extension is never disturbed.
+    /// The message says what happened, in a sentence.
+    func updateChromeExtensionsIfNeeded(force: Bool = false, completion: ((String) -> Void)? = nil) {
+        guard force || Settings.current.autoUpdateBlocker else { return }
+        let candidates = entries.filter { $0.chromeID != nil }
+        guard !candidates.isEmpty else { completion?("No Chrome Web Store extensions to update"); return }
+        let stamp = folder.appendingPathComponent("last-update-check")
+        if !force, let date = (try? FileManager.default.attributesOfItem(atPath: stamp.path))?[.modificationDate] as? Date,
+           Date().timeIntervalSince(date) < 3 * 86400 {
+            return
+        }
+        try? Data().write(to: stamp)
+
+        var results: [String] = []
+        let group = DispatchGroup()
+        for entry in candidates {
+            guard let id = entry.chromeID, case .folder(let live) = entry.source,
+                  let have = Self.manifestVersion(at: live) else { continue }
+            let pending = pendingUpdateFolder(for: id)
+            // Compare against the newest copy on hand, so a fetched update isn't fetched again.
+            let newest = Self.manifestVersion(at: pending).map { Self.version($0, isNewerThan: have) ? $0 : have } ?? have
+            group.enter()
+            fetchChromeExtension(id: id, into: pending) { result in
+                defer { group.leave() }
+                switch result {
+                case .failure(let error):
+                    results.append("\(entry.name): \(error.localizedDescription)")
+                case .success(let got):
+                    if Self.version(got, isNewerThan: newest) {
+                        results.append("\(entry.name) \(got) is ready and will be used the next time Sorrel opens")
+                        self.changed()
+                    } else {
+                        if got == have { try? FileManager.default.removeItem(at: pending) }
+                        results.append(got == have ? "\(entry.name) is up to date (\(have))"
+                                                   : "\(entry.name) \(got) is already waiting for the next launch")
+                    }
+                }
+            }
+        }
+        group.notify(queue: .main) {
+            if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil {
+                for line in results { FileHandle.standardError.write("extupdate: \(line)\n".data(using: .utf8)!) }
+            }
+            completion?(results.joined(separator: "\n"))
+        }
     }
 
     func discover() {
@@ -403,8 +515,11 @@ final class Extensions: NSObject {
             found.append(ExtensionEntry(id: Self.blockerID, source: .bundled(ubol), name: "uBlock Origin Lite"))
         }
 
+        applyPendingChromeUpdates()
         for dir in (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] {
-            guard fm.fileExists(atPath: dir.appendingPathComponent("manifest.json").path) else { continue }
+            // Folders ending in .update, .old or .partial belong to the updater, not to the list.
+            guard !["update", "old", "partial"].contains(dir.pathExtension),
+                  fm.fileExists(atPath: dir.appendingPathComponent("manifest.json").path) else { continue }
             // Extensions from the Chrome Web Store get the compatibility layer (including ones added before it existed).
             if dir.lastPathComponent.hasPrefix("chrome-") { ChromeCompat.apply(to: dir) }
             found.append(ExtensionEntry(id: "added-" + Self.slug(dir.lastPathComponent), source: .folder(dir),
@@ -444,6 +559,7 @@ final class Extensions: NSObject {
         for entry in entries where isEnabled(entry) { load(entry) }
         // Quietly keep the built-in blocker current, a little after launch.
         DispatchQueue.main.asyncAfter(deadline: .now() + 45) { [weak self] in self?.updateBlockerIfNeeded() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.updateChromeExtensionsIfNeeded() }
     }
 
     // MARK: Loading
@@ -508,20 +624,43 @@ final class Extensions: NSObject {
                 self.afterStateChange(entry)
                 completion?(true)
                 if ProcessInfo.processInfo.environment["SORREL_NO_BG"] != nil { return }   // testing: start it on demand
-                context.loadBackgroundContent { (error: (any Error)?) in
-                    guard let error else { return }
-                    let e = error as NSError
-                    // Extensions without a background page report that here; it is not a failure.
-                    if e.domain == WKWebExtensionContext.errorDomain && e.code == WKWebExtensionContext.Error.noBackgroundContent.rawValue { return }
-                    entry.error = "Its background page didn’t start: \(error.localizedDescription)"
-                    self.changed()
-                }
+                self.startBackground(of: entry, context: context, attempt: 1)
             } catch {
                 entry.isLoading = false
                 entry.error = error.localizedDescription
                 self.afterStateChange(entry)
                 completion?(false)
             }
+        }
+    }
+
+    /// Starts the extension's background script. WebKit now and then fails the very first start right after
+    /// launch (seen with Proton Pass: its script ran before the compatibility layer had taken), and the same
+    /// start succeeds a moment later, so one failure gets a second go before it is reported.
+    private func startBackground(of entry: ExtensionEntry, context: WKWebExtensionContext, attempt: Int) {
+        context.loadBackgroundContent { (error: (any Error)?) in
+            let testing = ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil
+            guard let error else {
+                if attempt > 1 {
+                    entry.error = nil
+                    if testing { FileHandle.standardError.write("ext: background of \(entry.id) started on attempt \(attempt)\n".data(using: .utf8)!) }
+                    self.changed()
+                }
+                return
+            }
+            let e = error as NSError
+            // Extensions without a background page report that here; it is not a failure.
+            if e.domain == WKWebExtensionContext.errorDomain && e.code == WKWebExtensionContext.Error.noBackgroundContent.rawValue { return }
+            if testing { FileHandle.standardError.write("ext: background of \(entry.id) failed on attempt \(attempt): \(error.localizedDescription)\n".data(using: .utf8)!) }
+            if attempt == 1, entry.context === context {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    guard entry.context === context else { return }
+                    self?.startBackground(of: entry, context: context, attempt: 2)
+                }
+                return
+            }
+            entry.error = "Its background page didn’t start: \(error.localizedDescription)"
+            self.changed()
         }
     }
 
@@ -608,6 +747,7 @@ final class Extensions: NSObject {
         guard case .folder(let url) = entry.source else { return }
         unload(entry)
         try? FileManager.default.removeItem(at: url)
+        if let id = entry.chromeID { try? FileManager.default.removeItem(at: pendingUpdateFolder(for: id)) }
         Settings.current.extensionStates[entry.id] = nil
         Settings.current.extensionGrants[entry.id] = nil
         Settings.current.save()
@@ -659,6 +799,39 @@ final class Extensions: NSObject {
     func performAction(_ entry: ExtensionEntry) {
         guard let context = entry.context else { return }
         context.performAction(for: Store.shared.selected?.extensionTab)
+    }
+
+    /// The extension's toolbar button as it stands for a tab (the selected one unless told otherwise):
+    /// its current icon, badge, label and enabled state. Extensions change these per site.
+    func action(for entry: ExtensionEntry, in item: Item? = Store.shared.selected) -> WKWebExtension.Action? {
+        entry.context?.action(for: item?.extensionTab)
+    }
+
+    /// Keyboard shortcuts the extension declares (its manifest `commands`), for menus and Settings.
+    func commands(for entry: ExtensionEntry) -> [WKWebExtension.Command] { entry.context?.commands ?? [] }
+
+    /// Runs an extension's keyboard shortcut if the key press matches one. Sorrel's own shortcuts are
+    /// checked first by the caller, so they win over an extension's.
+    func handleKey(_ event: NSEvent) -> Bool {
+        for entry in loaded {
+            guard let context = entry.context, context.command(for: event) != nil else { continue }
+            if context.performCommand(for: event) { return true }
+        }
+        return false
+    }
+
+    /// A readable shortcut, like ⌘⇧X, or nil when the command has no key.
+    static func shortcutText(for command: WKWebExtension.Command) -> String? {
+        guard let key = command.activationKey, !key.isEmpty else { return nil }
+        var text = ""
+        let f = command.modifierFlags
+        if f.contains(.control) { text += "⌃" }
+        if f.contains(.option) { text += "⌥" }
+        if f.contains(.shift) { text += "⇧" }
+        if f.contains(.command) { text += "⌘" }
+        let names: [String: String] = ["up": "↑", "down": "↓", "left": "←", "right": "→", " ": "Space",
+                                       "\u{7F}": "⌫", "\t": "⇥", "\r": "↩", "\u{1B}": "⎋"]
+        return text + (names[key] ?? key.uppercased())
     }
 
     func openOptions(_ entry: ExtensionEntry) {
@@ -814,6 +987,13 @@ extension Extensions: WKWebExtensionControllerDelegate {
             if allowed { self?.remember(matchPatterns.map { "match:" + $0.string }, for: extensionContext) }
             completionHandler(allowed ? matchPatterns : [], nil)
         }
+    }
+
+    func webExtensionController(_ controller: WKWebExtensionController, didUpdate action: WKWebExtension.Action,
+                                forExtensionContext context: WKWebExtensionContext) {
+        // Only the selected tab's button is on screen; a change for another tab shows when that tab is selected.
+        if let tab = action.associatedTab as? ExtensionTab, let item = tab.item, Store.shared.selected !== item { return }
+        NotificationCenter.default.post(name: .sorrelExtensionAction, object: entry(for: context))
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, presentActionPopup action: WKWebExtension.Action,

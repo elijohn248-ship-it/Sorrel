@@ -27,7 +27,10 @@ enum ChromeCompat {
     })();
     """#
     private static let marker = "sorrel_compat"
-    private static let version = 11
+    private static let version = 12
+    /// The names this layer used before the app was renamed. A copy patched back then chains through them;
+    /// `apply` collapses the chain so the extension runs the current layer straight from its own files.
+    private static let oldPrefix = "drift"
 
     static let shim = #"""
     // Added by Sorrel. Fills in Chrome features that WebKit does not have, so the extension can start.
@@ -196,11 +199,16 @@ enum ChromeCompat {
             return true
         }
         guard (try? shim.write(to: dir.appendingPathComponent(shimName), atomically: true, encoding: .utf8)) != nil else { return false }
+        let oldShim = "\(oldPrefix)-chrome-compat.js", oldLoader = "\(oldPrefix)-background.js", oldBridge = "\(oldPrefix)-page-bridge.js"
 
         // Background: run the compatibility script before the extension's own background script.
         if var background = manifest["background"] as? [String: Any] {
-            if let worker = background["service_worker"] as? String, worker != backgroundName {
-                let original = (manifest["sorrel_original_worker"] as? String) ?? worker
+            if let worker = background["service_worker"] as? String, worker != backgroundName || manifest["\(oldPrefix)_original_worker"] != nil {
+                // The extension's own worker: recorded by this layer, or by its older name, else the manifest's.
+                var original = (manifest["sorrel_original_worker"] as? String) ?? worker
+                if original == oldLoader || original == backgroundName, let older = manifest["\(oldPrefix)_original_worker"] as? String { original = older }
+                manifest["\(oldPrefix)_original_worker"] = nil
+                manifest["\(oldPrefix)_compat"] = nil
                 let isModule = (background["type"] as? String) == "module"
                 let path = original.hasPrefix("/") ? original : "/" + original
                 let loader = isModule
@@ -209,8 +217,9 @@ enum ChromeCompat {
                 try? loader.write(to: dir.appendingPathComponent(backgroundName), atomically: true, encoding: .utf8)
                 background["service_worker"] = backgroundName
                 manifest["sorrel_original_worker"] = original
-            } else if var scripts = background["scripts"] as? [String], !scripts.contains(shimName), !scripts.contains("/" + shimName) {
-                scripts.insert(shimName, at: 0)
+            } else if var scripts = background["scripts"] as? [String] {
+                scripts.removeAll { $0 == oldShim || $0 == "/" + oldShim }
+                if !scripts.contains(shimName), !scripts.contains("/" + shimName) { scripts.insert(shimName, at: 0) }
                 background["scripts"] = scripts
             }
             manifest["background"] = background
@@ -223,6 +232,8 @@ enum ChromeCompat {
             var groups = (manifest["content_scripts"] as? [[String: Any]]) ?? []
             for i in groups.indices {
                 var js = (groups[i]["js"] as? [String]) ?? []
+                js.removeAll { $0 == oldShim }
+                groups[i]["js"] = js
                 let inPage = (groups[i]["world"] as? String) == "MAIN"
                 if inPage {
                     js.removeAll { $0 == shimName }
@@ -233,7 +244,7 @@ enum ChromeCompat {
                 }
             }
             // Sites the extension declares it exchanges messages with get the Chrome-style entry point.
-            groups.removeAll { ($0["js"] as? [String]) == [bridgeName] }
+            groups.removeAll { ($0["js"] as? [String]) == [bridgeName] || ($0["js"] as? [String]) == [oldBridge] }
             if let external = manifest["externally_connectable"] as? [String: Any],
                let matches = external["matches"] as? [String], !matches.isEmpty {
                 try? bridge.write(to: dir.appendingPathComponent(bridgeName), atomically: true, encoding: .utf8)
@@ -247,7 +258,12 @@ enum ChromeCompat {
         let tag = "<script src=\"/\(shimName)\"></script>"
         if let files = fm.enumerator(at: dir, includingPropertiesForKeys: nil) {
             for case let file as URL in files where file.pathExtension.lowercased() == "html" {
-                guard var html = try? String(contentsOf: file, encoding: .utf8), !html.contains(shimName) else { continue }
+                guard var html = try? String(contentsOf: file, encoding: .utf8) else { continue }
+                if html.contains(oldShim) {
+                    html = html.replacingOccurrences(of: "<script src=\"/\(oldShim)\"></script>", with: "")
+                    try? html.write(to: file, atomically: true, encoding: .utf8)
+                }
+                guard !html.contains(shimName) else { continue }
                 if let head = html.range(of: "<head[^>]*>", options: [.regularExpression, .caseInsensitive]) {
                     html.insert(contentsOf: tag, at: head.upperBound)
                 } else if let body = html.range(of: "<body[^>]*>", options: [.regularExpression, .caseInsensitive]) {
@@ -280,6 +296,7 @@ enum ChromeCompat {
             try? code.write(to: url, atomically: true, encoding: .utf8)
         }
 
+        for old in [oldShim, oldLoader, oldBridge] { try? fm.removeItem(at: dir.appendingPathComponent(old)) }
         manifest[marker] = version
         guard let out = try? JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return false }
         return (try? out.write(to: manifestURL, options: .atomic)) != nil
