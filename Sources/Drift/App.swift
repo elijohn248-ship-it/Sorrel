@@ -341,7 +341,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         c.register("history.clear", "Clear Browsing History…") { [unowned self] in
             self.confirm("Clear your browsing history?",
-                         "Drift forgets every page you have visited. Open tabs, cookies and logins are not affected.",
+                         "Sorrel forgets every page you have visited. Open tabs, cookies and logins are not affected.",
                          button: "Clear History") {
                 History.shared.clear()
                 self.store.clearArchive()
@@ -502,8 +502,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return m
         }
 
-        _ = add("Drift", [
-            std("About Drift", "orderFrontStandardAboutPanel:", ""),
+        _ = add("Sorrel", [
+            std("About Sorrel", "orderFrontStandardAboutPanel:", ""),
             .separator(),
             item("settings.open"),
             item("config.open", title: "Settings Folder…"),
@@ -512,11 +512,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("history.clear"),
             item("data.clear"),
             .separator(),
-            std("Hide Drift", "hide:", "h"),
+            std("Hide Sorrel", "hide:", "h"),
             std("Hide Others", "hideOtherApplications:", "h", [.command, .option]),
             std("Show All", "unhideAllApplications:", ""),
             .separator(),
-            std("Quit Drift", "terminate:", "q"),
+            std("Quit Sorrel", "terminate:", "q"),
         ])
         _ = add("File", [
             item("tab.new"), item("mini.new"), item("private.new"), item("folder.new"), item("space.new"),

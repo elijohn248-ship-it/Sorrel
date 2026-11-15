@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Drift</string>
+    <string>Sorrel</string>
     <key>CFBundleDisplayName</key>
-    <string>Drift</string>
+    <string>Sorrel</string>
     <key>CFBundleIdentifier</key>
     <string>app.drift.browser</string>
     <key>CFBundleExecutable</key>
-    <string>Drift</string>
+    <string>Sorrel</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>

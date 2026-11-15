@@ -185,7 +185,7 @@ final class Store {
     private static func seed() -> AppState {
         let personal = Space(name: "Personal", icon: "🏠", theme: Theme.presets[0])
         let school = Space(name: "School", icon: "🩺", theme: Theme.presets[1])
-        let welcome = Item(url: "drift://welcome", title: "Welcome to Drift")
+        let welcome = Item(url: "drift://welcome", title: "Welcome to Sorrel")
         personal.today = [welcome]
         personal.selectedID = welcome.id
 

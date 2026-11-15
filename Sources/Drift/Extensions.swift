@@ -45,7 +45,7 @@ final class ExtensionEntry {
 
     var sourceText: String {
         switch source {
-        case .bundled: return "Included with Drift"
+        case .bundled: return "Included with Sorrel"
         case .safariApp(_, let app): return "From \(app)"
         case .folder(let url):
             return url.lastPathComponent.hasPrefix("chrome-") ? "From the Chrome Web Store" : "Added by you"
@@ -299,7 +299,7 @@ final class Extensions: NSObject {
             let prefix = "https://github.com/uBlockOrigin/uBOL-home/releases/download/"
             guard let link = assets.compactMap({ $0["browser_download_url"] as? String })
                     .first(where: { $0.hasPrefix(prefix) && $0.hasSuffix(".safari.zip") }), let url = URL(string: link) else {
-                finish("The new uBlock Origin Lite release has no build Drift can use yet")
+                finish("The new uBlock Origin Lite release has no build Sorrel can use yet")
                 return
             }
             session.downloadTask(with: url) { file, response, _ in
@@ -327,7 +327,7 @@ final class Extensions: NSObject {
                 try? fm.removeItem(at: final)
                 do {
                     try fm.moveItem(at: partial, to: final)
-                    finish("uBlock Origin Lite \(tag) is ready and will be used the next time Drift opens")
+                    finish("uBlock Origin Lite \(tag) is ready and will be used the next time Sorrel opens")
                 } catch {
                     try? fm.removeItem(at: partial)
                     finish("Couldn’t save the uBlock Origin Lite update")
@@ -845,6 +845,6 @@ extension Extensions: WKWebExtensionControllerDelegate {
         }
         // Messages to a companion Mac app are not available outside Safari.
         replyHandler(nil, NSError(domain: "Drift", code: 10, userInfo: [NSLocalizedDescriptionKey:
-            "Drift can’t pass messages to the extension’s companion app."]))
+            "Sorrel can’t pass messages to the extension’s companion app."]))
     }
 }

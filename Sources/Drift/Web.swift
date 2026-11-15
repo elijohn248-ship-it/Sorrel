@@ -456,7 +456,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         button{margin-top:16px;font:inherit;padding:7px 16px;border-radius:8px;border:1px solid GrayText;
                background:transparent;color:inherit}
         </style>
-        <main><h1>Drift can’t open this page</h1>
+        <main><h1>Sorrel can’t open this page</h1>
         <p>\(esc(e.localizedDescription))</p>
         <p>\(esc(failing?.absoluteString ?? ""))</p>
         <button data-u="\(esc(failing?.absoluteString ?? "").replacingOccurrences(of: "\"", with: "&quot;"))"
@@ -515,7 +515,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
         <title>Not secure</title>\(Self.pageStyle)
         <main><h1>\(host) doesn’t offer a secure connection</h1>
-        <p>Drift tried to open it with encryption (https) and couldn’t. If you continue, anyone on this
+        <p>Sorrel tried to open it with encryption (https) and couldn’t. If you continue, anyone on this
         network (café or campus Wi-Fi, for example) could see or change what you send and receive.</p>
         <p>Don’t type passwords or personal details on it.</p>
         <button class="main" onclick="history.length > 1 ? history.back() : window.close()">Go Back</button>
@@ -664,7 +664,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let top = webView.url?.host ?? origin.host
         alert.messageText = "Allow \(origin.host) to use your \(what)?"
         alert.informativeText = (top == origin.host ? "" : "It is part of \(top). ")
-            + (isPrivate ? "In a private window Drift asks every time." : "Drift remembers this choice until you quit.")
+            + (isPrivate ? "In a private window Sorrel asks every time." : "Sorrel remembers this choice until you quit.")
         alert.addButton(withTitle: "Allow")
         alert.addButton(withTitle: "Don’t Allow")
         sheet(alert, for: webView) { [weak self] response in
@@ -731,10 +731,10 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         var file = file
         let existing = (try? file.resourceValues(forKeys: [.quarantinePropertiesKey]))?.quarantineProperties
         if isQuietTest {
-            FileHandle.standardError.write("download: quarantine already set before Drift=\(existing != nil)\n".data(using: .utf8)!)
+            FileHandle.standardError.write("download: quarantine already set before Sorrel=\(existing != nil)\n".data(using: .utf8)!)
         }
         var props = existing ?? [:]
-        props[kLSQuarantineAgentNameKey as String] = "Drift"
+        props[kLSQuarantineAgentNameKey as String] = "Sorrel"
         props[kLSQuarantineTypeKey as String] = kLSQuarantineTypeWebDownload as String
         if isPrivate {
             props[kLSQuarantineDataURLKey as String] = nil

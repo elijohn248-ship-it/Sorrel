@@ -49,7 +49,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private init() {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 470),
                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        w.title = "Drift Settings"
+        w.title = "Sorrel Settings"
         w.isReleasedWhenClosed = false
         super.init(window: w)
         w.delegate = self
@@ -238,7 +238,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         }
         defaultBrowserStatus.textColor = .secondaryLabelColor
         defaultBrowserStatus.font = .systemFont(ofSize: 11)
-        let makeDefault = button("Make Drift the Default Browser") { [weak self] in self?.makeDefaultBrowser() }
+        let makeDefault = button("Make Sorrel the Default Browser") { [weak self] in self?.makeDefaultBrowser() }
 
         return form([
             ("Search engine:", enginePopup),
@@ -272,7 +272,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         return form([
             ("Ads and trackers:", column([
-                checkbox("Block ads and trackers with Drift’s built-in lists", s.blockAds) { [weak self] on in
+                checkbox("Block ads and trackers with Sorrel’s built-in lists", s.blockAds) { [weak self] on in
                     self?.mutate(blocking: true) { $0.blockAds = on }
                 },
                 blockerStatus,
@@ -297,7 +297,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 checkbox("Always try a secure connection first (HTTPS-first)", s.httpsFirst) { [weak self] on in
                     self?.mutate { $0.httpsFirst = on }
                 },
-                note("Plain http:// sites are opened with encryption when they support it. If one doesn’t, Drift warns you before showing it."),
+                note("Plain http:// sites are opened with encryption when they support it. If one doesn’t, Sorrel warns you before showing it."),
             ])),
             ("Stored data:", column([
                 button("Clear History…") { Commands.shared.run("history.clear") },
@@ -362,7 +362,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             ("Slide speed:", slider(s.sidebarAnimationDuration, 0.05, 0.5, unit: " s", digits: 2) { [weak self] v in
                 self?.mutate { $0.sidebarAnimationDuration = (v * 100).rounded() / 100 }
             }),
-            ("In the background:", checkbox("Reveal on hover even when Drift isn’t the front app", s.sidebarHoverWhenInactive) { [weak self] on in
+            ("In the background:", checkbox("Reveal on hover even when Sorrel isn’t the front app", s.sidebarHoverWhenInactive) { [weak self] on in
                 self?.mutate { $0.sidebarHoverWhenInactive = on }
             }),
         ])
@@ -620,7 +620,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let handler = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!)
         let isDefault = handler.flatMap { Bundle(url: $0)?.bundleIdentifier } == Bundle.main.bundleIdentifier
         let name = handler?.deletingPathExtension().lastPathComponent ?? "another app"
-        defaultBrowserStatus.stringValue = isDefault ? "Drift is your default browser." : "Links currently open in \(name)."
+        defaultBrowserStatus.stringValue = isDefault ? "Sorrel is your default browser." : "Links currently open in \(name)."
     }
 
     private func makeDefaultBrowser() {

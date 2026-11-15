@@ -1033,7 +1033,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         forwardButton.isEnabled = wv?.canGoForward ?? false
         reloadButton.isEnabled = item != nil
         if let u = item?.url, u.hasPrefix("drift://") {
-            pill.set("Drift", canCopy: false)
+            pill.set("Sorrel", canCopy: false)
         } else {
             pill.set(item?.host?.replacingOccurrences(of: "www.", with: "") ?? item?.url,
                      canCopy: item?.url?.hasPrefix("http") ?? false)

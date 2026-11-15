@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Drift.app into ./build.
+# Builds Sorrel.app into ./build.
 #   ./build.sh            build only
 #   ./build.sh run        build and open it
 #   ./build.sh install    build and copy to /Applications
@@ -8,10 +8,10 @@ cd "$(dirname "$0")"
 
 swift build -c release
 
-APP="build/Drift.app"
+APP="build/Sorrel.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/Drift "$APP/Contents/MacOS/Drift"
+cp .build/release/Drift "$APP/Contents/MacOS/Sorrel"   # SwiftPM target is still named Drift
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/welcome.html Resources/bangs.json Resources/emoji.tsv "$APP/Contents/Resources/"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
@@ -34,8 +34,8 @@ case "${1:-}" in
     open "$APP"
     ;;
   install)
-    rm -rf /Applications/Drift.app
-    cp -R "$APP" /Applications/Drift.app
-    echo "Installed to /Applications/Drift.app"
+    rm -rf /Applications/Sorrel.app /Applications/Drift.app
+    cp -R "$APP" /Applications/Sorrel.app
+    echo "Installed to /Applications/Sorrel.app"
     ;;
 esac

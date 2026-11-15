@@ -4,7 +4,7 @@ Drift is the owner's daily macOS browser: Arc-style Spaces and sidebar, Safari's
 
 ## Name
 
-**The product is being renamed to Sorrel ("Sorrel Browser").** Chosen 2026-11-14 after checking conflicts: Flow, Breeze, Cove, Wren, Lagoon, Tern, Fern and Moss are already used by other browsers (many of them new Arc replacements launched in Oct–Nov 2026). `sorrelbrowser.com`, `sorrel-browser.com` and the GitHub names `sorrelbrowser`/`sorrel-browser` were free that day; a US trademark search is still the owner's to do. The app icon is already Sorrel's (an arrow-shaped sorrel leaf on the original gradient tile, `tools/make-icon.swift`). The code, folders and bundle id still say Drift: **do not change the bundle id (`app.drift.browser`) on its own.** WebKit keys cookies, logins and extension data by it, so the rename happens together with the App Sandbox move, with a data migration.
+**The product is being renamed to Sorrel ("Sorrel Browser").** Chosen 2026-11-14 after checking conflicts: Flow, Breeze, Cove, Wren, Lagoon, Tern, Fern and Moss are already used by other browsers (many of them new Arc replacements launched in Oct–Nov 2026). `sorrelbrowser.com`, `sorrel-browser.com` and the GitHub names `sorrelbrowser`/`sorrel-browser` were free that day; a US trademark search is still the owner's to do. The app icon is already Sorrel's (an arrow-shaped sorrel leaf on the original gradient tile, `tools/make-icon.swift`). Done so far (2026-11-14): the app is `build/Sorrel.app` (executable `Sorrel`), and every name a person sees says Sorrel. Still Drift on purpose: the bundle id, the SwiftPM target and `Sources/Drift`, class names, `DRIFT_*` test variables, the `drift://` address of bundled pages (saved tabs use it), the profile folder `Application Support/Drift`, and one error string inside ChromeCompat (changing it would re-patch installed extensions). **Do not change the bundle id (`app.drift.browser`) on its own.** WebKit keys cookies, logins and extension data by it, so the rename happens together with the App Sandbox move, with a data migration.
 
 ## Non-negotiables
 
@@ -20,10 +20,10 @@ Drift is the owner's daily macOS browser: Arc-style Spaces and sidebar, Safari's
 Only Command Line Tools are installed (no Xcode), so this is a SwiftPM build that `build.sh` wraps into an app bundle.
 
 ```
-./build.sh            # release build -> build/Drift.app
+./build.sh            # release build -> build/Sorrel.app
 ./build.sh run        # build and open
 ./build.sh install    # build and copy to /Applications
-open build/Drift.app  # open the current build
+open build/Sorrel.app  # open the current build
 ```
 
 Minimum macOS is 15.4 (needed for `WKWebExtension`). The owner runs the build from `build/`; after a rebuild they must quit and reopen Drift to get it. Say so every time.
@@ -90,7 +90,7 @@ There is no test target. Tests are the app itself, driven by environment variabl
 
 ```
 S=/some/scratch; rm -rf $S/p1 && mkdir -p $S/p1
-DRIFT_HOME=$S/p1 DRIFT_SNAPSHOT=$S/shot.png DRIFT_DELAY=8 DRIFT_OPEN=https://example.com build/Drift.app/Contents/MacOS/Drift 2>&1 | grep -E '^(selected|hover|peek|ext|ui|diag|autofill):?'
+DRIFT_HOME=$S/p1 DRIFT_SNAPSHOT=$S/shot.png DRIFT_DELAY=8 DRIFT_OPEN=https://example.com build/Sorrel.app/Contents/MacOS/Sorrel 2>&1 | grep -E '^(selected|hover|peek|ext|ui|diag|autofill):?'
 ```
 
 `DRIFT_SNAPSHOT` = quiet test mode + where to write a PNG of the window; the app quits itself after `DRIFT_DELAY` seconds. Useful hooks: `DRIFT_OPEN` (tab to open), `DRIFT_RUN=cmd,cmd` (commands), `DRIFT_SIDEBAR=hidden|peek`, `DRIFT_COMMAND=<text>` (type into ⌘T bar), `DRIFT_EDITADDR`, `DRIFT_HOVERTEST`, `DRIFT_PEEKTEST=expand|close|unpinned|samesite|othersite`, `DRIFT_FEATURETEST` (shortcuts, archive, private), `DRIFT_DAILYTEST` (sleep, downloads, suggestions, history, update check), `DRIFT_BLOCKTEST`, `DRIFT_EXTTEST=1|ui|protonpass`, `DRIFT_EXTDIAG=<id part>` (passive extension diagnostics: errors, a read-only message listener, heartbeat, pop-up layout dump), `DRIFT_AUTOFILLTEST`, `DRIFT_SECTEST` (HTTPS upgrade + not-secure warning + Continue, private ⌘-click, data: block, other-app prompt, download quarantine; `DRIFT_SECTEST_HTTP=<http url>` picks the no-https site, default expired.badssl.com), `DRIFT_SPLITTEST=1|reopen` (split view end to end; `reopen` just logs what a relaunch restored), `DRIFT_EMOJITEST=open|search:<q>,pick` (emoji sheet; pair with `DRIFT_SNAPSHOT_CUSTOMIZE=<png>`), `DRIFT_EXTERNALTEST`, `DRIFT_EXT_STORE=<uuid>` (persistent extension store for a test; delete `~/Library/WebKit/app.drift.browser/WebExtensions/<uuid>` afterwards), `DRIFT_DOWNLOADS=<dir>`.
