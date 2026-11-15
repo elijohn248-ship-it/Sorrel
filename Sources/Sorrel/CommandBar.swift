@@ -103,7 +103,11 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     private weak var anchorView: NSView?
 
     /// True while the address is being edited in the sidebar, which must then stay on screen.
-    var isAnchoredOpen: Bool { !isHidden && placement == .anchored }
+    var isAnchoredOpen: Bool { !isHidden && !isDismissing && placement == .anchored }
+
+    /// Fading out after `dismiss()`: still drawn for a moment, but no longer open or clickable.
+    private var isDismissing = false
+    override func hitTest(_ point: NSPoint) -> NSView? { isDismissing ? nil : super.hitTest(point) }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -291,6 +295,13 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     /// `anchor` is the sidebar's address box when editing in place; nil shows the centered bar.
     func present(_ mode: Mode, anchor: NSView? = nil) {
         self.mode = mode
+        let arriving = isHidden || isDismissing
+        if isDismissing {
+            isDismissing = false
+            layer?.removeAllAnimations()
+            for v in [panel, shadowHost] as [NSView] { v.layer?.clearPopOut() }
+        }
+        alphaValue = 1
         isHidden = false
         layoutSubtreeIfNeeded()
         apply(anchor == nil ? .centered : .anchored, anchor: anchor)
@@ -303,6 +314,18 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         takeFocus()
         if mode == .newSplit { field.placeholderString = "Open beside this tab: search, address, or a tab" }
         refresh(animateResize: false)
+        if arriving {
+            layoutSubtreeIfNeeded()
+            if placement == .centered {
+                // The floating bar grows into place; the in-place editor just appears on its box.
+                alphaValue = 0
+                Motion.run(0.18) { animator().alphaValue = 1 }
+                for v in [panel, shadowHost] as [NSView] { v.layer?.popIn(scale: 0.95, rise: -6, fade: false, duration: 0.3) }
+            } else {
+                alphaValue = 0
+                Motion.run(0.1, Motion.glide) { animator().alphaValue = 1 }
+            }
+        }
         // Focus can be taken back in the same moment (a click finishing, a page loading), so check again.
         // The sidebar may also still be sliding into place, so re-align with the address box as it settles.
         for delay in [0.0, 0.08, 0.25] {
@@ -330,13 +353,21 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     var hasKeyboardFocus: Bool { field.currentEditor() != nil }
 
     func dismiss() {
-        guard !isHidden else { return }
-        isHidden = true
+        guard !isHidden, !isDismissing else { return }
+        isDismissing = true
         (window as? SorrelWindow)?.focusHolder = nil
         if let wv = controller?.currentWebView {
             window?.makeFirstResponder(wv)
         } else {
             window?.makeFirstResponder(nil)
+        }
+        if placement == .centered { for v in [panel, shadowHost] as [NSView] { v.layer?.popOut(scale: 0.97, duration: 0.13) } }
+        Motion.run(placement == .centered ? 0.13 : 0.08, Motion.leave, { animator().alphaValue = 0 }) { [weak self] in
+            guard let self, self.isDismissing else { return }
+            self.isDismissing = false
+            self.isHidden = true
+            self.alphaValue = 1
+            for v in [self.panel, self.shadowHost] as [NSView] { v.layer?.clearPopOut() }
         }
     }
 
@@ -524,10 +555,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         if height != tableHeight.constant {
             if animateResize {
                 // Glide to the new size so the bar stays centered without jumping while typing.
-                NSAnimationContext.runAnimationGroup { ctx in
-                    ctx.duration = 0.12
-                    ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                    ctx.allowsImplicitAnimation = true
+                Motion.run(0.2, Motion.settle) {
                     tableHeight.constant = height
                     layoutSubtreeIfNeeded()
                 }

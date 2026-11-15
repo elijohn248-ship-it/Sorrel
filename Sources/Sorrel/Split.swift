@@ -143,14 +143,7 @@ final class PaneView: NSView {
     private func setControls(_ show: Bool) {
         guard show != controlsShown else { return }
         controlsShown = show
-        if show { controls.isHidden = false }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.12
-            controls.animator().alphaValue = show ? 1 : 0
-        }, completionHandler: { [weak self] in
-            guard let self, !self.controlsShown else { return }
-            self.controls.isHidden = true
-        })
+        controls.fade(in: show, duration: show ? 0.14 : 0.2)
     }
 
     /// Test hook.
@@ -294,7 +287,7 @@ final class SplitCell: NSTableCellView {
 
     func setHovered(_ h: Bool) {
         hovered = h
-        closeButton.isHidden = !h
+        closeButton.fade(in: h)
         needsLayout = true
     }
 

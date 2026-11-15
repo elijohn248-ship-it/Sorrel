@@ -67,11 +67,55 @@ private final class SidebarScroll: NSScrollView {
 }
 
 private final class SidebarRowView: NSTableRowView {
-    var isActive = false { didSet { if oldValue != isActive { needsDisplay = true } } }
-    var highlightable = true
+    var isActive = false { didSet { if oldValue != isActive { updateHighlight(animated: true) } } }
+    var highlightable = true { didSet { if oldValue != highlightable { updateHighlight(animated: false) } } }
     private(set) var isHovered = false
     var onHover: ((Bool) -> Void)?
     private var area: NSTrackingArea?
+    /// The rounded tint behind the row. A layer of its own, so hover and selection crossfade instead of snapping.
+    private let highlight = CALayer()
+    private var shownColor: NSColor?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        highlight.cornerRadius = 8
+        highlight.zPosition = -1
+        layer?.addSublayer(highlight)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        Motion.layer(0) { highlight.frame = bounds.insetBy(dx: 8, dy: 1) }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateHighlight(animated: false)
+    }
+
+    private func updateHighlight(animated: Bool) {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        var color: NSColor?
+        if highlightable && isActive {
+            color = dark ? NSColor.white.withAlphaComponent(0.2) : NSColor.white.withAlphaComponent(0.85)
+        } else if highlightable && isHovered {
+            color = dark ? NSColor.white.withAlphaComponent(0.08) : NSColor.black.withAlphaComponent(0.06)
+        }
+        let target = (color ?? (shownColor ?? .white).withAlphaComponent(0)).usingColorSpace(.sRGB) ?? .clear
+        // Arrivals are quick, departures linger a little; a change of state while lit crossfades.
+        let duration: TimeInterval = !animated ? 0 : (color == nil ? 0.22 : (shownColor == nil ? 0.1 : 0.18))
+        if shownColor == nil, color != nil {
+            // Start from the same tint at zero so the fade-in never passes through a grey.
+            Motion.layer(0) { highlight.removeAllAnimations(); highlight.backgroundColor = target.withAlphaComponent(0).cgColor }
+        }
+        Motion.layer(duration) {
+            if duration == 0 { highlight.removeAllAnimations() }
+            highlight.backgroundColor = target.cgColor
+        }
+        shownColor = color
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -87,7 +131,7 @@ private final class SidebarRowView: NSTableRowView {
     private func setHovered(_ h: Bool) {
         guard h != isHovered else { return }
         isHovered = h
-        needsDisplay = true
+        updateHighlight(animated: true)
         onHover?(h)
     }
 
@@ -95,20 +139,10 @@ private final class SidebarRowView: NSTableRowView {
         super.prepareForReuse()
         isHovered = false
         isActive = false
+        updateHighlight(animated: false)
     }
 
-    override func drawBackground(in dirtyRect: NSRect) {
-        guard highlightable, isActive || isHovered else { return }
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let color: NSColor
-        if isActive {
-            color = dark ? NSColor.white.withAlphaComponent(0.2) : NSColor.white.withAlphaComponent(0.85)
-        } else {
-            color = dark ? NSColor.white.withAlphaComponent(0.08) : NSColor.black.withAlphaComponent(0.06)
-        }
-        color.setFill()
-        NSBezierPath(roundedRect: bounds.insetBy(dx: 8, dy: 1), xRadius: 8, yRadius: 8).fill()
-    }
+    override func drawBackground(in dirtyRect: NSRect) {}
 
     override func drawSelection(in dirtyRect: NSRect) {}
     override var isEmphasized: Bool { get { false } set {} }
@@ -317,7 +351,7 @@ private final class ItemCell: NSTableCellView, NSTextFieldDelegate {
     }
 
     func setHovered(_ hovered: Bool) {
-        closeButton.isHidden = !hovered || (item?.isFolder ?? true)
+        closeButton.fade(in: hovered && !(item?.isFolder ?? true))
     }
 
     func beginRename() {
@@ -500,12 +534,12 @@ private final class URLPill: NSView {
 
     override func mouseEntered(with event: NSEvent) {
         hovered = true
-        copyButton.isHidden = !canCopy
+        copyButton.fade(in: canCopy)
     }
 
     override func mouseExited(with event: NSEvent) {
         hovered = false
-        copyButton.isHidden = true
+        copyButton.fade(in: false)
     }
 
     override func updateLayer() {
@@ -523,19 +557,55 @@ private final class URLPill: NSView {
 private final class FavoriteTile: NSView {
     let item: Item
     let icon = NSImageView()
-    var isActive = false { didSet { needsDisplay = true } }
+    var isActive = false { didSet { if oldValue != isActive { updateLook(animated: true) } } }
     var onClick: ((Item) -> Void)?
     var menuProvider: ((Item) -> NSMenu)?
+    private var hovered = false
+    private var area: NSTrackingArea?
 
     init(item: Item) {
         self.item = item
         super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 10
         icon.imageScaling = .scaleProportionallyUpOrDown
         addSubview(icon)
         toolTip = item.displayTitle
         refresh()
+        updateLook(animated: false)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area { removeTrackingArea(area) }
+        let a = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
+        addTrackingArea(a)
+        area = a
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true; updateLook(animated: true) }
+    override func mouseExited(with event: NSEvent) { hovered = false; updateLook(animated: true) }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLook(animated: false)
+    }
+
+    private func updateLook(animated: Bool) {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let color: NSColor
+        if isActive {
+            color = dark ? NSColor.white.withAlphaComponent(0.26) : NSColor.white.withAlphaComponent(0.9)
+        } else if hovered {
+            color = dark ? NSColor.white.withAlphaComponent(0.15) : NSColor.black.withAlphaComponent(0.1)
+        } else {
+            color = dark ? NSColor.white.withAlphaComponent(0.09) : NSColor.black.withAlphaComponent(0.06)
+        }
+        Motion.layer(animated ? 0.16 : 0) {
+            layer?.backgroundColor = (color.usingColorSpace(.sRGB) ?? color).cgColor
+        }
+    }
 
     func refresh() {
         icon.image = FaviconStore.shared.image(for: item) ?? symbol("globe", size: 16)
@@ -549,19 +619,10 @@ private final class FavoriteTile: NSView {
         icon.frame = NSRect(x: (bounds.width - 20) / 2, y: (bounds.height - 20) / 2, width: 20, height: 20)
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let color: NSColor
-        if isActive {
-            color = dark ? NSColor.white.withAlphaComponent(0.26) : NSColor.white.withAlphaComponent(0.9)
-        } else {
-            color = dark ? NSColor.white.withAlphaComponent(0.09) : NSColor.black.withAlphaComponent(0.06)
-        }
-        color.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 10, yRadius: 10).fill()
+    override func mouseDown(with event: NSEvent) {
+        layer?.press()
+        onClick?(item)
     }
-
-    override func mouseDown(with event: NSEvent) { onClick?(item) }
     override func menu(for event: NSEvent) -> NSMenu? { menuProvider?(item) }
     override var mouseDownCanMoveWindow: Bool { false }
 }
@@ -684,23 +745,40 @@ private final class SpaceBar: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    private var buttons: [SpaceButton] = []
+
     func reload(_ spaces: [Space], current: Space) {
-        stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
-        for sp in spaces {
-            let b = SpaceButton(title: sp.icon, target: self, action: #selector(pick(_:)))
-            b.space = sp
-            b.menuProvider = menuProvider
-            b.isBordered = false
-            b.font = .systemFont(ofSize: 14)
+        // Same spaces in the same order: keep the buttons, so the move of the "current" tint can animate.
+        let same = buttons.count == spaces.count && zip(buttons, spaces).allSatisfy { $0.space === $1 }
+        if !same {
+            stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
+            buttons = spaces.map { sp in
+                let b = SpaceButton(title: sp.icon, target: self, action: #selector(pick(_:)))
+                b.space = sp
+                b.menuProvider = menuProvider
+                b.isBordered = false
+                b.font = .systemFont(ofSize: 14)
+                b.wantsLayer = true
+                b.layer?.cornerRadius = 7
+                b.translatesAutoresizingMaskIntoConstraints = false
+                b.widthAnchor.constraint(equalToConstant: 28).isActive = true
+                b.heightAnchor.constraint(equalToConstant: 26).isActive = true
+                stack.addArrangedSubview(b)
+                return b
+            }
+        }
+        for (b, sp) in zip(buttons, spaces) {
+            b.title = sp.icon
             b.toolTip = sp.name
-            b.alphaValue = sp === current ? 1 : 0.45
-            b.wantsLayer = true
-            b.layer?.cornerRadius = 7
-            b.layer?.backgroundColor = sp === current ? NSColor.labelColor.withAlphaComponent(0.1).cgColor : nil
-            b.translatesAutoresizingMaskIntoConstraints = false
-            b.widthAnchor.constraint(equalToConstant: 28).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 26).isActive = true
-            stack.addArrangedSubview(b)
+            let lit = sp === current
+            let tint = NSColor.labelColor.withAlphaComponent(lit ? 0.1 : 0)
+            if same {
+                Motion.run(0.22, Motion.glide) { b.animator().alphaValue = lit ? 1 : 0.45 }
+                Motion.layer(0.22) { b.layer?.backgroundColor = tint.cgColor }
+            } else {
+                b.alphaValue = lit ? 1 : 0.45
+                b.layer?.backgroundColor = tint.cgColor
+            }
         }
     }
 
@@ -975,8 +1053,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             let t = CATransition()
             t.type = .push
             t.subtype = store.lastSwitchDirection > 0 ? .fromRight : .fromLeft
-            t.duration = 0.22
-            t.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            t.duration = Motion.reduced ? 0.15 : 0.3
+            t.timingFunction = Motion.settle
+            if Motion.reduced { t.type = .fade }
             layer.add(t, forKey: "space")
         }
         shownSpaceID = sp.id
@@ -987,19 +1066,74 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         refreshNavigation()
     }
 
-    private func reloadOutline() {
-        isReloading = true
-        outline.reloadData()
-        func expand(_ items: [Item]) {
+    /// What the outline showed last time, so a new or closed tab can slide in or out instead of the whole
+    /// list being redrawn. Top level = pinned tabs, the two markers, today's tabs.
+    private var shownTop: [NSObject] = []
+    private var shownFolderChildren: [ObjectIdentifier: [Item]] = [:]
+    private var shownOutlineSpace: UUID?
+
+    private func topLevel(of sp: Space) -> [NSObject] { sp.pinned + [separatorMarker, newTabMarker] + sp.today }
+
+    private func folderChildren(of sp: Space) -> [ObjectIdentifier: [Item]] {
+        var out: [ObjectIdentifier: [Item]] = [:]
+        func walk(_ items: [Item]) {
             for i in items where i.isFolder {
-                if i.expanded {
-                    outline.expandItem(i)
-                    expand(i.children)
-                }
+                out[ObjectIdentifier(i)] = i.children
+                walk(i.children)
             }
         }
-        expand(store.currentSpace.pinned)
+        walk(sp.pinned)
+        walk(sp.today)
+        return out
+    }
+
+    /// Rows removed from `old` and rows added in `new`, when that is all that happened (nothing moved).
+    private func simpleDiff(old: [NSObject], new: [NSObject]) -> (removed: IndexSet, inserted: IndexSet)? {
+        let newSet = Set(new.map(ObjectIdentifier.init)), oldSet = Set(old.map(ObjectIdentifier.init))
+        var removed = IndexSet(), inserted = IndexSet()
+        for (i, o) in old.enumerated() where !newSet.contains(ObjectIdentifier(o)) { removed.insert(i) }
+        for (i, o) in new.enumerated() where !oldSet.contains(ObjectIdentifier(o)) { inserted.insert(i) }
+        let keptOld = old.enumerated().filter { !removed.contains($0.offset) }.map { $0.element }
+        let keptNew = new.enumerated().filter { !inserted.contains($0.offset) }.map { $0.element }
+        guard keptOld.count == keptNew.count, zip(keptOld, keptNew).allSatisfy({ $0 === $1 }) else { return nil }
+        return (removed, inserted)
+    }
+
+    private func reloadOutline() {
+        let sp = store.currentSpace
+        let newTop = topLevel(of: sp)
+        let newFolders = folderChildren(of: sp)
+        let foldersSame = newFolders.count == shownFolderChildren.count && newFolders.allSatisfy { key, kids in
+            guard let old = shownFolderChildren[key], old.count == kids.count else { return false }
+            return zip(old, kids).allSatisfy { $0 === $1 }
+        }
+        isReloading = true
+        if window != nil, shownOutlineSpace == sp.id, foldersSame,
+           let diff = simpleDiff(old: shownTop, new: newTop), !(diff.removed.isEmpty && diff.inserted.isEmpty) {
+            // Only rows came or went: slide them, and leave every other row (and its hover) as it is.
+            let effect: NSTableView.AnimationOptions = Motion.reduced ? .effectFade : [.slideDown, .effectFade]
+            outline.beginUpdates()
+            if !diff.removed.isEmpty {
+                outline.removeItems(at: diff.removed, inParent: nil, withAnimation: Motion.reduced ? .effectFade : [.slideUp, .effectFade])
+            }
+            if !diff.inserted.isEmpty { outline.insertItems(at: diff.inserted, inParent: nil, withAnimation: effect) }
+            outline.endUpdates()
+        } else {
+            outline.reloadData()
+            func expand(_ items: [Item]) {
+                for i in items where i.isFolder {
+                    if i.expanded {
+                        outline.expandItem(i)
+                        expand(i.children)
+                    }
+                }
+            }
+            expand(sp.pinned)
+        }
         isReloading = false
+        shownTop = newTop
+        shownFolderChildren = newFolders
+        shownOutlineSpace = sp.id
         favorites.reload(store.favorites, selected: store.selected)
         refreshSelection()
     }

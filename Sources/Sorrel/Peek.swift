@@ -92,6 +92,26 @@ final class PeekOverlay: NSView {
         shadowHost.layer?.shadowPath = CGPath(roundedRect: shadowHost.bounds, cornerWidth: 10, cornerHeight: 10, transform: nil)
     }
 
+    // MARK: Arriving and leaving
+
+    private var closing = false
+
+    /// The dimming fades up while the preview rises into place.
+    func animateIn() {
+        alphaValue = 0
+        Motion.run(0.2, Motion.settle) { animator().alphaValue = 1 }
+        for v in [panel, shadowHost] { v.layer?.popIn(scale: 0.96, rise: 14, fade: false, duration: 0.34) }
+    }
+
+    /// Fades away, shrinking a touch. Clicks fall through to the page from the first frame.
+    func animateOut(done: @escaping () -> Void) {
+        closing = true
+        for v in [panel, shadowHost] { v.layer?.popOut(scale: 0.97, duration: 0.16) }
+        Motion.run(0.16, Motion.leave, { animator().alphaValue = 0 }, done: done)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { closing ? nil : super.hitTest(point) }
+
     /// Clicking the dimmed page around the preview closes it.
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)

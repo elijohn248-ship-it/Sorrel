@@ -293,13 +293,11 @@ final class ThemeBackgroundView: NSView {
         if cs.count == 1 { cs.append(cs[0]) }
         let rad = theme.angle * .pi / 180
         let dx = CGFloat(cos(rad)) / 2, dy = CGFloat(sin(rad)) / 2
-        CATransaction.begin()
-        CATransaction.setDisableActions(!animated)
-        CATransaction.setAnimationDuration(0.3)
-        gradient.colors = cs
-        gradient.startPoint = CGPoint(x: 0.5 - dx, y: 0.5 - dy)
-        gradient.endPoint = CGPoint(x: 0.5 + dx, y: 0.5 + dy)
-        CATransaction.commit()
+        Motion.layer(animated ? 0.35 : 0) {
+            gradient.colors = cs
+            gradient.startPoint = CGPoint(x: 0.5 - dx, y: 0.5 - dy)
+            gradient.endPoint = CGPoint(x: 0.5 + dx, y: 0.5 + dy)
+        }
     }
 
     override var mouseDownCanMoveWindow: Bool { true }
@@ -353,4 +351,127 @@ final class Debouncer {
 
 extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+// MARK: - Motion
+
+/// One vocabulary for how things move, so every slide, fade and pop feels like part of the same app.
+enum Motion {
+    /// Settles like a light spring: quick start, long soft landing. For things arriving or moving into place.
+    static let settle = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+    /// Leaves without lingering. For things going away.
+    static let leave = CAMediaTimingFunction(controlPoints: 0.4, 0, 1, 1)
+    /// Eases both ways, for state changes that neither arrive nor leave (a highlight, a colour).
+    static let glide = CAMediaTimingFunction(controlPoints: 0.4, 0, 0.2, 1)
+
+    /// System ▸ Accessibility ▸ Reduce Motion: fades stay, movement and scaling are dropped.
+    static var reduced: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
+    /// Runs `changes` with implicit view animation on, so `animator()` proxies and constraint changes glide.
+    static func run(_ duration: TimeInterval, _ timing: CAMediaTimingFunction = settle,
+                    _ changes: () -> Void, done: (() -> Void)? = nil) {
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = timing
+            ctx.allowsImplicitAnimation = true
+            changes()
+        }, completionHandler: done)
+    }
+
+    /// Changes layer properties inside one Core Animation transaction of the given length (0 = at once).
+    static func layer(_ duration: TimeInterval, _ timing: CAMediaTimingFunction = glide, _ body: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(duration <= 0)
+        CATransaction.setAnimationDuration(duration)
+        CATransaction.setAnimationTimingFunction(timing)
+        body()
+        CATransaction.commit()
+    }
+}
+
+extension CALayer {
+    /// Plays an arrival: the layer grows from `scale` around its centre and rises by `rise` points, fading in
+    /// unless `fade` is off. Only the picture moves; the layer's own values are left exactly as they are.
+    func popIn(scale: CGFloat = 0.96, rise: CGFloat = 0, fade: Bool = true, duration: TimeInterval = 0.22) {
+        removeAnimation(forKey: "popIn")
+        var anims: [CAAnimation] = []
+        if fade {
+            let a = CABasicAnimation(keyPath: "opacity")
+            a.fromValue = 0
+            a.toValue = opacity
+            anims.append(a)
+        }
+        if !Motion.reduced, scale != 1 || rise != 0 {
+            let c = CGPoint(x: bounds.midX, y: bounds.midY)
+            var t = CATransform3DMakeTranslation(c.x, c.y - rise, 0)
+            t = CATransform3DScale(t, scale, scale, 1)
+            t = CATransform3DTranslate(t, -c.x, -c.y, 0)
+            let a = CABasicAnimation(keyPath: "transform")
+            a.fromValue = t
+            a.toValue = CATransform3DIdentity
+            anims.append(a)
+        }
+        guard !anims.isEmpty else { return }
+        let group = CAAnimationGroup()
+        group.animations = anims
+        group.duration = duration
+        group.timingFunction = Motion.settle
+        add(group, forKey: "popIn")
+    }
+
+    /// Shrinks the picture slightly toward the centre while something fades away. It holds its end state,
+    /// so remove the layer (or call `clearPopOut`) afterwards.
+    func popOut(scale: CGFloat = 0.97, duration: TimeInterval = 0.14) {
+        guard !Motion.reduced, scale != 1 else { return }
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        var t = CATransform3DMakeTranslation(c.x, c.y, 0)
+        t = CATransform3DScale(t, scale, scale, 1)
+        t = CATransform3DTranslate(t, -c.x, -c.y, 0)
+        let a = CABasicAnimation(keyPath: "transform")
+        a.fromValue = CATransform3DIdentity
+        a.toValue = t
+        a.duration = duration
+        a.timingFunction = Motion.leave
+        a.fillMode = .forwards
+        a.isRemovedOnCompletion = false
+        add(a, forKey: "popOut")
+    }
+
+    func clearPopOut() { removeAnimation(forKey: "popOut") }
+}
+
+extension NSView {
+    /// Fades a view in or out instead of flipping `isHidden`. A view fading out is hidden once it has gone,
+    /// and comes back at full strength next time; starting a fade-in cancels a pending hide.
+    func fade(in shown: Bool, duration: TimeInterval = 0.14) {
+        if shown {
+            if isHidden { alphaValue = 0; isHidden = false }
+            Motion.run(duration, Motion.glide) { animator().alphaValue = 1 }
+        } else {
+            guard !isHidden else { return }
+            Motion.run(duration, Motion.leave, { animator().alphaValue = 0 }) { [weak self] in
+                guard let self, self.alphaValue == 0 else { return }
+                self.isHidden = true
+                self.alphaValue = 1
+            }
+        }
+    }
+}
+
+extension CALayer {
+    /// A quick squash and release, for a tile or button being clicked.
+    func press(scale: CGFloat = 0.93) {
+        guard !Motion.reduced else { return }
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        var t = CATransform3DMakeTranslation(c.x, c.y, 0)
+        t = CATransform3DScale(t, scale, scale, 1)
+        t = CATransform3DTranslate(t, -c.x, -c.y, 0)
+        let a = CABasicAnimation(keyPath: "transform")
+        a.fromValue = CATransform3DIdentity
+        a.toValue = t
+        a.duration = 0.09
+        a.autoreverses = true
+        a.timingFunction = Motion.glide
+        add(a, forKey: "press")
+    }
 }

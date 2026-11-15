@@ -694,7 +694,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     // MARK: Peek
 
     func showPeek(_ url: URL, profileID: UUID?) {
-        dismissPeek(refocus: false)
+        dismissPeek(refocus: false, animated: false)
         let page = Engine.shared.makePage(profileID: profileID)
         Engine.shared.load(url.absoluteString, in: page)
         let overlay = PeekOverlay(page: page, cornerRadius: card.layer?.cornerRadius ?? 8)
@@ -711,19 +711,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             overlay.trailingAnchor.constraint(equalTo: card.trailingAnchor),
         ])
         peek = overlay
-        overlay.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.16
-            overlay.animator().alphaValue = 1
-        }
+        root.layoutSubtreeIfNeeded()
+        overlay.animateIn()
         window?.makeFirstResponder(page.webView)
     }
 
-    func dismissPeek(refocus: Bool = true) {
+    func dismissPeek(refocus: Bool = true, animated: Bool = true) {
         guard let overlay = peek else { return }
         peek = nil
-        overlay.page.teardown()
-        overlay.removeFromSuperview()
+        let finish = {
+            overlay.page.teardown()
+            overlay.removeFromSuperview()
+        }
+        if animated { overlay.animateOut(done: finish) } else { finish() }
         if refocus, commandBar.isHidden, let wv = currentWebView { window?.makeFirstResponder(wv) }
     }
 
@@ -746,15 +746,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func showToast(_ text: String) {
         toast.stringValue = text
         toastTimer?.invalidate()
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            toastBox.animator().alphaValue = 1
+        root.layoutSubtreeIfNeeded()
+        if toastBox.alphaValue < 1 {
+            toastBox.alphaValue = 1
+            toastBox.layer?.popIn(scale: 0.94, rise: 10, duration: 0.3)
         }
         toastTimer = Timer.scheduledTimer(withTimeInterval: 2.6, repeats: false) { [weak self] _ in
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.3
-                self?.toastBox.animator().alphaValue = 0
-            }
+            Motion.run(0.3, Motion.leave) { self?.toastBox.animator().alphaValue = 0 }
         }
     }
 
@@ -800,12 +798,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self.root.layoutSubtreeIfNeeded()
         }
         if animated {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = Settings.current.sidebarAnimationDuration
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                ctx.allowsImplicitAnimation = true
-                apply()
-            }
+            // Arriving settles softly; leaving is a plain ease so the page is back in reach sooner.
+            let duration = Settings.current.sidebarAnimationDuration
+            Motion.run(mode == .hidden ? duration : duration * 1.3, mode == .hidden ? Motion.glide : Motion.settle, apply)
         } else {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0
