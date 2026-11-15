@@ -26,6 +26,8 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     // Privacy
     private let blockerStatus = NSTextField(labelWithString: "")
     private let defaultBrowserStatus = NSTextField(labelWithString: "")
+    private let updateStatus = NSTextField(wrappingLabelWithString: "")
+    private var updateButton: NSButton?
 
     // Shortcuts
     private let table = NSTableView()
@@ -59,6 +61,8 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                                                name: .sorrelBlockerStatus, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reloadExtensions),
                                                name: .sorrelExtensions, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(refreshUpdateStatus),
+                                               name: .sorrelUpdateState, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reloadExtensions),
                                                name: WKWebExtensionContext.errorsDidUpdateNotification, object: nil)
     }
@@ -239,6 +243,16 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         defaultBrowserStatus.textColor = .secondaryLabelColor
         defaultBrowserStatus.font = .systemFont(ofSize: 11)
         let makeDefault = button("Make Sorrel the Default Browser") { [weak self] in self?.makeDefaultBrowser() }
+        updateStatus.font = .systemFont(ofSize: 11)
+        updateStatus.textColor = .secondaryLabelColor
+        updateStatus.preferredMaxLayoutWidth = 380
+        let check = button("Check Now") { Updater.shared.checkOrRelaunch() }
+        check.controlSize = .small
+        updateButton = check
+        let info = Updater.shared.current
+        let versionLine = note("Sorrel \(info?.version ?? "?") (build \(info?.build ?? 0))")
+        versionLine.textColor = .labelColor
+        refreshUpdateStatus()
 
         return form([
             ("Search engine:", enginePopup),
@@ -259,6 +273,15 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 self?.mutate { $0.externalLinksOpenInMiniWindow = on }
             }),
             ("Default browser:", column([makeDefault, defaultBrowserStatus])),
+            ("Updates:", column([
+                versionLine,
+                checkbox("Check for updates automatically", s.checkForUpdates) { [weak self] on in
+                    self?.mutate { $0.checkForUpdates = on }
+                },
+                check,
+                updateStatus,
+                note("Updates come from Sorrel’s GitHub releases and are signed; one that fails the check is never installed. A downloaded update installs when you quit Sorrel."),
+            ])),
         ])
     }
 
@@ -619,6 +642,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     // MARK: Status
+
+    @objc private func refreshUpdateStatus() {
+        updateStatus.stringValue = Updater.shared.statusText
+        updateButton?.title = Updater.shared.readyManifest != nil ? "Relaunch to Update" : "Check Now"
+        updateButton?.isEnabled = !Updater.shared.isBusy
+    }
 
     @objc private func refreshStatus() {
         blockerStatus.stringValue = Blocker.shared.statusText

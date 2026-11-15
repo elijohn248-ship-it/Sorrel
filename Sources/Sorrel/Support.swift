@@ -100,6 +100,8 @@ struct Settings: Codable {
     var searchSuggestions = false
     /// Keep the built-in uBlock Origin Lite up to date from its official releases.
     var autoUpdateBlocker = true
+    /// Look for new Sorrel releases every few hours (Updater.swift). Manual checks work either way.
+    var checkForUpdates = true
     /// Which extensions are switched on, by id. Missing = on for the bundled one, off for the rest.
     var extensionStates: [String: Bool] = [:]
     /// Extra access the person approved when an extension asked for it, by extension id
@@ -151,6 +153,7 @@ struct Settings: Codable {
         sleepTabsAfterMinutes = try c.decodeIfPresent(Double.self, forKey: .sleepTabsAfterMinutes) ?? d.sleepTabsAfterMinutes
         searchSuggestions = try c.decodeIfPresent(Bool.self, forKey: .searchSuggestions) ?? d.searchSuggestions
         autoUpdateBlocker = try c.decodeIfPresent(Bool.self, forKey: .autoUpdateBlocker) ?? d.autoUpdateBlocker
+        checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
         fallbackBrowser = try c.decodeIfPresent(String.self, forKey: .fallbackBrowser) ?? d.fallbackBrowser
         externalLinksOpenInMiniWindow = try c.decodeIfPresent(Bool.self, forKey: .externalLinksOpenInMiniWindow) ?? d.externalLinksOpenInMiniWindow
         peekLinksFromPinnedTabs = try c.decodeIfPresent(Bool.self, forKey: .peekLinksFromPinnedTabs) ?? d.peekLinksFromPinnedTabs

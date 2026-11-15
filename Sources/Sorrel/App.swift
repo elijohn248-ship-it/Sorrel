@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var archiveTimer: Timer?
     private let archivedMenu = NSMenu(title: "Archived Tabs")
     private let historyMenu = NSMenu(title: "History")
+    private var updateMenuItem: NSMenuItem?
 
     private var store: Store { Store.shared }
 
@@ -43,6 +44,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Blocker.shared.start()
         Extensions.shared.start()
         Extensions.shared.windowReady()
+        Updater.shared.start()
+        NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { [weak self] _ in
+            self?.updateMenuItem?.title = Updater.shared.menuTitle
+        }
         // Put away long-unused tabs shortly after launch, then keep checking.
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.archiveStaleTabs() }
         archiveTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
@@ -66,6 +71,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // A downloaded, verified update is handed to the updater service on the way out (Updater.swift).
+        if Updater.shared.installOnQuit(then: { NSApp.reply(toApplicationShouldTerminate: true) }) { return .terminateLater }
+        return .terminateNow
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         store.saveNow()
@@ -326,6 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.showToast("Checking for a uBlock Origin Lite update…")
             Extensions.shared.updateBlockerIfNeeded(force: true) { message in self.main.showToast(message) }
         }
+        c.register("updates.check", "Check for Updates…") { Updater.shared.checkOrRelaunch() }
         c.register("extensions.update", "Check for Extension Updates") { [unowned self] in
             self.main.showToast("Checking for extension updates…")
             Extensions.shared.updateBlockerIfNeeded(force: true) { message in self.main.showToast(message) }
@@ -510,6 +522,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         _ = add("Sorrel", [
             std("About Sorrel", "orderFrontStandardAboutPanel:", ""),
+            {
+                let mi = item("updates.check", title: Updater.shared.menuTitle)
+                updateMenuItem = mi
+                return mi
+            }(),
             .separator(),
             item("settings.open"),
             item("config.open", title: "Settings Folder…"),
@@ -1119,6 +1136,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     }
                 }
             }
+        }
+        if let mode = env["SORREL_UPDATETEST"] {
+            // Sorrel's own updater: version | check | install | quit, against SORREL_UPDATE_FEED (tools/update-test.sh).
+            Updater.shared.runTest(mode)
         }
         if let late = env["SORREL_OPEN_LATE"] {
             // Open a page a few seconds in, once extensions have loaded.
