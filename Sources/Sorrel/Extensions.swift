@@ -412,7 +412,7 @@ final class Extensions: NSObject {
         }
 
         // Safari extensions already installed on this Mac can run here too.
-        let appDirs = [URL(fileURLWithPath: "/Applications"), fm.homeDirectoryForCurrentUser.appendingPathComponent("Applications")]
+        let appDirs = [URL(fileURLWithPath: "/Applications"), Sandbox.realHome.appendingPathComponent("Applications")]
         for appDir in appDirs {
             for app in (try? fm.contentsOfDirectory(at: appDir, includingPropertiesForKeys: nil)) ?? [] where app.pathExtension == "app" {
                 let plugins = app.appendingPathComponent("Contents/PlugIns")
@@ -574,9 +574,14 @@ final class Extensions: NSObject {
             try fm.copyItem(at: url, to: dest)
         } else {
             try fm.createDirectory(at: dest, withIntermediateDirectories: true)
+            // Sandbox: access to a file the person picked is granted to Sorrel itself, not to the ditto it
+            // starts, so ditto unpacks a private copy.
+            let copy = fm.temporaryDirectory.appendingPathComponent("sorrel-add-\(UUID().uuidString).zip")
+            try fm.copyItem(at: url, to: copy)
+            defer { try? fm.removeItem(at: copy) }
             let unzip = Process()
             unzip.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-            unzip.arguments = ["-x", "-k", url.path, dest.path]
+            unzip.arguments = ["-x", "-k", copy.path, dest.path]
             try unzip.run()
             unzip.waitUntilExit()
             // Some archives wrap everything in a single folder.

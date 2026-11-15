@@ -1,10 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Sorrel runs in the App Sandbox: it can reach only its own container plus what is listed here.
+  Keep this list as short as possible; CLAUDE.md (Sandbox) says what each entry is for.
+  build.sh derives the test build's entitlements from this file (bundle id + ".test", scratch folder access).
+-->
 <plist version="1.0">
 <dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <!-- Loading web pages, filter lists, favicons, suggestions, extension updates. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Websites that ask for the camera or microphone (Sorrel asks the person first). -->
     <key>com.apple.security.device.camera</key>
     <true/>
     <key>com.apple.security.device.audio-input</key>
     <true/>
+    <!-- Downloads are saved to ~/Downloads. -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+    <!-- Files the person picks in an Open panel: website uploads, adding an extension. -->
+    <key>com.apple.security.files.user-selected.read-only</key>
+    <true/>
+    <key>com.apple.security.print</key>
+    <true/>
+    <!--
+      Read-only, for exactly these paths:
+      - ~/Applications: Safari extensions installed there, and the fallback browser check.
+      - The unsandboxed profile, site data and preferences, copied into the container once (Migration.swift).
+    -->
+    <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
+    <array>
+        <string>/Applications/</string>
+        <string>/Library/Application Support/Sorrel/</string>
+        <string>/Library/WebKit/app.sorrel.browser/</string>
+        <string>/Library/HTTPStorages/app.sorrel.browser/</string>
+        <string>/Library/HTTPStorages/app.sorrel.browser.binarycookies</string>
+        <string>/Library/Preferences/app.sorrel.browser.plist</string>
+    </array>
 </dict>
 </plist>

@@ -25,12 +25,39 @@ func releaseFreedMemory() {
 /// True when a test run points at a scratch profile (SORREL_HOME).
 let isTestProfile: Bool = !(ProcessInfo.processInfo.environment["SORREL_HOME"] ?? "").isEmpty
 
+/// True for build/SorrelTest.app (bundle id app.sorrel.browser.test): its own container, preferences and
+/// site data, so nothing a test does can reach the owner's. Every test run uses it (see CLAUDE.md, Testing).
+let isTestBuild: Bool = Bundle.main.bundleIdentifier?.hasSuffix(".test") == true
+
+// MARK: - Sandbox
+
+/// Sorrel runs in the macOS App Sandbox (Resources/Sorrel.entitlements). Inside it, the home folder that
+/// Foundation reports (NSHomeDirectory, homeDirectoryForCurrentUser, ~/Library) is the app's container,
+/// ~/Library/Containers/<bundle id>/Data. Use these for anything that means the person's real folders.
+enum Sandbox {
+    static let isOn = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    /// The person's real home folder, inside or outside the sandbox.
+    static let realHome: URL = {
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir {
+            return URL(fileURLWithPath: String(cString: dir), isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+    }()
+    /// ~/Downloads by its real path (in the container it is a symlink; Finder and icons want the real one).
+    static var downloads: URL {
+        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0].resolvingSymlinksInPath()
+    }
+}
+
 // MARK: - Paths
 
 enum Paths {
+    /// The profile folder's name in Application Support. The test build uses its own name as well, so even an
+    /// unsandboxed copy of it can never open the owner's profile.
+    static let profileName = isTestBuild ? "Sorrel Test" : "Sorrel"
     static let support: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        var dir = base.appendingPathComponent("Sorrel", isDirectory: true)
+        var dir = base.appendingPathComponent(profileName, isDirectory: true)
         // SORREL_HOME points a test run at a throwaway folder instead of the real profile.
         if let override = ProcessInfo.processInfo.environment["SORREL_HOME"], !override.isEmpty {
             dir = URL(fileURLWithPath: override, isDirectory: true)

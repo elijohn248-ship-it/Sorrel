@@ -296,7 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         c.register("settings.open", "Settings…") { SettingsWindowController.shared.show() }
         c.register("config.open", "Open Settings Folder") { NSWorkspace.shared.open(Paths.support) }
         c.register("downloads.show", "Show Downloads Folder") {
-            NSWorkspace.shared.open(FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0])
+            NSWorkspace.shared.open(Sandbox.downloads)
         }
         c.register("blocking.toggleSite", "Turn Ad Blocking Off or On for This Site") { [unowned self] in
             // With uBlock Origin Lite running, its own pop-up is where a site is switched off.
@@ -459,7 +459,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func openInFallbackBrowser() {
         guard let url = activeWebView?.url, url.scheme?.hasPrefix("http") == true else { return }
         let name = Settings.current.fallbackBrowser
-        let candidates = ["/Applications/\(name).app", NSHomeDirectory() + "/Applications/\(name).app"]
+        let candidates = ["/Applications/\(name).app", Sandbox.realHome.path + "/Applications/\(name).app"]
         guard let path = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) else {
             main.showToast("\(name) isn’t installed")
             return
@@ -1254,6 +1254,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 log("expand: mini windows before=\(MiniWindowController.all.count) tabs=\(self.store.currentSpace.today.count)")
                 MiniWindowController.all.first?.expand()
                 log("expand: mini windows after=\(MiniWindowController.all.count) tabs=\(self.store.currentSpace.today.count) selected=\(self.store.selected?.url ?? "nil")")
+            }
+        }
+        if let mode = env["SORREL_COOKIETEST"] {
+            // Cookies across launches (and across the move into the sandbox): `set` stores a lasting cookie for
+            // example.com in the shared store, `check` lists what a later launch finds. Only meaningful without
+            // SORREL_HOME (which keeps cookies in memory), so only in the test build's own profile.
+            let jar = Engine.store(for: nil).httpCookieStore
+            if mode == "set" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    let cookie = HTTPCookie(properties: [.domain: ".example.com", .path: "/", .name: "sorreltest",
+                                                         .value: "\(Int(Date().timeIntervalSince1970))",
+                                                         .expires: Date().addingTimeInterval(86400), .secure: "TRUE"])!
+                    jar.setCookie(cookie) { log("cookie: set \(cookie.value) persistent=\(Engine.store(for: nil).isPersistent)") }
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay - 2) {
+                jar.getAllCookies { all in
+                    log("cookie: found=" + all.filter { $0.domain.contains("example.com") }.map { "\($0.name)=\($0.value)" }.joined(separator: ","))
+                }
+            }
+        }
+        if let out = env["SORREL_WEBSNAPSHOT"] {
+            // WebKit's own picture of the selected page. Under the App Sandbox the window snapshot
+            // (cacheDisplay) can't copy the page out of WebKit's process and shows it blank; this can.
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay - 1.5) {
+                guard let web = self.store.selected?.page?.webView else { log("websnapshot: no page"); return }
+                web.takeSnapshot(with: nil) { image, error in
+                    guard let image, let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+                          let png = rep.representation(using: .png, properties: [:]) else {
+                        log("websnapshot: failed \(error?.localizedDescription ?? "")"); return
+                    }
+                    try? png.write(to: URL(fileURLWithPath: out))
+                    log("websnapshot: \(Int(image.size.width))x\(Int(image.size.height))")
+                }
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {

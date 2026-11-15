@@ -690,7 +690,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
-        var dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
+        var dir = Sandbox.downloads
         if let override = ProcessInfo.processInfo.environment["SORREL_DOWNLOADS"] {   // testing: never write to the real folder
             dir = URL(fileURLWithPath: override, isDirectory: true)
         }

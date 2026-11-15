@@ -16,7 +16,15 @@ if getenv("MallocSpaceEfficient") == nil, getenv("SORREL_DEFAULT_ALLOCATOR") == 
     // If the restart failed, carry on as we are.
 }
 
-// First launch after the rename from Drift: bring the old data over before anything opens it.
+// Test runs belong to build/SorrelTest.app, which has its own container, preferences and site data.
+// Run as the real app, a test would write window positions into the owner's preferences, and sandboxed
+// it couldn't reach its scratch folder anyway.
+if isTestProfile, !isTestBuild, ProcessInfo.processInfo.environment["SORREL_MIGRATE_TEST"] == nil {
+    FileHandle.standardError.write("Sorrel: test runs (SORREL_HOME) use build/SorrelTest.app/Contents/MacOS/Sorrel, not Sorrel.app. See CLAUDE.md, Testing.\n".data(using: .utf8)!)
+    exit(2)
+}
+
+// First sandboxed launch: copy the profile, cookies and site data into the container before anything opens them.
 Migration.runIfNeeded()
 
 let app = NSApplication.shared
