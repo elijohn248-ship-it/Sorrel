@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>Sorrel</string>
     <key>CFBundleIdentifier</key>
-    <string>app.drift.browser</string>
+    <string>app.sorrel.browser</string>
     <key>CFBundleExecutable</key>
     <string>Sorrel</string>
     <key>CFBundleIconFile</key>

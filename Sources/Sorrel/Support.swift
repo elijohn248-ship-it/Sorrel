@@ -2,34 +2,37 @@ import AppKit
 
 // MARK: - Test mode
 
-/// True for automated test runs (DRIFT_SNAPSHOT is set). Test runs stay in the background:
-/// no Dock icon, no taking focus, window opened behind everything else. DRIFT_LOUD turns this off.
+/// True for automated test runs (SORREL_SNAPSHOT is set). Test runs stay in the background:
+/// no Dock icon, no taking focus, window opened behind everything else. SORREL_LOUD turns this off.
 let isQuietTest: Bool = {
     let env = ProcessInfo.processInfo.environment
-    return env["DRIFT_SNAPSHOT"] != nil && env["DRIFT_LOUD"] == nil
+    return env["SORREL_SNAPSHOT"] != nil && env["SORREL_LOUD"] == nil
 }()
 
-/// Brings Drift to the front, except during quiet test runs.
+/// Brings Sorrel to the front, except during quiet test runs.
 func bringAppForward() {
     if !isQuietTest { NSApp.activate(ignoringOtherApps: true) }
 }
 
 /// Hands memory that has been freed back to macOS straight away.
 /// Loading an extension's rules allocates a lot briefly; once that work is done the freed pages
-/// otherwise stay charged to Drift until the system comes under memory pressure.
+/// otherwise stay charged to Sorrel until the system comes under memory pressure.
 func releaseFreedMemory() {
-    if ProcessInfo.processInfo.environment["DRIFT_NO_RELIEF"] != nil { return }   // testing: measure without it
+    if ProcessInfo.processInfo.environment["SORREL_NO_RELIEF"] != nil { return }   // testing: measure without it
     malloc_zone_pressure_relief(nil, 0)
 }
+
+/// True when a test run points at a scratch profile (SORREL_HOME).
+let isTestProfile: Bool = !(ProcessInfo.processInfo.environment["SORREL_HOME"] ?? "").isEmpty
 
 // MARK: - Paths
 
 enum Paths {
     static let support: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        var dir = base.appendingPathComponent("Drift", isDirectory: true)
-        // DRIFT_HOME points a test run at a throwaway folder instead of the real profile.
-        if let override = ProcessInfo.processInfo.environment["DRIFT_HOME"], !override.isEmpty {
+        var dir = base.appendingPathComponent("Sorrel", isDirectory: true)
+        // SORREL_HOME points a test run at a throwaway folder instead of the real profile.
+        if let override = ProcessInfo.processInfo.environment["SORREL_HOME"], !override.isEmpty {
             dir = URL(fileURLWithPath: override, isDirectory: true)
         }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -100,7 +103,7 @@ struct Settings: Codable {
     /// How far past the sidebar's right edge the cursor can go before it counts as leaving.
     var sidebarExitTolerance = 14.0
     var sidebarAnimationDuration = 0.2
-    /// Reveal the sidebar on hover even when Drift is not the frontmost app.
+    /// Reveal the sidebar on hover even when Sorrel is not the frontmost app.
     var sidebarHoverWhenInactive = true
 
     init() {}

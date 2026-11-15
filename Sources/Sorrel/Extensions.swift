@@ -3,13 +3,13 @@ import WebKit
 
 extension Notification.Name {
     /// The list of extensions, or one's state, changed.
-    static let driftExtensions = Notification.Name("driftExtensions")
+    static let sorrelExtensions = Notification.Name("sorrelExtensions")
 }
 
-/// One extension Drift knows about, loaded or not.
+/// One extension Sorrel knows about, loaded or not.
 final class ExtensionEntry {
     enum Source {
-        case bundled(URL)                         // ships inside Drift
+        case bundled(URL)                         // ships inside Sorrel
         case safariApp(appex: URL, app: String)   // a Safari extension already installed on this Mac
         case folder(URL)                          // added by the user
     }
@@ -53,7 +53,7 @@ final class ExtensionEntry {
     }
 }
 
-// MARK: - How extensions see Drift's tabs and window
+// MARK: - How extensions see Sorrel's tabs and window
 
 /// A tab, as extensions see it. One per Item, kept for the Item's lifetime so WebKit can track it.
 final class ExtensionTab: NSObject {
@@ -123,7 +123,7 @@ extension ExtensionTab: WKWebExtensionTab {
     }
 }
 
-/// Drift's main window, as extensions see it. Tabs from every space belong to it.
+/// Sorrel's main window, as extensions see it. Tabs from every space belong to it.
 final class ExtensionWindow: NSObject {}
 
 extension ExtensionWindow: WKWebExtensionWindow {
@@ -175,11 +175,11 @@ final class Extensions: NSObject {
     }
 
     private override init() {
-        // Test runs (DRIFT_HOME) keep extension data in memory so the real profile is never touched.
-        let testing = !(ProcessInfo.processInfo.environment["DRIFT_HOME"] ?? "").isEmpty
+        // Test runs (SORREL_HOME) keep extension data in memory so the real profile is never touched.
+        let testing = !(ProcessInfo.processInfo.environment["SORREL_HOME"] ?? "").isEmpty
         var config: WKWebExtensionController.Configuration = testing ? .nonPersistent() : .default()
-        // DRIFT_EXT_STORE (testing): a named persistent store, to measure second-launch behaviour.
-        if testing, let id = ProcessInfo.processInfo.environment["DRIFT_EXT_STORE"].flatMap({ UUID(uuidString: $0) }) {
+        // SORREL_EXT_STORE (testing): a named persistent store, to measure second-launch behaviour.
+        if testing, let id = ProcessInfo.processInfo.environment["SORREL_EXT_STORE"].flatMap({ UUID(uuidString: $0) }) {
             config = WKWebExtensionController.Configuration(identifier: id)
         }
         controller = WKWebExtensionController(configuration: config)
@@ -188,14 +188,14 @@ final class Extensions: NSObject {
     }
 
     private func changed() {
-        NotificationCenter.default.post(name: .driftExtensions, object: nil)
+        NotificationCenter.default.post(name: .sorrelExtensions, object: nil)
     }
 
     /// True while uBlock Origin Lite is loaded.
     var hasActiveBlocker: Bool { entries.contains { $0.id == Self.blockerID && $0.isLoaded } }
 
     /// uBlock Origin Lite needs a moment after loading before its rules are in force (about 15 to 20 seconds
-    /// the very first time, while WebKit compiles them; almost none afterwards). Drift's built-in lists
+    /// the very first time, while WebKit compiles them; almost none afterwards). Sorrel's built-in lists
     /// keep blocking until this moment, then step aside so the two never fight over a page.
     private var blockerTakeoverAt: Date?
     static let blockerHandoverDelay: TimeInterval = 25
@@ -239,12 +239,12 @@ final class Extensions: NSObject {
     }
 
     /// WebKit refuses (by crashing) to load an extension that sits inside the app's own bundle, so the
-    /// copy of uBlock Origin Lite that ships with Drift is unpacked into the support folder and run from there.
+    /// copy of uBlock Origin Lite that ships with Sorrel is unpacked into the support folder and run from there.
     /// Whichever is newest wins: the copy shipped in this build, or one fetched by the updater.
     private func installedBundledBlocker() -> URL? {
         let fm = FileManager.default
         var bundled = Bundle.main.resourceURL?.appendingPathComponent("extensions/ubol", isDirectory: true)
-        if let override = ProcessInfo.processInfo.environment["DRIFT_UBOL_SRC"] {   // testing: try a different copy
+        if let override = ProcessInfo.processInfo.environment["SORREL_UBOL_SRC"] {   // testing: try a different copy
             bundled = URL(fileURLWithPath: override, isDirectory: true)
         }
         try? fm.createDirectory(at: blockerHome, withIntermediateDirectories: true)
@@ -340,7 +340,7 @@ final class Extensions: NSObject {
     func addFromChromeStore(_ text: String, completion: @escaping (Result<ExtensionEntry, Error>) -> Void) {
         func fail(_ message: String) {
             DispatchQueue.main.async {
-                completion(.failure(NSError(domain: "Drift", code: 3, userInfo: [NSLocalizedDescriptionKey: message])))
+                completion(.failure(NSError(domain: "Sorrel", code: 3, userInfo: [NSLocalizedDescriptionKey: message])))
             }
         }
         guard let range = text.range(of: "[a-p]{32}", options: .regularExpression) else {
@@ -361,7 +361,7 @@ final class Extensions: NSObject {
             let zipStart = version == 2 ? 16 + u32(8) + u32(12) : 12 + u32(8)
             guard zipStart < data.count else { fail("That extension file couldn’t be read."); return }
             let fm = FileManager.default
-            let zip = fm.temporaryDirectory.appendingPathComponent("drift-\(id).zip")
+            let zip = fm.temporaryDirectory.appendingPathComponent("sorrel-\(id).zip")
             let dest = self.folder.appendingPathComponent("chrome-\(id)", isDirectory: true)
             do {
                 try data.subdata(in: zipStart..<data.count).write(to: zip)
@@ -389,7 +389,7 @@ final class Extensions: NSObject {
                 if let entry = self.entries.first(where: { $0.id == "added-" + Self.slug("chrome-\(id)") }) {
                     completion(.success(entry))
                 } else {
-                    completion(.failure(NSError(domain: "Drift", code: 4, userInfo: [NSLocalizedDescriptionKey: "The extension was downloaded but couldn’t be listed."])))
+                    completion(.failure(NSError(domain: "Sorrel", code: 4, userInfo: [NSLocalizedDescriptionKey: "The extension was downloaded but couldn’t be listed."])))
                 }
             }
         }.resume()
@@ -422,7 +422,7 @@ final class Extensions: NSObject {
                           (ext["NSExtensionPointIdentifier"] as? String) == "com.apple.Safari.web-extension" else { continue }
                     let appName = app.deletingPathExtension().lastPathComponent
                     let bundleID = (info["CFBundleIdentifier"] as? String) ?? appName
-                    // Drift already includes uBlock Origin Lite; a second copy from Safari would only double up.
+                    // Sorrel already includes uBlock Origin Lite; a second copy from Safari would only double up.
                     if bundleID.lowercased().contains("ublock-origin-lite"), found.contains(where: { $0.id == Self.blockerID }) { continue }
                     found.append(ExtensionEntry(id: "safari-" + Self.slug(bundleID),
                                                 source: .safariApp(appex: appex, app: appName),
@@ -507,7 +507,7 @@ final class Extensions: NSObject {
                 // a while or never report back, and that must not leave the extension looking stuck.
                 self.afterStateChange(entry)
                 completion?(true)
-                if ProcessInfo.processInfo.environment["DRIFT_NO_BG"] != nil { return }   // testing: start it on demand
+                if ProcessInfo.processInfo.environment["SORREL_NO_BG"] != nil { return }   // testing: start it on demand
                 context.loadBackgroundContent { (error: (any Error)?) in
                     guard let error else { return }
                     let e = error as NSError
@@ -557,7 +557,7 @@ final class Extensions: NSObject {
         if on { load(entry, completion: completion) } else { unload(entry); completion?(true) }
     }
 
-    /// Copies an unpacked extension folder, or unzips an archive, into Drift's Extensions folder.
+    /// Copies an unpacked extension folder, or unzips an archive, into Sorrel's Extensions folder.
     func add(from url: URL) throws -> ExtensionEntry? {
         let fm = FileManager.default
         var isDir: ObjCBool = false
@@ -568,7 +568,7 @@ final class Extensions: NSObject {
 
         if isDir.boolValue {
             guard fm.fileExists(atPath: url.appendingPathComponent("manifest.json").path) else {
-                throw NSError(domain: "Drift", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                throw NSError(domain: "Sorrel", code: 1, userInfo: [NSLocalizedDescriptionKey:
                     "That folder isn’t an extension: it has no manifest.json at its top level."])
             }
             try fm.copyItem(at: url, to: dest)
@@ -591,7 +591,7 @@ final class Extensions: NSObject {
             }
             guard fm.fileExists(atPath: dest.appendingPathComponent("manifest.json").path) else {
                 try? fm.removeItem(at: dest)
-                throw NSError(domain: "Drift", code: 2, userInfo: [NSLocalizedDescriptionKey:
+                throw NSError(domain: "Sorrel", code: 2, userInfo: [NSLocalizedDescriptionKey:
                     "That archive isn’t an extension: no manifest.json was found inside it."])
             }
         }
@@ -704,7 +704,7 @@ final class Extensions: NSObject {
         })()
         """
         webView.evaluateJavaScript(script) { result, _ in
-            if ProcessInfo.processInfo.environment["DRIFT_SNAPSHOT"] != nil, let r = result as? [Double], r.count == 5 {
+            if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil, let r = result as? [Double], r.count == 5 {
                 FileHandle.standardError.write("popup size: declared \(Int(r[0]))x\(Int(r[1])), window \(Int(r[2]))x\(Int(r[3])), corrected=\(r[4] == 1)\n".data(using: .utf8)!)
                 // Testing: where the page's main boxes actually are.
                 let probe = "(function(){var box=function(el){if(!el)return 'none';var r=el.getBoundingClientRect(),c=getComputedStyle(el);return [Math.round(r.left),Math.round(r.top),Math.round(r.width)+'x'+Math.round(r.height),c.display,c.position,'op'+c.opacity,c.overflow].join(' ');};var root=document.querySelector('.app-root');var kids=root?Array.prototype.slice.call(root.children,0,3).map(box):[];var st=getComputedStyle(document.documentElement);return ['text:'+(document.body.innerText||'').replace(/\\s+/g,' ').slice(0,60),'html:'+box(document.documentElement),'body:'+box(document.body),'appRoot:'+box(root),'children:'+kids.join(' | '),'vars:'+st.getPropertyValue('--popup-width')+'/'+st.getPropertyValue('--popup-height'),'htmlStyle:'+document.documentElement.getAttribute('style'),'scroll:'+window.scrollX+','+window.scrollY+' of '+document.documentElement.scrollWidth+'x'+document.documentElement.scrollHeight,'page visibility:'+document.visibilityState,'main box class:'+(root&&root.children[2]?root.children[2].className:'-')+' animation:'+(root&&root.children[2]?getComputedStyle(root.children[2]).animationName+' '+getComputedStyle(root.children[2]).animationPlayState+' transition:'+getComputedStyle(root.children[2]).transitionProperty:'-'),'animations:'+document.getAnimations().slice(0,6).map(function(a){return (a.animationName||a.transitionProperty||'?')+'='+a.playState+'@'+Math.round(a.currentTime||0)}).join(', ')].join('\\n   ');})()"
@@ -752,8 +752,8 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, openNewTabUsing configuration: WKWebExtension.TabConfiguration,
                                 for extensionContext: WKWebExtensionContext,
                                 completionHandler: @escaping ((any WKWebExtensionTab)?, (any Error)?) -> Void) {
-        if ProcessInfo.processInfo.environment["DRIFT_EXTDIAG"] != nil {
-            FileHandle.standardError.write("extlog[drift]: extension asked for a new tab: \(configuration.url?.absoluteString ?? "blank")\n".data(using: .utf8)!)
+        if ProcessInfo.processInfo.environment["SORREL_EXTDIAG"] != nil {
+            FileHandle.standardError.write("extlog[sorrel]: extension asked for a new tab: \(configuration.url?.absoluteString ?? "blank")\n".data(using: .utf8)!)
         }
         AppDelegate.shared.showMainWindow()
         let item = Store.shared.newTab(url: configuration.url?.absoluteString ?? "", select: configuration.shouldBeActive)
@@ -764,7 +764,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, openNewWindowUsing configuration: WKWebExtension.WindowConfiguration,
                                 for extensionContext: WKWebExtensionContext,
                                 completionHandler: @escaping ((any WKWebExtensionWindow)?, (any Error)?) -> Void) {
-        // Drift has one main window, so a requested window opens as tabs in it.
+        // Sorrel has one main window, so a requested window opens as tabs in it.
         AppDelegate.shared.showMainWindow()
         for url in configuration.tabURLs { Store.shared.newTab(url: url.absoluteString) }
         completionHandler(window, nil)
@@ -836,7 +836,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, sendMessage message: Any,
                                 toApplicationWithIdentifier applicationIdentifier: String?, for extensionContext: WKWebExtensionContext,
                                 replyHandler: @escaping (Any?, (any Error)?) -> Void) {
-        if applicationIdentifier == "drift-diag" {   // testing: the extension reporting on itself
+        if applicationIdentifier == "sorrel-diag" {   // testing: the extension reporting on itself
             if let m = message as? [String: Any] {
                 FileHandle.standardError.write("extlog[\(m["where"] ?? "?")]: \(m["msg"] ?? "")\n".data(using: .utf8)!)
             }
@@ -844,7 +844,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
             return
         }
         // Messages to a companion Mac app are not available outside Safari.
-        replyHandler(nil, NSError(domain: "Drift", code: 10, userInfo: [NSLocalizedDescriptionKey:
+        replyHandler(nil, NSError(domain: "Sorrel", code: 10, userInfo: [NSLocalizedDescriptionKey:
             "Sorrel can’t pass messages to the extension’s companion app."]))
     }
 }

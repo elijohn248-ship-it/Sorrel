@@ -287,7 +287,7 @@ enum FilterConverter {
 // MARK: - Blocker
 
 extension Notification.Name {
-    static let driftBlockerStatus = Notification.Name("driftBlockerStatus")
+    static let sorrelBlockerStatus = Notification.Name("sorrelBlockerStatus")
 }
 
 /// Downloads the filter lists, compiles them once, and attaches them to every page.
@@ -358,7 +358,7 @@ final class Blocker {
     }
 
     private func changed() {
-        NotificationCenter.default.post(name: .driftBlockerStatus, object: nil)
+        NotificationCenter.default.post(name: .sorrelBlockerStatus, object: nil)
     }
 
     // MARK: Pages
@@ -376,14 +376,14 @@ final class Blocker {
     }
 
     private func apply(to controller: WKUserContentController, disabled: Bool) {
-        // Remove only Drift's own lists. Extensions (uBlock Origin Lite) attach their rules to the
+        // Remove only Sorrel's own lists. Extensions (uBlock Origin Lite) attach their rules to the
         // same controller, and clearing everything would silently switch them off.
         for list in lists + previousLists { controller.remove(list) }
         // When uBlock Origin Lite is running it does the blocking on ordinary pages; doing it twice is wasted work.
         if Extensions.shared.blockerInCharge, !privateControllers.contains(controller) { return }
         if Settings.current.blockAds, !disabled {
-            // DRIFT_BLOCKONLY (testing): attach only the lists whose name contains this text.
-            let only = ProcessInfo.processInfo.environment["DRIFT_BLOCKONLY"]
+            // SORREL_BLOCKONLY (testing): attach only the lists whose name contains this text.
+            let only = ProcessInfo.processInfo.environment["SORREL_BLOCKONLY"]
             for list in lists where only == nil || list.identifier.contains(only!) { controller.add(list) }
         }
     }
@@ -486,8 +486,8 @@ final class Blocker {
         let generation = String(Int(Date().timeIntervalSince1970))
         var jobs: [(id: String, rules: [[String: Any]])] = []
         for (source, out) in converted {
-            if !out.network.isEmpty { jobs.append(("drift-\(generation)-\(source.id)-net", out.network)) }
-            if !out.cosmetic.isEmpty { jobs.append(("drift-\(generation)-\(source.id)-css", out.cosmetic)) }
+            if !out.network.isEmpty { jobs.append(("sorrel-\(generation)-\(source.id)-net", out.network)) }
+            if !out.cosmetic.isEmpty { jobs.append(("sorrel-\(generation)-\(source.id)-css", out.cosmetic)) }
         }
         let sample = converted.first?.1.sampleSelector
         var compiled: [WKContentRuleList] = []

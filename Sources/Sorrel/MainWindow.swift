@@ -412,7 +412,7 @@ final class FindBar: NSView, NSTextFieldDelegate {
     }
 }
 
-final class DriftWindow: NSWindow {
+final class SorrelWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
@@ -463,7 +463,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var width: CGFloat { CGFloat(store.sidebarWidth) }
 
     init() {
-        let w = DriftWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 860),
+        let w = SorrelWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 860),
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                             backing: .buffered, defer: false)
         super.init(window: w)
@@ -481,7 +481,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.isReleasedWhenClosed = false
         w.delegate = self
         w.center()
-        w.setFrameAutosaveName("DriftMainWindow")
+        w.setFrameAutosaveName("SorrelMainWindow")
         build()
         observe()
         wireSplitView()
@@ -561,9 +561,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func observe() {
         let nc = NotificationCenter.default
-        nc.addObserver(self, selector: #selector(selectionChanged), name: .driftSelection, object: nil)
-        nc.addObserver(self, selector: #selector(themeChanged), name: .driftSpace, object: nil)
-        nc.addObserver(self, selector: #selector(themeChanged), name: .driftTheme, object: nil)
+        nc.addObserver(self, selector: #selector(selectionChanged), name: .sorrelSelection, object: nil)
+        nc.addObserver(self, selector: #selector(themeChanged), name: .sorrelSpace, object: nil)
+        nc.addObserver(self, selector: #selector(themeChanged), name: .sorrelTheme, object: nil)
     }
 
     @objc private func selectionChanged() {

@@ -6,7 +6,7 @@ import WebKit
 // this file holds the views. ContentCard (MainWindow.swift) lays the panes out.
 
 /// Same pasteboard type the sidebar uses when a tab row is dragged.
-let splitItemDragType = NSPasteboard.PasteboardType("app.drift.item")
+let splitItemDragType = NSPasteboard.PasteboardType("app.sorrel.item")
 
 enum PaneAction {
     /// The pane's tab becomes a tab of its own again.

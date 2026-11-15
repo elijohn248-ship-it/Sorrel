@@ -255,7 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let wv = self.activeWebView else { return }
                 wv.pageZoom = max(0.3, min(3, change(wv.pageZoom)))
                 // Remembered per site, except in private windows.
-                if (wv as? DriftWebView)?.page?.isPrivate != true {
+                if (wv as? SorrelWebView)?.page?.isPrivate != true {
                     ZoomStore.shared.set(Double(wv.pageZoom), forHost: wv.url?.host)
                 }
             }
@@ -391,9 +391,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         confirm("Clear all cookies and website data?",
                 "You will be signed out of every website in every space, and saved site data is erased. History is not affected.",
                 button: "Clear Data") { [unowned self] in
-            var stores: [WKWebsiteDataStore] = [.default()]
+            var stores: [WKWebsiteDataStore] = [Engine.store(for: nil)]
             for space in self.store.spaces {
-                if let id = space.profileID { stores.append(WKWebsiteDataStore(forIdentifier: id)) }
+                if let id = space.profileID { stores.append(Engine.store(for: id)) }
             }
             let group = DispatchGroup()
             for s in stores {
@@ -590,30 +590,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: Debug
 
     /// Test hooks, all driven by environment variables so a run never needs a person at the keyboard.
-    /// DRIFT_SNAPSHOT=/path.png writes a picture of the window contents and quits.
+    /// SORREL_SNAPSHOT=/path.png writes a picture of the window contents and quits.
     private func runDebugHooks() {
         let env = ProcessInfo.processInfo.environment
-        guard let out = env["DRIFT_SNAPSHOT"] else { return }
-        let delay = Double(env["DRIFT_DELAY"] ?? "") ?? 2.5
+        guard let out = env["SORREL_SNAPSHOT"] else { return }
+        let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            for id in (env["DRIFT_RUN"] ?? "").split(separator: ",") { Commands.shared.run(String(id)) }
-            if let u = env["DRIFT_OPEN"] { self.store.newTab(url: u) }
-            if let u = env["DRIFT_MINI"], let url = URL(string: u) { MiniWindowController.present(url: url) }
-            if let s = env["DRIFT_SIDEBAR"] { self.main.debugSetSidebar(s) }
-            if let text = env["DRIFT_COMMAND"] { self.main.commandBar.debugType(text) }
-            if env["DRIFT_THEME"] != nil { self.main.sidebar.showThemeEditor() }
-            if let mode = env["DRIFT_EMOJITEST"] {
+            for id in (env["SORREL_RUN"] ?? "").split(separator: ",") { Commands.shared.run(String(id)) }
+            if let u = env["SORREL_OPEN"] { self.store.newTab(url: u) }
+            if let u = env["SORREL_MINI"], let url = URL(string: u) { MiniWindowController.present(url: url) }
+            if let s = env["SORREL_SIDEBAR"] { self.main.debugSetSidebar(s) }
+            if let text = env["SORREL_COMMAND"] { self.main.commandBar.debugType(text) }
+            if env["SORREL_THEME"] != nil { self.main.sidebar.showThemeEditor() }
+            if let mode = env["SORREL_EMOJITEST"] {
                 self.main.sidebar.showThemeEditor()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.main.sidebar.debugEmojiTest(mode, log: log) }
             }
-            if env["DRIFT_EDITADDR"] != nil {
+            if env["SORREL_EDITADDR"] != nil {
                 self.main.editAddress()
-                if let text = env["DRIFT_EDITADDR"], text != "1" { self.main.commandBar.debugSetText(text) }
+                if let text = env["SORREL_EDITADDR"], text != "1" { self.main.commandBar.debugSetText(text) }
                 log("address: placement=\(self.main.commandBar.placement) focus=\(self.main.commandBar.hasKeyboardFocus) sidebar=\(self.main.mode)")
             }
-            if env["DRIFT_HOVERTEST"] != nil {
+            if env["SORREL_HOVERTEST"] != nil {
                 // Drive the hover logic with stand-in cursor positions (root view coordinates).
                 let m = self.main!
                 func step(_ label: String, _ p: NSPoint, exited: Bool = false, then next: @escaping () -> Void) {
@@ -645,7 +645,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }}}}}}}}
             }
         }
-        if env["DRIFT_BLOCKTEST"] != nil {
+        if env["SORREL_BLOCKTEST"] != nil {
             // Wait for the filter lists, then load a page that pulls from well-known ad and tracker hosts.
             let started = Date()
             func page(_ selector: String) -> String {
@@ -703,7 +703,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { waitForLists() }
         }
-        if let mode = env["DRIFT_EXTTEST"] {
+        if let mode = env["SORREL_EXTTEST"] {
             let started = Date()
             func describe() {
                 for e in Extensions.shared.entries {
@@ -804,18 +804,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                       DispatchQueue.main.asyncAfter(deadline: .now() + (mode == "slow" ? 30 : 0)) {
                        if mode == "slow" { state("+43s") }
                        adTest(mode == "slow" ? "uBlock Origin Lite only, +43s" : "second page") {
-                        if mode == "ui", let ubol = Extensions.shared.entries.first(where: { $0.id.contains(env["DRIFT_UI_EXT"] ?? Extensions.blockerID) }) {
+                        if mode == "ui", let ubol = Extensions.shared.entries.first(where: { $0.id.contains(env["SORREL_UI_EXT"] ?? Extensions.blockerID) }) {
                           // Open the toolbar pop-up and the dashboard page, and photograph both.
                           let run = {
-                            if env["DRIFT_UI_NODASH"] == nil { Extensions.shared.openOptions(ubol) }
+                            if env["SORREL_UI_NODASH"] == nil { Extensions.shared.openOptions(ubol) }
                             let tabAtClick = self.store.selected?.extensionTab
                             bringAppForward()
                             Extensions.shared.performAction(ubol)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["DRIFT_UI_WAIT"] ?? "") ?? 8)) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_WAIT"] ?? "") ?? 8)) {
                                 let action = ubol.context?.action(for: tabAtClick)
                                 let pop = action?.popupPopover
                                 log("ui: popover shown=\(pop?.isShown ?? false) contentSize=\(pop?.contentSize ?? .zero) contentView=\(pop?.contentViewController?.view.frame.size ?? .zero) appActive=\(NSApp.isActive) loading=\(action?.popupWebView?.isLoading ?? false) title=\(action?.popupWebView?.title ?? "nil")")
-                                if let out = env["DRIFT_SNAPSHOT_POPOVER"], let v = pop?.contentViewController?.view, v.bounds.width > 0,
+                                if let out = env["SORREL_SNAPSHOT_POPOVER"], let v = pop?.contentViewController?.view, v.bounds.width > 0,
                                    let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
                                     v.cacheDisplay(in: v.bounds, to: rep)
                                     try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
@@ -837,8 +837,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                     log("ui: popup page \(r ?? "nil") \(e.map { $0.localizedDescription } ?? "")")
                                 }
                                 log("ui: context errors=\((ubol.context?.errors ?? []).map { $0.localizedDescription })")
-                                shoot(action?.popupWebView, env["DRIFT_SNAPSHOT_POPUP"])
-                                shoot(self.store.selected?.page?.webView, env["DRIFT_SNAPSHOT_DASH"])
+                                shoot(action?.popupWebView, env["SORREL_SNAPSHOT_POPUP"])
+                                shoot(self.store.selected?.page?.webView, env["SORREL_SNAPSHOT_DASH"])
                                 group.notify(queue: .main) { NSApp.terminate(nil) }
                             }
                           }
@@ -870,13 +870,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { waitForBlocker() }
         }
-        if let which = env["DRIFT_EXTERNALTEST"] {
+        if let which = env["SORREL_EXTERNALTEST"] {
             // Can an ordinary web page, one the extension names in its manifest, message the extension?
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
                 guard let entry = Extensions.shared.entries.first(where: { $0.id.contains(which) }), let ctx = entry.context else {
                     log("external: extension not loaded"); NSApp.terminate(nil); return
                 }
-                let tab = self.store.newTab(url: env["DRIFT_EXTERNAL_PAGE"] ?? "https://example.com/")
+                let tab = self.store.newTab(url: env["SORREL_EXTERNAL_PAGE"] ?? "https://example.com/")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
                     let js = """
                     const out = { ua: navigator.userAgent.replace(/.*(Chrome\\/[0-9]+|Version\\/[0-9.]+ Safari).*/, '$1'), chrome: typeof chrome, browser: typeof browser,
@@ -897,20 +897,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if let which = env["DRIFT_AUTOFILLTEST"] {
+        if let which = env["SORREL_AUTOFILLTEST"] {
             // Open a real sign-in page and report what the extension put into it.
             DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
                 guard let entry = Extensions.shared.entries.first(where: { $0.id.contains(which) }), let ctx = entry.context else {
                     log("autofill: extension not loaded"); NSApp.terminate(nil); return
                 }
-                let tab = self.store.newTab(url: env["DRIFT_AUTOFILL_PAGE"] ?? "https://github.com/login")
+                let tab = self.store.newTab(url: env["SORREL_AUTOFILL_PAGE"] ?? "https://github.com/login")
                 func look(_ label: String, then next: @escaping () -> Void) {
                     let js = """
                     (function () {
                       var custom = {}, frames = [];
                       document.querySelectorAll('*').forEach(function (el) { var t = el.tagName.toLowerCase(); if (t.indexOf('-') > 0) custom[t] = (custom[t] || 0) + 1; });
                       document.querySelectorAll('iframe').forEach(function (f) { frames.push(String(f.src).slice(0, 70)); });
-                      var log = []; try { log = JSON.parse(document.documentElement.getAttribute('data-drift-extlog') || '[]'); } catch (e) {}
+                      var log = []; try { log = JSON.parse(document.documentElement.getAttribute('data-sorrel-extlog') || '[]'); } catch (e) {}
                       var fields = Array.from(document.querySelectorAll('input')).filter(function (i) { return ['text','email','password'].indexOf(i.type) >= 0; });
                       return JSON.stringify({ loginFields: fields.length, customElements: custom, iframes: frames,
                         fieldsMarked: fields.filter(function (i) { return Array.from(i.attributes).some(function (a) { return /proton|pass/i.test(a.name); }); }).length,
@@ -934,7 +934,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if let which = env["DRIFT_EXTDIAG"] {
+        if let which = env["SORREL_EXTDIAG"] {
             // Report everything WebKit and the extension say about an extension that is not behaving.
             DispatchQueue.main.asyncAfter(deadline: .now() + 9) {
                 guard let entry = Extensions.shared.entries.first(where: { $0.id.contains(which) }), let ctx = entry.context else {
@@ -946,19 +946,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 log("diag: \(entry.name) \(entry.version) manifest v\(ext.manifestVersion) background=\(ext.hasBackgroundContent) persistentBackground=\(ext.hasPersistentBackgroundContent) injects=\(ext.hasInjectedContent)")
                 log("diag: manifest problems=\(ext.errors.map { $0.localizedDescription })")
                 log("diag: runtime problems=\(ctx.errors.map { $0.localizedDescription })")
-                log("diag: drift-reported error=\(entry.error ?? "none")")
+                log("diag: sorrel-reported error=\(entry.error ?? "none")")
                 log("diag: unsupported APIs=\(ctx.unsupportedAPIs.sorted())")
                 let asked = (ext.manifest["permissions"] as? [String] ?? [])
                 log("diag: permissions asked=\(asked) granted=\(ctx.currentPermissions.map { $0.rawValue }.sorted())")
-                log("diag: tabs opened so far=\(self.store.allTabs.compactMap { $0.item.url }.filter { !$0.hasPrefix("drift") })")
+                log("diag: tabs opened so far=\(self.store.allTabs.compactMap { $0.item.url }.filter { !$0.hasPrefix("sorrel") })")
                 let base = ctx.baseURL.absoluteString
                 let popup = ((ext.manifest["action"] as? [String: Any])?["default_popup"] as? String) ?? "popup.html"
                 let tab = self.store.newTab(url: base + popup)
                 var finished = false
                 func report(_ label: String) {
                     let wv = tab.page?.webView
-                    log("diag[\(label)]: page loading=\(wv?.isLoading ?? false) progress=\(String(format: "%.2f", wv?.estimatedProgress ?? 0)) url=\(wv?.url?.absoluteString ?? "nil") title=\(wv?.title ?? "nil") tabs=\(self.store.allTabs.compactMap { $0.item.url }.filter { !$0.hasPrefix("drift") && !$0.contains("pubmed") })")
-                    tab.page?.webView.evaluateJavaScript("JSON.stringify({ready: document.readyState, hash: location.hash, text: (document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 260), nodes: document.querySelectorAll('*').length, errors: (window.__driftErrors || ['recorder missing']).slice(0, 14)})") { r, e in
+                    log("diag[\(label)]: page loading=\(wv?.isLoading ?? false) progress=\(String(format: "%.2f", wv?.estimatedProgress ?? 0)) url=\(wv?.url?.absoluteString ?? "nil") title=\(wv?.title ?? "nil") tabs=\(self.store.allTabs.compactMap { $0.item.url }.filter { !$0.hasPrefix("sorrel") && !$0.contains("pubmed") })")
+                    tab.page?.webView.evaluateJavaScript("JSON.stringify({ready: document.readyState, hash: location.hash, text: (document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 260), nodes: document.querySelectorAll('*').length, errors: (window.__sorrelErrors || ['recorder missing']).slice(0, 14)})") { r, e in
                         log("diag[\(label)]: \(r ?? "no answer") \(e.map { $0.localizedDescription } ?? "")")
                     }
                 }
@@ -967,7 +967,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     DispatchQueue.main.asyncAfter(deadline: .now() + at) {
                         // Ask the background directly, in the extension's own message format.
                         let js = """
-                        (async () => { const rt = __driftHeld.runtime; const out = {};
+                        (async () => { const rt = __sorrelHeld.runtime; const out = {};
                           for (const m of [{type:'PING',sender:'popup'}, {type:'ENDPOINT_INIT',sender:'popup',payload:{popup:true}}, {type:'NOT_A_REAL_TYPE',sender:'popup'}]) {
                             try { const r = await rt.sendMessage(m); out[m.type] = r === undefined ? 'NO ANSWER' : JSON.stringify(r).slice(0, 140); } catch (e) { out[m.type] = 'failed: ' + e.message; } }
                           return JSON.stringify(out); })()
@@ -980,25 +980,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
                     report("popup page after 16s")
                     log("diag: runtime problems now=\(ctx.errors.map { $0.localizedDescription })")
-                    log("diag: drift-reported error now=\(entry.error ?? "none")")
+                    log("diag: sorrel-reported error now=\(entry.error ?? "none")")
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 30) { report("popup page after 30s") }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
-        if env["DRIFT_SECTEST"] != nil {
+        if env["SORREL_SECTEST"] != nil {
             // Security checks: HTTPS-first (upgrade and warning), private links staying private,
             // pages opening other apps, data: navigations, download quarantine.
             func js(_ wv: WKWebView?, _ code: String, _ done: @escaping (String) -> Void) {
                 wv?.evaluateJavaScript(code) { r, e in done("\(r ?? e?.localizedDescription ?? "nil")") }
             }
             let up = self.store.newTab(url: "http://example.com/")
-            let plain = self.store.newTab(url: env["DRIFT_SECTEST_HTTP"] ?? "http://expired.badssl.com/")
+            let plain = self.store.newTab(url: env["SORREL_SECTEST_HTTP"] ?? "http://expired.badssl.com/")
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
                 log("sec: upgrade url=\(up.page?.webView.url?.absoluteString ?? "nil")")
                 js(plain.page?.webView, "document.title + ' | ' + location.href") { r in
                     log("sec: no-https site shows=\(r)")
-                    plain.page?.webView.evaluateJavaScript("location.href='drift-insecure:continue'")
+                    plain.page?.webView.evaluateJavaScript("location.href='sorrel-insecure:continue'")
                 }
                 // A page sending the tab to data: and to another app without a click.
                 self.store.select(up)
@@ -1029,14 +1029,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if env["DRIFT_DAILYTEST"] != nil {
+        if env["SORREL_DAILYTEST"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 // 1. Sleeping tabs keep their history.
                 let tab = self.store.newTab(url: "https://example.com/")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                     tab.page?.webView.load(URLRequest(url: URL(string: "https://www.iana.org/help/example-domains")!))
                     DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                        let other = self.store.newTab(url: "drift://welcome")
+                        let other = self.store.newTab(url: "sorrel://welcome")
                         tab.lastActive = Date().addingTimeInterval(-3 * 3600)
                         other.lastActive = Date().addingTimeInterval(-3 * 3600)
                         let n = self.store.sleepIdleTabs(olderThanMinutes: 120)
@@ -1075,18 +1075,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if let late = env["DRIFT_OPEN_LATE"] {
+        if let late = env["SORREL_OPEN_LATE"] {
             // Open a page a few seconds in, once extensions have loaded.
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.store.newTab(url: late) }
         }
-        if let js = env["DRIFT_EVAL"] {
+        if let js = env["SORREL_EVAL"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay - 0.8) {
                 self.main.currentWebView?.evaluateJavaScript(js) { r, e in
                     log("eval: \(r ?? "nil") \(e.map { "\($0.localizedDescription)" } ?? "")")
                 }
             }
         }
-        if env["DRIFT_FEATURETEST"] != nil {
+        if env["SORREL_FEATURETEST"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 // Shortcut editing
                 let k = Keybindings.shared
@@ -1121,21 +1121,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     let inHistory = History.shared.search("private-test", limit: 5).count
                     mini.expand()
                     log("private: isPrivate=\(mini.isPrivate) persistent=\(mini.page.webView.configuration.websiteDataStore.isPersistent) loaded=\(mini.page.webView.url?.absoluteString ?? "nil") historyEntries=\(inHistory) stillAWindowAfterExpandAttempt=\(MiniWindowController.all.contains { $0 === mini })")
-                    if let out = env["DRIFT_SNAPSHOT_PRIVATE"], let v = mini.window?.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                    if let out = env["SORREL_SNAPSHOT_PRIVATE"], let v = mini.window?.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
                         v.cacheDisplay(in: v.bounds, to: rep)
                         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
                     }
                 }
             }
         }
-        if let tab = env["DRIFT_SETTINGS"] {
+        if let tab = env["SORREL_SETTINGS"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 // Light appearance for the capture, so text shows against the capture's blank background.
                 SettingsWindowController.shared.window?.appearance = NSAppearance(named: .aqua)
                 SettingsWindowController.shared.show(tab: Int(tab))
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + delay - 0.3) {
-                if let out = env["DRIFT_SNAPSHOT_SETTINGS"], let view = SettingsWindowController.shared.window?.contentView,
+                if let out = env["SORREL_SNAPSHOT_SETTINGS"], let view = SettingsWindowController.shared.window?.contentView,
                    let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     view.cacheDisplay(in: view.bounds, to: rep)
                     // The window's own background is not part of its content view; paint one behind the capture.
@@ -1153,17 +1153,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if env["DRIFT_PEEKTEST"] != nil {
+        if env["SORREL_PEEKTEST"] != nil {
             // Pin a tab on example.com, click its link to another site, and watch for the preview.
             let m = self.main!
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                let item = self.store.newTab(url: env["DRIFT_PEEKURL"] ?? "https://example.com/")
-                if env["DRIFT_PEEKTEST"] != "unpinned" { self.store.togglePin(item) }
+                let item = self.store.newTab(url: env["SORREL_PEEKURL"] ?? "https://example.com/")
+                if env["SORREL_PEEKTEST"] != "unpinned" { self.store.togglePin(item) }
                 log("peek: pinned=\(self.store.isPinned(item))")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    let js = env["DRIFT_PEEKTEST"] == "othersite"
+                    let js = env["SORREL_PEEKTEST"] == "othersite"
                         ? "(function(){var a=document.createElement('a');a.href='https://www.iana.org/help/example-domains';document.body.appendChild(a);a.click();return location.host+' -> '+a.href})()"
-                        : env["DRIFT_PEEKTEST"] == "samesite"
+                        : env["SORREL_PEEKTEST"] == "samesite"
                         ? "(function(){var a=document.querySelector('a');a.href='https://example.com/next';a.click();return a.href+' | clicked'})()"
                         : "document.querySelector('a').href + ' | ' + (document.querySelector('a').click(), 'clicked')"
                     item.page?.webView.evaluateJavaScript(js) { r, e in
@@ -1171,12 +1171,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                         log("peek: open=\(m.peek != nil) previewURL=\(m.peek?.page.webView.url?.absoluteString ?? "nil") pinnedTabStillAt=\(item.page?.webView.url?.absoluteString ?? "nil")")
-                        if let out = env["DRIFT_SNAPSHOT_PEEK"],
+                        if let out = env["SORREL_SNAPSHOT_PEEK"],
                            let view = m.window?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                             view.cacheDisplay(in: view.bounds, to: rep)
                             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
                         }
-                        if env["DRIFT_PEEKTEST"] == "close" {
+                        if env["SORREL_PEEKTEST"] == "close" {
                             m.dismissPeek()
                             log("peek: after close open=\(m.peek != nil) tabs=\(self.store.currentSpace.today.count)")
                         } else {
@@ -1187,7 +1187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if let mode = env["DRIFT_SPLITTEST"] {
+        if let mode = env["SORREL_SPLITTEST"] {
             // Split view: build one, move focus, resize, stack, add/remove panes, pin, and check what is saved.
             let m = self.main!
             let st = self.store
@@ -1249,7 +1249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if env["DRIFT_EXPAND"] != nil {
+        if env["SORREL_EXPAND"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay - 1.0) {
                 log("expand: mini windows before=\(MiniWindowController.all.count) tabs=\(self.store.currentSpace.today.count)")
                 MiniWindowController.all.first?.expand()
@@ -1263,12 +1263,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
             }
             capture(self.main.window?.contentView, to: out)
-            if let pop = env["DRIFT_SNAPSHOT_CUSTOMIZE"] { capture(self.main.sidebar.debugCustomizeView, to: pop) }
-            if let mini = env["DRIFT_SNAPSHOT_MINI"] { capture(MiniWindowController.all.first?.window?.contentView, to: mini) }
+            if let pop = env["SORREL_SNAPSHOT_CUSTOMIZE"] { capture(self.main.sidebar.debugCustomizeView, to: pop) }
+            if let mini = env["SORREL_SNAPSHOT_MINI"] { capture(MiniWindowController.all.first?.window?.contentView, to: mini) }
             if let sel = self.store.selected {
                 log("selected: title=\(sel.title) url=\(sel.url ?? "nil") loading=\(sel.page?.webView.isLoading ?? false)")
             }
-            if let full = env["DRIFT_SCREENCAPTURE"], let num = self.main.window?.windowNumber {
+            if let full = env["SORREL_SCREENCAPTURE"], let num = self.main.window?.windowNumber {
                 let p = Process()
                 p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
                 p.arguments = ["-x", "-o", "-l", String(num), full]

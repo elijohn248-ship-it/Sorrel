@@ -27,7 +27,7 @@ final class FaviconStore {
     }
 
     func image(for item: Item) -> NSImage? {
-        if let u = item.url, u.hasPrefix("drift://") { return symbol("sparkles", size: 14) }
+        if let u = item.url, u.hasPrefix("sorrel://") { return symbol("sparkles", size: 14) }
         return item.page?.favicon ?? image(forHost: item.host)
     }
 
@@ -45,7 +45,7 @@ final class FaviconStore {
             guard let self else { return }
             let info = result as? [String: Any]
             // Encrypted addresses only, fetched under the same browser identity as the page,
-            // so the icon request doesn't announce "Drift" or travel in the clear.
+            // so the icon request doesn't announce "Sorrel" or travel in the clear.
             let candidates = ((info?["icons"] as? [Any]) ?? []).compactMap { $0 as? String }.compactMap { URL(string: $0) }
                 .filter { $0.scheme == "https" }
             self.download(candidates[...], host: host, userAgent: info?["ua"] as? String, completion: completion)
@@ -290,7 +290,7 @@ enum Resolver {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(" ") else { return nil }
         let lower = text.lowercased()
-        for scheme in ["http://", "https://", "file://", "drift://", "about:"] where lower.hasPrefix(scheme) {
+        for scheme in ["http://", "https://", "file://", "sorrel://", "about:"] where lower.hasPrefix(scheme) {
             return URL(string: text)
         }
         if lower.hasPrefix("localhost") || lower.range(of: #"^\d{1,3}(\.\d{1,3}){3}(:\d+)?(/.*)?$"#, options: .regularExpression) != nil {

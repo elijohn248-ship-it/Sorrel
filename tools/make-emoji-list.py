@@ -7,7 +7,7 @@ Source: https://unicode.org/Public/emoji/latest/emoji-test.txt (Unicode terms of
 Output: one line per emoji, "group<TAB>emoji<TAB>name", in CLDR order.
 Keeps fully-qualified emoji only and leaves out skin-tone variants and the
 Component group, so the picker shows one face per emoji, like Apple's grid.
-Drift drops any emoji this Mac's font can't draw when it loads the list.
+Sorrel drops any emoji this Mac's font can't draw when it loads the list.
 """
 import re
 import sys

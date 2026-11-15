@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "Drift",
+    name: "Sorrel",
     platforms: [.macOS("15.4")],
     targets: [
-        .executableTarget(name: "Drift", path: "Sources/Drift")
+        .executableTarget(name: "Sorrel", path: "Sources/Sorrel")
     ]
 )

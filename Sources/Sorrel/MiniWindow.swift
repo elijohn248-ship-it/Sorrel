@@ -35,7 +35,7 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
     private init(page: Page, space: Space) {
         self.page = page
         self.targetSpace = space
-        let w = DriftWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
+        let w = SorrelWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                             backing: .buffered, defer: false)
         super.init(window: w)

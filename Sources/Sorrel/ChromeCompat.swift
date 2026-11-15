@@ -8,9 +8,9 @@ import Foundation
 /// those gaps with harmless stand-ins: events that never fire and calls that report "not available".
 /// It changes nothing that WebKit already provides.
 enum ChromeCompat {
-    static let shimName = "drift-chrome-compat.js"
-    static let backgroundName = "drift-background.js"
-    static let bridgeName = "drift-page-bridge.js"
+    static let shimName = "sorrel-chrome-compat.js"
+    static let backgroundName = "sorrel-background.js"
+    static let bridgeName = "sorrel-page-bridge.js"
 
     /// Runs inside the few websites an extension says it talks to (its own sign-in pages, typically).
     /// Chrome gives those pages `chrome.runtime` for messaging the extension; WebKit gives them the same
@@ -26,17 +26,17 @@ enum ChromeCompat {
       } catch (e) {}
     })();
     """#
-    private static let marker = "drift_compat"
-    private static let version = 10
+    private static let marker = "sorrel_compat"
+    private static let version = 11
 
     static let shim = #"""
-    // Added by Drift. Fills in Chrome features that WebKit does not have, so the extension can start.
+    // Added by Sorrel. Fills in Chrome features that WebKit does not have, so the extension can start.
     // It only ever adds things that are missing. Nothing WebKit provides is wrapped or replaced:
     // wrapping the API, even transparently, stops messages reaching the background script.
     (() => {
       const g = globalThis;
-      if (g.__driftCompat) return;
-      g.__driftCompat = true;
+      if (g.__sorrelCompat) return;
+      g.__sorrelCompat = true;
 
       // Chrome schedules low-priority work with requestIdleCallback. WebKit has no such function, and a
       // script that calls it (Proton Pass's in-page autofill does) stops dead. A short timer stands in.
@@ -52,7 +52,7 @@ enum ChromeCompat {
         addListener() {}, removeListener() {}, hasListener() { return false; }, hasListeners() { return false; },
         addRules() {}, removeRules() {}, getRules() {}
       });
-      const unavailable = (what) => () => Promise.reject(new Error(what + " is not available in Drift"));
+      const unavailable = (what) => () => Promise.reject(new Error(what + " is not available in Sorrel"));
       const add = (obj, key, make) => {
         try {
           if (obj && obj[key] === undefined) Object.defineProperty(obj, key, { value: make(), configurable: true, writable: true });
@@ -116,7 +116,7 @@ enum ChromeCompat {
           Object.defineProperty(g, name, { get: () => real, set: () => {}, configurable: false, enumerable: true });
         } catch (e) {}
       };
-      if (!g.__driftNoPin) { pin("chrome"); pin("browser"); }
+      if (!g.__sorrelNoPin) { pin("chrome"); pin("browser"); }
 
       const seen = new Set();
       for (const name of ["chrome", "browser"]) {
@@ -138,27 +138,27 @@ enum ChromeCompat {
     })();
     """#
 
-    /// Testing only (DRIFT_EXTDIAG): makes every part of the extension report its errors, warnings and
-    /// key actions back to Drift, so a silent failure can be traced.
+    /// Testing only (SORREL_EXTDIAG): makes every part of the extension report its errors, warnings and
+    /// key actions back to Sorrel, so a silent failure can be traced.
     static let reporter = #"""
     (() => {
       const g = globalThis;
-      if (g.__driftReporter) return;
-      g.__driftReporter = true;
+      if (g.__sorrelReporter) return;
+      g.__sorrelReporter = true;
       const where = (typeof ServiceWorkerGlobalScope !== "undefined" && g instanceof ServiceWorkerGlobalScope) ? "background"
                   : (g.location && g.location.protocol && g.location.protocol.indexOf("extension") >= 0 ? "page " + g.location.pathname : "content script");
       // Keep our own handle on the API: some extensions lock the global one after start-up.
       const held = g.chrome || g.browser;
-      g.__driftHeld = held;   // lets a test send its own messages even after the extension locks the API
-      // Pages and the background can report to Drift directly. Content scripts cannot, so they leave
+      g.__sorrelHeld = held;   // lets a test send its own messages even after the extension locks the API
+      // Pages and the background can report to Sorrel directly. Content scripts cannot, so they leave
       // their log on the page itself, where a test can read it.
       const nativeSend = held.runtime.sendNativeMessage ? held.runtime.sendNativeMessage.bind(held.runtime) : null;
       const kept = [];
       const send = (msg) => {
         const text = String(msg).slice(0, 500);
-        if (nativeSend) { try { nativeSend("drift-diag", { where, msg: text }).catch(() => {}); } catch (e) {} return; }
+        if (nativeSend) { try { nativeSend("sorrel-diag", { where, msg: text }).catch(() => {}); } catch (e) {} return; }
         kept.push(text);
-        try { document.documentElement.setAttribute("data-drift-extlog", JSON.stringify(kept.slice(-25))); } catch (e) {}
+        try { document.documentElement.setAttribute("data-sorrel-extlog", JSON.stringify(kept.slice(-25))); } catch (e) {}
       };
       g.addEventListener("error", (e) => send("error: " + (e.message || e.type) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno));
       g.addEventListener("unhandledrejection", (e) => send("rejection: " + String(e.reason && (e.reason.stack || e.reason.message || e.reason)).slice(0, 400)));
@@ -186,10 +186,10 @@ enum ChromeCompat {
         guard let data = try? Data(contentsOf: manifestURL),
               var manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
         let env = ProcessInfo.processInfo.environment
-        let diagnosing = env["DRIFT_EXTDIAG"] != nil
-        var shim = (diagnosing && env["DRIFT_COMPAT_NOREPORTER"] == nil) ? self.shim + "\n" + reporter : self.shim
-        if env["DRIFT_COMPAT_OFF"] != nil { shim = "// compatibility layer switched off for a test\n" }
-        if env["DRIFT_COMPAT_NOPIN"] != nil { shim = "globalThis.__driftNoPin = true;\n" + shim }
+        let diagnosing = env["SORREL_EXTDIAG"] != nil
+        var shim = (diagnosing && env["SORREL_COMPAT_NOREPORTER"] == nil) ? self.shim + "\n" + reporter : self.shim
+        if env["SORREL_COMPAT_OFF"] != nil { shim = "// compatibility layer switched off for a test\n" }
+        if env["SORREL_COMPAT_NOPIN"] != nil { shim = "globalThis.__sorrelNoPin = true;\n" + shim }
         if (manifest[marker] as? Int) == version {
             // Already done; keep the script itself current.
             try? shim.write(to: dir.appendingPathComponent(shimName), atomically: true, encoding: .utf8)
@@ -200,7 +200,7 @@ enum ChromeCompat {
         // Background: run the compatibility script before the extension's own background script.
         if var background = manifest["background"] as? [String: Any] {
             if let worker = background["service_worker"] as? String, worker != backgroundName {
-                let original = (manifest["drift_original_worker"] as? String) ?? worker
+                let original = (manifest["sorrel_original_worker"] as? String) ?? worker
                 let isModule = (background["type"] as? String) == "module"
                 let path = original.hasPrefix("/") ? original : "/" + original
                 let loader = isModule
@@ -208,7 +208,7 @@ enum ChromeCompat {
                     : "importScripts(\"/\(shimName)\", \"\(path)\");\n"
                 try? loader.write(to: dir.appendingPathComponent(backgroundName), atomically: true, encoding: .utf8)
                 background["service_worker"] = backgroundName
-                manifest["drift_original_worker"] = original
+                manifest["sorrel_original_worker"] = original
             } else if var scripts = background["scripts"] as? [String], !scripts.contains(shimName), !scripts.contains("/" + shimName) {
                 scripts.insert(shimName, at: 0)
                 background["scripts"] = scripts
@@ -269,7 +269,7 @@ enum ChromeCompat {
         for group in (manifest["web_accessible_resources"] as? [[String: Any]]) ?? [] {
             for file in (group["resources"] as? [String]) ?? [] where file.hasSuffix(".js") && !file.contains("*") { pageScripts.insert(file) }
         }
-        let idleMarker = "/*drift-idle*/"
+        let idleMarker = "/*sorrel-idle*/"
         for file in pageScripts {
             let url = dir.appendingPathComponent(file.hasPrefix("/") ? String(file.dropFirst()) : file)
             guard var code = try? String(contentsOf: url, encoding: .utf8), !code.hasPrefix(idleMarker),

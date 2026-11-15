@@ -11,7 +11,7 @@ swift build -c release
 APP="build/Sorrel.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/Drift "$APP/Contents/MacOS/Sorrel"   # SwiftPM target is still named Drift
+cp .build/release/Sorrel "$APP/Contents/MacOS/Sorrel"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/welcome.html Resources/bangs.json Resources/emoji.tsv "$APP/Contents/Resources/"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/"
@@ -23,9 +23,9 @@ if [ -f vendor/ubol/ext/manifest.json ]; then
 fi
 
 # Ad-hoc signature: enough to run on this Mac, no Apple developer account needed.
-# The hardened runtime stops other programs injecting code into Drift; the entitlements
+# The hardened runtime stops other programs injecting code into Sorrel; the entitlements
 # let websites ask for the camera and microphone under it.
-codesign --force --options runtime --entitlements Resources/Drift.entitlements --sign - "$APP" >/dev/null
+codesign --force --options runtime --entitlements Resources/Sorrel.entitlements --sign - "$APP" >/dev/null
 
 echo "Built $APP"
 
@@ -34,7 +34,7 @@ case "${1:-}" in
     open "$APP"
     ;;
   install)
-    rm -rf /Applications/Sorrel.app /Applications/Drift.app
+    rm -rf /Applications/Sorrel.app /Applications/Sorrel.app
     cp -R "$APP" /Applications/Sorrel.app
     echo "Installed to /Applications/Sorrel.app"
     ;;

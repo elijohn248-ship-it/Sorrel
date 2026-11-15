@@ -1,6 +1,6 @@
 import AppKit
 
-private let itemDragType = NSPasteboard.PasteboardType("app.drift.item")
+private let itemDragType = NSPasteboard.PasteboardType("app.sorrel.item")
 
 /// A menu item that runs a closure.
 final class ActionMenuItem: NSMenuItem {
@@ -762,12 +762,12 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         super.init(frame: frame)
         build()
         let nc = NotificationCenter.default
-        nc.addObserver(self, selector: #selector(structureChanged), name: .driftStructure, object: nil)
-        nc.addObserver(self, selector: #selector(selectionChanged), name: .driftSelection, object: nil)
-        nc.addObserver(self, selector: #selector(itemChanged(_:)), name: .driftItem, object: nil)
-        nc.addObserver(self, selector: #selector(spaceChanged), name: .driftSpace, object: nil)
-        nc.addObserver(self, selector: #selector(downloadsChanged), name: .driftDownloads, object: nil)
-        nc.addObserver(self, selector: #selector(extensionsChanged), name: .driftExtensions, object: nil)
+        nc.addObserver(self, selector: #selector(structureChanged), name: .sorrelStructure, object: nil)
+        nc.addObserver(self, selector: #selector(selectionChanged), name: .sorrelSelection, object: nil)
+        nc.addObserver(self, selector: #selector(itemChanged(_:)), name: .sorrelItem, object: nil)
+        nc.addObserver(self, selector: #selector(spaceChanged), name: .sorrelSpace, object: nil)
+        nc.addObserver(self, selector: #selector(downloadsChanged), name: .sorrelDownloads, object: nil)
+        nc.addObserver(self, selector: #selector(extensionsChanged), name: .sorrelExtensions, object: nil)
         reloadAll(animated: false)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -1032,7 +1032,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         backButton.isEnabled = wv?.canGoBack ?? false
         forwardButton.isEnabled = wv?.canGoForward ?? false
         reloadButton.isEnabled = item != nil
-        if let u = item?.url, u.hasPrefix("drift://") {
+        if let u = item?.url, u.hasPrefix("sorrel://") {
             pill.set("Sorrel", canCopy: false)
         } else {
             pill.set(item?.host?.replacingOccurrences(of: "www.", with: "") ?? item?.url,

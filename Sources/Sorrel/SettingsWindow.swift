@@ -56,9 +56,9 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         w.center()
         build()
         NotificationCenter.default.addObserver(self, selector: #selector(refreshStatus),
-                                               name: .driftBlockerStatus, object: nil)
+                                               name: .sorrelBlockerStatus, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reloadExtensions),
-                                               name: .driftExtensions, object: nil)
+                                               name: .sorrelExtensions, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(reloadExtensions),
                                                name: WKWebExtensionContext.errorsDidUpdateNotification, object: nil)
     }

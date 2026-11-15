@@ -133,15 +133,15 @@ struct AppState: Codable {
 
 extension Notification.Name {
     /// Tabs, folders or favorites were added, removed or moved.
-    static let driftStructure = Notification.Name("driftStructure")
+    static let sorrelStructure = Notification.Name("sorrelStructure")
     /// The selected tab changed.
-    static let driftSelection = Notification.Name("driftSelection")
+    static let sorrelSelection = Notification.Name("sorrelSelection")
     /// One item's title, icon or loading state changed. `object` is the Item.
-    static let driftItem = Notification.Name("driftItem")
+    static let sorrelItem = Notification.Name("sorrelItem")
     /// The current space changed, or spaces were added, removed or renamed.
-    static let driftSpace = Notification.Name("driftSpace")
+    static let sorrelSpace = Notification.Name("sorrelSpace")
     /// A space's theme changed.
-    static let driftTheme = Notification.Name("driftTheme")
+    static let sorrelTheme = Notification.Name("sorrelTheme")
 }
 
 // MARK: - Store
@@ -185,7 +185,7 @@ final class Store {
     private static func seed() -> AppState {
         let personal = Space(name: "Personal", icon: "🏠", theme: Theme.presets[0])
         let school = Space(name: "School", icon: "🩺", theme: Theme.presets[1])
-        let welcome = Item(url: "drift://welcome", title: "Welcome to Sorrel")
+        let welcome = Item(url: "sorrel://welcome", title: "Welcome to Sorrel")
         personal.today = [welcome]
         personal.selectedID = welcome.id
 
@@ -299,7 +299,7 @@ final class Store {
     }
 
     func itemChanged(_ item: Item) {
-        post(.driftItem, item)
+        post(.sorrelItem, item)
         scheduleSave()
     }
 
@@ -356,8 +356,8 @@ final class Store {
             if !folder.expanded { folder.expanded = true; opened = true }
             p = folder.parent
         }
-        if opened { post(.driftStructure) }
-        post(.driftSelection)
+        if opened { post(.sorrelStructure) }
+        post(.sorrelSelection)
         scheduleSave()
     }
 
@@ -386,7 +386,7 @@ final class Store {
         } else {
             sp.today.insert(item, at: 0)
         }
-        post(.driftStructure)
+        post(.sorrelStructure)
         Extensions.shared.tabOpened(item)
         if shouldSelect { select(item) }
         scheduleSave()
@@ -413,7 +413,7 @@ final class Store {
             item.page?.teardown()
             item.page = nil
             if let p = item.pinnedURL { item.url = p }
-            post(.driftItem, item)
+            post(.sorrelItem, item)
             if wasSelected {
                 // In a pinned split view, focus moves to a pane that is still open.
                 let sibling = split(containing: item)?.children.first { $0 !== item && $0.page != nil }
@@ -428,7 +428,7 @@ final class Store {
             Extensions.shared.tabClosed(item)
             item.page?.teardown()
             item.page = nil
-            post(.driftStructure)
+            post(.sorrelStructure)
             if wasSelected {
                 let neighbor = idx < sp.today.count ? sp.today[idx] : sp.today.last
                 select(neighbor ?? mostRecentLoaded(excluding: item))
@@ -462,8 +462,8 @@ final class Store {
         item.page?.teardown()
         item.page = nil
         rebuildParents()
-        post(.driftStructure)
-        if wasSelected { select(sibling ?? mostRecentLoaded(excluding: item)) } else { post(.driftSelection) }
+        post(.sorrelStructure)
+        if wasSelected { select(sibling ?? mostRecentLoaded(excluding: item)) } else { post(.sorrelSelection) }
         scheduleSave()
     }
 
@@ -485,8 +485,8 @@ final class Store {
             t.page = nil
         }
         rebuildParents()
-        post(.driftStructure)
-        if wasSelected { select(mostRecentLoaded(excluding: sv)) } else { post(.driftSelection) }
+        post(.sorrelStructure)
+        if wasSelected { select(mostRecentLoaded(excluding: sv)) } else { post(.sorrelSelection) }
         scheduleSave()
     }
 
@@ -535,7 +535,7 @@ final class Store {
             item.savedState = wv.interactionState
             page.teardown()
             item.page = nil
-            post(.driftItem, item)
+            post(.sorrelItem, item)
             count += 1
         }
         return count
@@ -577,7 +577,7 @@ final class Store {
         guard count > 0 else { return 0 }
         if archive.count > 500 { archive = Array(archive.prefix(500)) }
         saveArchive()
-        post(.driftStructure)
+        post(.sorrelStructure)
         scheduleSave()
         return count
     }
@@ -659,7 +659,7 @@ final class Store {
             }
         }
         rebuildParents()
-        post(.driftStructure)
+        post(.sorrelStructure)
         scheduleSave()
     }
 
@@ -690,7 +690,7 @@ final class Store {
         let wasPinned = isPinned(item)
         if source.selectedID == item.id || item.children.contains(where: { $0.id == source.selectedID }) {
             source.selectedID = nil
-            if source === currentSpace { post(.driftSelection) }
+            if source === currentSpace { post(.sorrelSelection) }
         }
         if wasPinned { move(item, to: .pinned(target, nil)) } else { move(item, to: .today(target), index: 0) }
     }
@@ -760,8 +760,8 @@ final class Store {
             if pinned { if t.pinnedURL == nil { t.pinnedURL = t.url } } else { t.pinnedURL = nil }
         }
         rebuildParents()
-        post(.driftStructure)
-        if let focus { select(focus) } else { post(.driftSelection) }
+        post(.sorrelStructure)
+        if let focus { select(focus) } else { post(.sorrelSelection) }
         scheduleSave()
     }
 
@@ -795,9 +795,9 @@ final class Store {
         case .favorites, .pinned: if item.pinnedURL == nil { item.pinnedURL = item.url }
         }
         rebuildParents()
-        post(.driftStructure)
+        post(.sorrelStructure)
         // Focus stays with the tabs that are still side by side.
-        if wasSelected { select(sibling) } else { post(.driftSelection) }
+        if wasSelected { select(sibling) } else { post(.sorrelSelection) }
         scheduleSave()
     }
 
@@ -814,8 +814,8 @@ final class Store {
         Extensions.shared.tabClosed(item)
         item.page?.teardown()
         item.page = nil
-        post(.driftStructure)
-        if wasSelected { select(sibling) } else { post(.driftSelection) }
+        post(.sorrelStructure)
+        if wasSelected { select(sibling) } else { post(.sorrelSelection) }
         scheduleSave()
     }
 
@@ -827,15 +827,15 @@ final class Store {
         remove(at: loc, index: idx)
         for (offset, kid) in kids.enumerated() { insert(kid, at: loc, index: idx + offset) }
         rebuildParents()
-        post(.driftStructure)
-        post(.driftSelection)
+        post(.sorrelStructure)
+        post(.sorrelSelection)
         scheduleSave()
     }
 
     func setSplitStacked(_ sv: Item, _ stacked: Bool) {
         guard sv.isSplit else { return }
         sv.split?.stacked = stacked
-        post(.driftSelection)
+        post(.sorrelSelection)
         scheduleSave()
     }
 
@@ -852,8 +852,8 @@ final class Store {
         if let f = sv.split?.fractions, f.count == sv.children.count {
             sv.split?.fractions = Array(f.dropFirst()) + [f[0]]
         }
-        post(.driftStructure)
-        post(.driftSelection)
+        post(.sorrelStructure)
+        post(.sorrelSelection)
         scheduleSave()
     }
 
@@ -873,7 +873,7 @@ final class Store {
         let folder = Item.folder(named: name)
         if let parent { parent.children.append(folder); parent.expanded = true } else { sp.pinned.append(folder) }
         rebuildParents()
-        post(.driftStructure)
+        post(.sorrelStructure)
         scheduleSave()
         return folder
     }
@@ -886,7 +886,7 @@ final class Store {
         remove(at: loc, index: idx)
         for (offset, kid) in kids.enumerated() { insert(kid, at: loc, index: idx + offset) }
         rebuildParents()
-        post(.driftStructure)
+        post(.sorrelStructure)
         scheduleSave()
     }
 
@@ -902,13 +902,13 @@ final class Store {
         let newIdx = state.spaces.firstIndex { $0 === space } ?? 0
         lastSwitchDirection = newIdx >= oldIdx ? 1 : -1
         state.currentSpaceID = space.id
-        post(.driftSpace)
+        post(.sorrelSpace)
     }
 
     func switchSpace(to space: Space) {
         guard space.id != state.currentSpaceID else { return }
         setCurrentSpace(space)
-        post(.driftSelection)
+        post(.sorrelSelection)
         scheduleSave()
     }
 
@@ -938,10 +938,10 @@ final class Store {
         state.spaces.remove(at: idx)
         if wasCurrent {
             state.currentSpaceID = state.spaces[max(0, idx - 1)].id
-            post(.driftSpace)
-            post(.driftSelection)
+            post(.sorrelSpace)
+            post(.sorrelSelection)
         } else {
-            post(.driftSpace)
+            post(.sorrelSpace)
         }
         scheduleSave()
     }
@@ -949,13 +949,13 @@ final class Store {
     func updateSpace(_ space: Space, name: String? = nil, icon: String? = nil) {
         if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { space.name = name }
         if let icon, !icon.isEmpty { space.icon = icon }
-        post(.driftSpace)
+        post(.sorrelSpace)
         scheduleSave()
     }
 
     func setTheme(_ theme: Theme, for space: Space) {
         space.theme = theme
-        post(.driftTheme)
+        post(.sorrelTheme)
         scheduleSave()
     }
 
@@ -967,8 +967,8 @@ final class Store {
             t.page?.teardown()
             t.page = nil
         }
-        post(.driftSpace)
-        post(.driftSelection)
+        post(.sorrelSpace)
+        post(.sorrelSelection)
         scheduleSave()
     }
 }

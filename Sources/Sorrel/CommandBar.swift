@@ -294,12 +294,12 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         isHidden = false
         layoutSubtreeIfNeeded()
         apply(anchor == nil ? .centered : .anchored, anchor: anchor)
-        if mode == .editCurrent, let u = Store.shared.selected?.url, !u.hasPrefix("drift://") {
+        if mode == .editCurrent, let u = Store.shared.selected?.url, !u.hasPrefix("sorrel://") {
             field.stringValue = u
         } else {
             field.stringValue = ""
         }
-        (window as? DriftWindow)?.focusHolder = field
+        (window as? SorrelWindow)?.focusHolder = field
         takeFocus()
         if mode == .newSplit { field.placeholderString = "Open beside this tab: search, address, or a tab" }
         refresh(animateResize: false)
@@ -332,7 +332,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     func dismiss() {
         guard !isHidden else { return }
         isHidden = true
-        (window as? DriftWindow)?.focusHolder = nil
+        (window as? SorrelWindow)?.focusHolder = nil
         if let wv = controller?.currentWebView {
             window?.makeFirstResponder(wv)
         } else {

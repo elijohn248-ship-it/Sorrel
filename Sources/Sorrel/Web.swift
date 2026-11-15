@@ -1,10 +1,10 @@
 import AppKit
 import WebKit
 
-final class DriftWebView: WKWebView {
+final class SorrelWebView: WKWebView {
     weak var page: Page?
 
-    /// Drift has tabs, not extra windows, so the page menu should say so.
+    /// Sorrel has tabs, not extra windows, so the page menu should say so.
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         let renames = [
             "WKMenuItemIdentifierOpenLinkInNewWindow": "Open Link in New Tab",
@@ -31,13 +31,13 @@ final class DownloadRecord {
 }
 
 extension Notification.Name {
-    static let driftDownloads = Notification.Name("driftDownloads")
+    static let sorrelDownloads = Notification.Name("sorrelDownloads")
 }
 
 // MARK: - Page (one live web view)
 
 final class Page: NSObject {
-    let webView: DriftWebView
+    let webView: SorrelWebView
     let profileID: UUID?
     /// Private pages keep nothing: no history, no saved cookies, no icon cache.
     var isPrivate = false
@@ -47,7 +47,7 @@ final class Page: NSObject {
     var favicon: NSImage?
     private var observations: [NSKeyValueObservation] = []
 
-    init(webView: DriftWebView, profileID: UUID?) {
+    init(webView: SorrelWebView, profileID: UUID?) {
         self.webView = webView
         self.profileID = profileID
         super.init()
@@ -61,11 +61,11 @@ final class Page: NSObject {
         ]
     }
 
-    /// The address to show and save. Bundled pages keep their drift:// name.
+    /// The address to show and save. Bundled pages keep their sorrel:// name.
     var displayURL: String? {
         guard let u = webView.url else { return nil }
         if u.isFileURL, let res = Bundle.main.resourceURL, u.path.hasPrefix(res.path) {
-            return "drift://" + u.deletingPathExtension().lastPathComponent
+            return "sorrel://" + u.deletingPathExtension().lastPathComponent
         }
         if u.absoluteString == "about:blank" { return nil }
         return u.absoluteString
@@ -117,7 +117,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     func clearFinishedDownloads() {
         downloads.removeAll { $0.state != .running }
-        NotificationCenter.default.post(name: .driftDownloads, object: nil)
+        NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
     }
 
     private func record(for download: WKDownload) -> DownloadRecord? { downloads.first { $0.download === download } }
@@ -130,9 +130,9 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     private var upgrades: [ObjectIdentifier: URL] = [:]
     /// Web view -> the http:// address offered by the "not secure" warning showing in it.
     private var insecureOffers: [ObjectIdentifier: URL] = [:]
-    /// Sites the person chose to open without encryption, until Drift quits.
+    /// Sites the person chose to open without encryption, until Sorrel quits.
     private var insecureAllowed: Set<String> = []
-    /// Site + scheme pairs the person let open another app, until Drift quits.
+    /// Site + scheme pairs the person let open another app, until Sorrel quits.
     private var externalGrants: Set<String> = []
     private var externalPromptOpen = false
     /// Opened from a page without asking, but only when the person clicked the link.
@@ -147,12 +147,22 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     // MARK: Creating pages
 
+    /// Test runs keep cookies and site data in memory. WebKit files persistent data by app, not by
+    /// profile folder, so a persistent store in a test would be the owner's real one.
+    private static let testStore = WKWebsiteDataStore.nonPersistent()
+
+    /// Where a space's cookies and site data live: its own store if it keeps separate logins, else the shared one.
+    static func store(for profileID: UUID?) -> WKWebsiteDataStore {
+        if isTestProfile { return testStore }
+        return profileID.map { WKWebsiteDataStore(forIdentifier: $0) } ?? .default()
+    }
+
     func makeConfiguration(profileID: UUID?, isPrivate: Bool = false) -> WKWebViewConfiguration {
         let c = WKWebViewConfiguration()
         if isPrivate {
             c.websiteDataStore = .nonPersistent()
         } else {
-            c.websiteDataStore = profileID.map { WKWebsiteDataStore(forIdentifier: $0) } ?? .default()
+            c.websiteDataStore = Self.store(for: profileID)
             // Extensions run on ordinary pages. Private windows stay out of their reach.
             c.webExtensionController = Extensions.shared.controller
         }
@@ -169,7 +179,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     func makePage(profileID: UUID?, configuration: WKWebViewConfiguration? = nil, isPrivate: Bool = false) -> Page {
         let cfg = configuration ?? makeConfiguration(profileID: profileID, isPrivate: isPrivate)
-        let wv = DriftWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), configuration: cfg)
+        let wv = SorrelWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), configuration: cfg)
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsBackForwardNavigationGestures = true
@@ -185,13 +195,13 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let space = Store.shared.space(containing: item)
         // An extension's own pages (its settings, for instance) need the extension's configuration.
         let extensionConfig = item.url.flatMap { URL(string: $0) }.flatMap { Extensions.shared.configuration(forExtensionURL: $0) }
-        if let extensionConfig, ProcessInfo.processInfo.environment["DRIFT_EXTDIAG"] != nil {
+        if let extensionConfig, ProcessInfo.processInfo.environment["SORREL_EXTDIAG"] != nil {
             // Testing: record what goes wrong inside an extension's own page.
             let recorder = """
-            window.__driftErrors = [];
-            window.addEventListener('error', function (e) { __driftErrors.push('error: ' + (e.message || e.type) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno); }, true);
-            window.addEventListener('unhandledrejection', function (e) { __driftErrors.push('rejection: ' + String(e.reason && (e.reason.message || e.reason))); });
-            ['error', 'warn'].forEach(function (k) { var o = console[k]; console[k] = function () { try { __driftErrors.push(k + ': ' + Array.prototype.map.call(arguments, function (a) { return (a && a.message) || String(a); }).join(' ').slice(0, 300)); } catch (x) {} return o.apply(console, arguments); }; });
+            window.__sorrelErrors = [];
+            window.addEventListener('error', function (e) { __sorrelErrors.push('error: ' + (e.message || e.type) + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno); }, true);
+            window.addEventListener('unhandledrejection', function (e) { __sorrelErrors.push('rejection: ' + String(e.reason && (e.reason.message || e.reason))); });
+            ['error', 'warn'].forEach(function (k) { var o = console[k]; console[k] = function () { try { __sorrelErrors.push(k + ': ' + Array.prototype.map.call(arguments, function (a) { return (a && a.message) || String(a); }).join(' ').slice(0, 300)); } catch (x) {} return o.apply(console, arguments); }; });
             """
             extensionConfig.userContentController.addUserScript(
                 WKUserScript(source: recorder, injectionTime: .atDocumentStart, forMainFrameOnly: false))
@@ -211,8 +221,10 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     }
 
     func load(_ urlString: String, in page: Page) {
-        if urlString.hasPrefix("drift://") {
-            let name = String(urlString.dropFirst("drift://".count))
+        // Tabs saved before the rename still say drift://.
+        let urlString = urlString.hasPrefix("drift://") ? "sorrel://" + urlString.dropFirst("drift://".count) : urlString
+        if urlString.hasPrefix("sorrel://") {
+            let name = String(urlString.dropFirst("sorrel://".count))
             if let file = Bundle.main.url(forResource: name, withExtension: "html") {
                 page.webView.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
             }
@@ -222,7 +234,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         page.webView.load(URLRequest(url: url))
     }
 
-    private func page(_ webView: WKWebView) -> Page? { (webView as? DriftWebView)?.page }
+    private func page(_ webView: WKWebView) -> Page? { (webView as? SorrelWebView)?.page }
 
     /// A clicked link gets a preview when it leads to a different site than the tab it is in,
     /// or when it is shift-clicked. Only real link clicks count: typed addresses, redirects,
@@ -253,13 +265,13 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let id = ObjectIdentifier(webView)
 
         if isMain, let ownPage = internalLoads[id], ownPage == url {
-            // Drift's own error or warning page, shown under the failed site's address.
+            // Sorrel's own error or warning page, shown under the failed site's address.
             internalLoads[id] = nil
             decisionHandler(.allow)
             return
         }
         if scheme == Self.insecureContinueScheme {
-            // "Continue to site" on Drift's own not-secure warning. Honoured only while that warning is showing.
+            // "Continue to site" on Sorrel's own not-secure warning. Honoured only while that warning is showing.
             decisionHandler(.cancel)
             if isMain, let target = insecureOffers.removeValue(forKey: id), let host = target.host?.lowercased() {
                 insecureAllowed.insert(host)
@@ -286,7 +298,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         }
         if isMain, scheme.hasPrefix("http") {
             Blocker.shared.willNavigate(toHost: url.host, controller: webView.configuration.userContentController)
-            // A Chrome extension's own website expects Chrome. Everywhere else Drift stays Safari.
+            // A Chrome extension's own website expects Chrome. Everywhere else Sorrel stays Safari.
             let wantsChrome = Extensions.shared.isChromeCompanionSite(url)
             let isChrome = webView.customUserAgent == Self.chromeUserAgent
             if wantsChrome != isChrome {
@@ -433,7 +445,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         if e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled { return }
         if e.domain == "WebKitErrorDomain" && (e.code == 102 || e.code == 204) { return }
         let failing = (e.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? webView.url
-        // A plain http:// address Drift tried over https:// first, and the secure version failed.
+        // A plain http:// address Sorrel tried over https:// first, and the secure version failed.
         let id = ObjectIdentifier(webView)
         if let tried = upgrades[id], failing?.scheme == "https", failing?.host?.lowercased() == tried.host?.lowercased() {
             upgrades[id] = nil
@@ -467,7 +479,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     // MARK: HTTPS-first
 
-    static let insecureContinueScheme = "drift-insecure"
+    static let insecureContinueScheme = "sorrel-insecure"
 
     /// Ordinary websites only. Local names, IP addresses and unusual ports (routers, printers,
     /// development servers) are left on http://, as other browsers do.
@@ -480,7 +492,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         return true
     }
 
-    /// Drift's own pages shown in place of a site (errors, warnings). Their load is let through untouched.
+    /// Sorrel's own pages shown in place of a site (errors, warnings). Their load is let through untouched.
     private var internalLoads: [ObjectIdentifier: URL] = [:]
 
     private func loadInternalPage(_ html: String, baseURL: URL?, in webView: WKWebView) {
@@ -530,7 +542,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     private(set) var lastExternalPrompt: String?
 
     /// A page wants to open another app (zoommtg:, vscode:, …). Clicked mail and phone links just go;
-    /// everything else asks, once per site and app until Drift quits.
+    /// everything else asks, once per site and app until Sorrel quits.
     private func openInOtherApp(_ url: URL, from webView: WKWebView, clicked: Bool) {
         let scheme = (url.scheme ?? "").lowercased()
         guard let app = NSWorkspace.shared.urlForApplication(toOpen: url) else {
@@ -679,7 +691,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
         var dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-        if let override = ProcessInfo.processInfo.environment["DRIFT_DOWNLOADS"] {   // testing: never write to the real folder
+        if let override = ProcessInfo.processInfo.environment["SORREL_DOWNLOADS"] {   // testing: never write to the real folder
             dir = URL(fileURLWithPath: override, isDirectory: true)
         }
         let clean = suggestedFilename.replacingOccurrences(of: "/", with: "_")
@@ -701,12 +713,12 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             DispatchQueue.main.async {
                 guard let record, abs(value - record.fraction) >= 0.02 || value >= 1 else { return }
                 record.fraction = value
-                NotificationCenter.default.post(name: .driftDownloads, object: nil)
+                NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
             }
         }
         downloads.insert(record, at: 0)
         if downloads.count > 40 { downloads.removeLast() }
-        NotificationCenter.default.post(name: .driftDownloads, object: nil)
+        NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
         onToast?("Downloading \(dest.lastPathComponent)…")
         completionHandler(dest)
     }
@@ -717,7 +729,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         if let r = record(for: download) {
             r.state = .done
             r.observation = nil
-            NotificationCenter.default.post(name: .driftDownloads, object: nil)
+            NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
         }
         onToast?("Downloaded \(dest.lastPathComponent)")
         DistributedNotificationCenter.default().post(
@@ -754,7 +766,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         if let r = record(for: download) {
             r.state = .failed
             r.observation = nil
-            NotificationCenter.default.post(name: .driftDownloads, object: nil)
+            NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
         }
         onToast?("Download failed: \(dest?.lastPathComponent ?? error.localizedDescription)")
     }
