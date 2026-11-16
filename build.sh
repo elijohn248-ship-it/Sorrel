@@ -8,6 +8,21 @@ cd "$(dirname "$0")"
 
 swift build -c release
 
+# Code signature. With the self-signed identity from tools/make-signing-identity.sh (kept in ~/.config/sorrel,
+# outside git), every build is the same app to macOS, so what the person allowed (Downloads folder, camera,
+# microphone, location) stays allowed after a rebuild or update. Without it the signature is ad-hoc: it runs,
+# but each new build is a stranger to macOS and asks again. See CLAUDE.md, Build and run.
+SIGN_KC="${SORREL_SIGNING_DIR:-$HOME/.config/sorrel}/signing.keychain-db"
+SIGN=(--sign -)
+if [ -f "$SIGN_KC" ]; then
+  security unlock-keychain -p "" "$SIGN_KC"
+  SIGN_ID=$(security find-identity -p codesigning "$SIGN_KC" | awk '$1 == "1)" { print $2; exit }')
+  if [ -n "$SIGN_ID" ]; then SIGN=(--keychain "$SIGN_KC" --sign "$SIGN_ID"); fi
+fi
+if [ "${SIGN[1]}" = "-" ]; then
+  echo "Signing ad-hoc: macOS will ask for permissions again after every rebuild (tools/make-signing-identity.sh fixes that)."
+fi
+
 # Two apps from one build:
 #   build/Sorrel.app      the owner's browser (bundle id app.sorrel.browser)
 #   build/SorrelTest.app  for test runs only: bundle id app.sorrel.browser.test, so it gets its own sandbox
@@ -35,12 +50,12 @@ make_app() {   # $1 = app path, $2 = Info.plist, $3 = entitlements, $4 = updater
   mkdir -p "$XPC/Contents/MacOS"
   cp .build/release/SorrelUpdater "$XPC/Contents/MacOS/SorrelUpdater"
   cp "$4" "$XPC/Contents/Info.plist"
-  codesign --force --options runtime --sign - "$XPC" >/dev/null
+  codesign --force --options runtime "${SIGN[@]}" "$XPC" >/dev/null
 
-  # Ad-hoc signature: enough to run on this Mac, no Apple developer account needed.
+  # Self-signed or ad-hoc (see SIGN above): enough to run on this Mac, no Apple developer account needed.
   # The hardened runtime stops other programs injecting code into Sorrel; the entitlements switch on the
   # App Sandbox and list the few things outside it Sorrel may use (see CLAUDE.md, Sandbox).
-  codesign --force --options runtime --entitlements "$3" --sign - "$APP" >/dev/null
+  codesign --force --options runtime --entitlements "$3" "${SIGN[@]}" "$APP" >/dev/null
 }
 
 # The test build's Info.plist and entitlements are derived from the real ones.
