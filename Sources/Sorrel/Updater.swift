@@ -331,7 +331,7 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
     }
 
     /// Hands the verified archive to SorrelUpdater.xpc. The completion runs on the main thread.
-    private func install(relaunch: Bool, completion: @escaping (String?) -> Void) {
+    private func install(relaunch: Bool, logOverride: String? = nil, completion: @escaping (String?) -> Void) {
         guard case .ready(let m, let zip) = state else { completion("No update is ready"); return }
         guard let id = Bundle.main.bundleIdentifier else { completion("Sorrel has no bundle id"); return }
         installing = true
@@ -354,9 +354,8 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
         guard let proxy = connection.remoteObjectProxyWithErrorHandler({ error in
             finish("Couldn't reach the updater: \(error.localizedDescription)")
         }) as? SorrelUpdaterXPC else { finish("The updater is unavailable"); return }
-        let app = Bundle.main.bundleURL.path
         try? "\(m.build)\n".write(to: marker, atomically: true, encoding: .utf8)
-        proxy.install(zip: zip.path, signature: m.signature, app: app, pid: getpid(), relaunch: relaunch, log: logFile.path) { error in
+        proxy.install(zip: zip.path, signature: m.signature, pid: getpid(), relaunch: relaunch, log: logOverride ?? logFile.path) { error in
             if error != nil { try? FileManager.default.removeItem(at: self.marker) }
             finish(error)
         }
@@ -369,6 +368,16 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
         func log(_ s: String) { FileHandle.standardError.write("updater: \(s)\n".data(using: .utf8)!) }
         log("running version=\(current?.version ?? "?") build=\(current?.build ?? 0) app=\(Bundle.main.bundleURL.path) translocated=\(isTranslocated)")
         if mode == "version" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }; return }
+        // The update.log inside this app's own container: where the real app's log lives (tests otherwise log under
+        // /private/tmp), so swapzip uses it to show the service accepts that location.
+        let containerLog = Sandbox.realHome.appendingPathComponent(
+            "Library/Containers/\(Bundle.main.bundleIdentifier ?? "")/Data/Library/Application Support/\(Paths.profileName)/Updates/update.log")
+        if mode == "containerlog" {
+            let text = (try? String(contentsOf: containerLog, encoding: .utf8)) ?? "(no log at \(containerLog.path))"
+            for line in text.split(separator: "\n") { log("containerlog: \(line)") }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+            return
+        }
         allowInstallOnQuit = mode == "quit"
         var finished = false
         NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { [weak self] _ in
@@ -387,6 +396,50 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                         log("install: \(error ?? "handed to the updater")")
                         NSApp.terminate(nil)
                     }
+                case "swapzip":
+                    // The service must install the bytes it checked, not whatever the zip holds by the time it unpacks.
+                    try? FileManager.default.createDirectory(at: containerLog.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try? FileManager.default.removeItem(at: containerLog)
+                    self.install(relaunch: false, logOverride: containerLog.path) { error in
+                        log("install: \(error ?? "handed to the updater")")
+                        if case .ready(_, let zip) = self.state {
+                            let junk = (try? Data(contentsOf: zip)).map { Data($0.reversed()) } ?? Data("junk".utf8)
+                            log("swapzip: replaced the zip after handoff: \((try? junk.write(to: zip)) != nil)")
+                            // The service's own copy must be out of the sandbox's reach.
+                            let fm = FileManager.default
+                            let priv = Sandbox.realHome.appendingPathComponent("Library/Caches/\(Bundle.main.bundleIdentifier ?? "")\(UpdaterService.suffix)")
+                            let copies = ((try? fm.contentsOfDirectory(at: priv, includingPropertiesForKeys: nil)) ?? [])
+                                .map { $0.appendingPathComponent("Sorrel.zip") }
+                            let tampered = copies.contains { (try? junk.write(to: $0)) != nil }
+                            log("swapzip: private copies visible=\(copies.count) tampered=\(tampered)")
+                        }
+                        NSApp.terminate(nil)
+                    }
+                case "badlog":
+                    // The service writes only to the app's own update.log: every one of these must be refused.
+                    let scratch = "/private/tmp/sorrel-badlog-\(getpid())"
+                    try? FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
+                    try? "victim\n".write(toFile: scratch + "/victim.txt", atomically: true, encoding: .utf8)
+                    try? FileManager.default.createDirectory(atPath: scratch + "/sym", withIntermediateDirectories: true)
+                    try? FileManager.default.createSymbolicLink(atPath: scratch + "/sym/update.log", withDestinationPath: scratch + "/victim.txt")
+                    try? FileManager.default.createSymbolicLink(atPath: scratch + "/outside", withDestinationPath: Sandbox.realHome.appendingPathComponent("Library/Caches").path)
+                    let cases = [("wrong name", scratch + "/victim.txt"),
+                                 ("symlinked file", scratch + "/sym/update.log"),
+                                 ("symlinked folder", scratch + "/outside/update.log"),
+                                 ("outside the allowed folders", Sandbox.realHome.appendingPathComponent("update.log").path)]
+                    func next(_ i: Int) {
+                        guard i < cases.count else {
+                            let victim = (try? String(contentsOfFile: scratch + "/victim.txt", encoding: .utf8)) ?? "?"
+                            log("badlog: victim file untouched=\(victim == "victim\n") createdOutside=\(["Library/Caches/update.log", "update.log"].contains { FileManager.default.fileExists(atPath: Sandbox.realHome.appendingPathComponent($0).path) })")
+                            NSApp.terminate(nil)
+                            return
+                        }
+                        self.install(relaunch: false, logOverride: cases[i].1) { error in
+                            log("badlog: \(cases[i].0): \(error.map { "refused (\($0))" } ?? "ACCEPTED")")
+                            next(i + 1)
+                        }
+                    }
+                    next(0)
                 default:
                     NSApp.terminate(nil)   // "check" quits without installing; "quit" installs on the way out
                 }

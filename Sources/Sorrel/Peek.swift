@@ -149,6 +149,13 @@ enum Site {
         return false
     }
 
+    /// A host as the address box shows it: only a leading "www." is dropped. Dropping it anywhere else would let
+    /// "pwww.aypal.com" pass for "paypal.com".
+    static func display(_ host: String?) -> String? {
+        guard let host else { return nil }
+        return host.lowercased().hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
     static func same(_ a: String?, _ b: String?) -> Bool {
         guard let ka = key(a), let kb = key(b) else { return false }
         return ka == kb
