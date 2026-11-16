@@ -704,6 +704,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             if env["SORREL_THEME"] != nil { self.main.sidebar.showThemeEditor() }
+            if let dir = env["SORREL_THEMETEST"] {
+                // Arc-style colours (ThemeLook.swift): old saves still load, every preset in light and dark, the
+                // colour wheel and grain slider. Writes preset-<i>-<light|dark>.png and customize.png into `dir`.
+                let m = self.main!
+                let space = self.store.currentSpace
+                let old = try? JSONDecoder().decode(Theme.self, from: Data(##"{"colors":["#7C9CFF"],"angle":315,"intensity":0.55}"##.utf8))
+                log("theme: legacy decodes=\(old != nil) grain=\(old?.grainAmount ?? -1)")
+                var t = Theme.presets[3]; t.grain = 0.8
+                let back = (try? JSONEncoder().encode(t)).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) }
+                log("theme: roundtrip grain=\(back?.grain ?? -1) equal=\(back == t)")
+                let err = ["#FE6F3E", "#2B3A67", "#FFFFFF", "#000000", "#34E895"].map { h -> CGFloat in
+                    let c = NSColor(hex: h)!, r = OKLab(c).color
+                    return max(abs(c.redComponent - r.redComponent), abs(c.greenComponent - r.greenComponent), abs(c.blueComponent - r.blueComponent))
+                }.max()!
+                log("theme: oklab roundtrip maxError=\(String(format: "%.4f", err)) stops=\(Theme.presets[0].gradientStops(dark: false).count)")
+                func shoot(_ name: String) {
+                    guard let v = m.window?.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return }
+                    v.cacheDisplay(in: v.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/" + name))
+                }
+                var steps: [() -> Void] = []
+                for dark in [false, true] {
+                    for (i, p) in Theme.presets.enumerated() {
+                        steps.append {
+                            NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+                            self.store.setTheme(p, for: space)
+                            m.applyTheme(animated: false)
+                        }
+                        steps.append {
+                            let hex = p.gradientStops(dark: dark).map(\.hexString)
+                            log("theme: preset \(i) \(dark ? "dark" : "light") first=\(hex.first!) last=\(hex.last!) grain=\(p.grainAmount) textDark=\(p.isDark(systemIsDark: dark))")
+                            shoot("preset-\(i)-\(dark ? "dark" : "light").png")
+                        }
+                    }
+                }
+                steps.append {
+                    NSApp.appearance = NSAppearance(named: .aqua)
+                    self.store.setTheme(Theme(colors: ["#FF0000", "#00FFFF"], angle: 315, intensity: 0.8), for: space)
+                    m.applyTheme(animated: false)
+                    m.sidebar.showThemeEditor()
+                }
+                steps.append {
+                    guard let ed = m.sidebar.debugThemeEditor else { log("theme: no editor"); return }
+                    log("theme: wheel turn first dot 0.25 -> \(ed.debugWheelDrag(dot: 0, turn: 0.25)) (expect both hues +90°: ~#80FF00/~#7F00FF)")
+                    log("theme: wheel turn second dot 0.25 -> \(ed.debugWheelDrag(dot: 1, turn: 0.25)) (expect only the second to move)")
+                    ed.debugSetGrain(0.9)
+                    log("theme: grain slider -> \(self.store.currentSpace.theme.grain ?? -1) (expect 0.9)")
+                }
+                steps.append {
+                    if let v = m.sidebar.debugCustomizeView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                        v.cacheDisplay(in: v.bounds, to: rep)
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/customize.png"))
+                    }
+                    shoot("after-wheel.png")
+                    log("theme: done")
+                }
+                for (k, step) in steps.enumerated() { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 * Double(k), execute: step) }
+            }
             if let mode = env["SORREL_EMOJITEST"] {
                 self.main.sidebar.showThemeEditor()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.main.sidebar.debugEmojiTest(mode, log: log) }

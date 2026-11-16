@@ -2131,6 +2131,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     /// Test hook: the Customize panel's contents.
     var debugCustomizeView: NSView? { themePopover?.contentViewController?.view }
+    var debugThemeEditor: ThemeEditor? { themePopover?.contentViewController as? ThemeEditor }
 
     /// Test hook: drives the emoji sheet inside the Customize panel.
     func debugEmojiTest(_ mode: String, log: @escaping (String) -> Void) {

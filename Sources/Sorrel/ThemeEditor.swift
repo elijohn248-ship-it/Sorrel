@@ -21,9 +21,7 @@ private final class Swatch: NSButton {
 
     override func draw(_ dirtyRect: NSRect) {
         let path = NSBezierPath(ovalIn: bounds.insetBy(dx: 1.5, dy: 1.5))
-        var colors = theme.resolvedColors(systemIsDark: systemIsDark())
-        if colors.count == 1 { colors.append(colors[0]) }
-        NSGradient(colors: colors)?.draw(in: path, angle: CGFloat(theme.angle))
+        NSGradient(colors: theme.gradientStops(dark: systemIsDark()))?.draw(in: path, angle: CGFloat(theme.angle))
         NSColor.labelColor.withAlphaComponent(0.2).setStroke()
         path.lineWidth = 1
         path.stroke()
@@ -89,7 +87,7 @@ private final class IconWell: NSButton {
     }
 }
 
-/// "Customize Space": name, icon, colors and gradient.
+/// "Customize Space": name, icon, colors (Arc-style wheel), gradient, strength and grain.
 final class ThemeEditor: NSViewController, NSTextFieldDelegate {
     private let space: Space
     private let focusName: Bool
@@ -112,6 +110,8 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
     private var wells: [NSColorWell] = []
     private let angle = NSSlider(value: 0, minValue: 0, maxValue: 360, target: nil, action: nil)
     private let intensity = NSSlider(value: 0.5, minValue: 0.1, maxValue: 1, target: nil, action: nil)
+    private let grain = NSSlider(value: Theme.defaultGrain, minValue: 0, maxValue: 1, target: nil, action: nil)
+    private let wheel = ColorWheel()
     private var addButton: IconButton!
     private var removeButton: IconButton!
 
@@ -164,13 +164,26 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         }
 
         stack.addArrangedSubview(caption("COLORS"))
-        wellStack.orientation = .horizontal
-        wellStack.spacing = 8
+        wellStack.orientation = .vertical
+        wellStack.spacing = 6
         addButton = IconButton(symbol: "plus.circle", size: 15, tooltip: "Add a color") { [weak self] in self?.addColor() }
         removeButton = IconButton(symbol: "minus.circle", size: 15, tooltip: "Remove the last color") { [weak self] in self?.removeColor() }
-        let colorRow = NSStackView(views: [wellStack, addButton, removeButton])
+        let buttons = NSStackView(views: [addButton, removeButton])
+        buttons.orientation = .horizontal
+        buttons.spacing = 6
+        let side = NSStackView(views: [wellStack, buttons])
+        side.orientation = .vertical
+        side.alignment = .centerX
+        side.spacing = 8
+        wheel.translatesAutoresizingMaskIntoConstraints = false
+        wheel.widthAnchor.constraint(equalToConstant: 136).isActive = true
+        wheel.heightAnchor.constraint(equalToConstant: 136).isActive = true
+        wheel.toolTip = "Drag a dot to change a color. The first dot turns the others with it."
+        wheel.onChange = { [weak self] colors, _ in self?.wheelChanged(colors) }
+        let colorRow = NSStackView(views: [wheel, side])
         colorRow.orientation = .horizontal
-        colorRow.spacing = 8
+        colorRow.alignment = .centerY
+        colorRow.spacing = 10
         stack.addArrangedSubview(colorRow)
 
         stack.addArrangedSubview(caption("DIRECTION"))
@@ -184,6 +197,12 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         intensity.action = #selector(sliderChanged)
         intensity.widthAnchor.constraint(equalToConstant: 190).isActive = true
         stack.addArrangedSubview(intensity)
+
+        stack.addArrangedSubview(caption("GRAIN"))
+        grain.target = self
+        grain.action = #selector(sliderChanged)
+        grain.widthAnchor.constraint(equalToConstant: 190).isActive = true
+        stack.addArrangedSubview(grain)
 
         // A plain container with explicit padding, so the popover sizes itself to the real content.
         let container = NSView()
@@ -308,6 +327,8 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         }
         angle.doubleValue = t.angle
         intensity.doubleValue = t.intensity
+        grain.doubleValue = t.grainAmount
+        wheel.colors = wells.map(\.color)
         addButton.isEnabled = wells.count < 3
         removeButton.isEnabled = wells.count > 1
         if commit { Store.shared.setTheme(theme, for: space) }
@@ -317,17 +338,65 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         theme.colors = wells.map { $0.color.hexString }
         theme.angle = angle.doubleValue
         theme.intensity = intensity.doubleValue
+        theme.grain = grain.doubleValue
         Store.shared.setTheme(theme, for: space)
     }
 
-    @objc private func wellChanged() { commitFromControls() }
+    @objc private func wellChanged() {
+        wheel.colors = wells.map(\.color)
+        commitFromControls()
+    }
+
+    /// Test hook: drags a wheel dot (by index) round the wheel by `turn` (fraction of a circle) with real mouse
+    /// events, then reports the space's colours.
+    func debugWheelDrag(dot: Int, turn: CGFloat) -> String {
+        let w = wheel
+        let c = w.bounds.midX, m = w.bounds.midY
+        let start = w.debugPoint(dot)
+        let ang0 = atan2(start.y - m, start.x - c), r = hypot(start.x - c, start.y - m)
+        func ev(_ type: NSEvent.EventType, _ p: CGPoint) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: w.convert(p, to: nil), modifierFlags: [], timestamp: 0,
+                               windowNumber: w.window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        w.mouseDown(with: ev(.leftMouseDown, start))
+        var end = start
+        for k in 1...10 {
+            let a = ang0 + turn * 2 * .pi * CGFloat(k) / 10
+            end = CGPoint(x: c + cos(a) * r, y: m + sin(a) * r)
+            w.mouseDragged(with: ev(.leftMouseDragged, end))
+        }
+        w.mouseUp(with: ev(.leftMouseUp, end))
+        return Store.shared.currentSpace.theme.colors.joined(separator: ",")
+    }
+
+    func debugSetGrain(_ v: Double) {
+        grain.doubleValue = v
+        sliderChanged()
+    }
+
+    private func wheelChanged(_ colors: [NSColor]) {
+        for (w, c) in zip(wells, colors) { w.color = c }
+        commitFromControls()
+    }
     @objc private func sliderChanged() { commitFromControls() }
 
     private func addColor() {
         guard theme.colors.count < 3 else { return }
         var t = theme
-        t.colors.append(t.colors.last ?? "#7C9CFF")
+        t.colors.append(Self.harmony(for: t.colors))
         load(t)
+    }
+
+    /// A new colour's starting place on the wheel: opposite the first for a second colour, a third of the way
+    /// round for a third (Arc's complementary and triad), same vividness and brightness as the first.
+    private static func harmony(for colors: [String]) -> String {
+        guard let first = colors.first.flatMap({ NSColor(hex: $0)?.usingColorSpace(.sRGB) }) else { return "#7C9CFF" }
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        first.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let turn: CGFloat = colors.count == 1 ? 0.5 : 1.0 / 3.0
+        var nh = h + turn
+        nh -= floor(nh)
+        return NSColor(hue: nh, saturation: max(s, 0.25), brightness: b, alpha: 1).hexString
     }
 
     private func removeColor() {

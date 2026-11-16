@@ -306,17 +306,19 @@ enum ImportReader {
         let style = ((((theme["background"] as? [String: Any])?["single"] as? [String: Any])?["_0"] as? [String: Any])?["style"] as? [String: Any])
         let color = ((style?["color"] as? [String: Any])?["_0"] as? [String: Any]) ?? [:]
         let dark = (color.values.first as? [String: Any]).flatMap { ($0["_0"] as? [String: Any])?["translucencyStyle"] as? String } == "dark"
+        // Arc's grain slider (`modifiers.noiseFactor`, 0…1) carries over as the space's grain.
+        let grain = (color.values.first as? [String: Any]).flatMap { (($0["_0"] as? [String: Any])?["modifiers"] as? [String: Any])?["noiseFactor"] as? Double }
         if let single = (color["blendedSingleColor"] as? [String: Any])?["_0"] as? [String: Any],
            var c = hex(single["color"]) {
             if let lum = NSColor(hex: c)?.luminance, lum > 0.9, let m = midTone { c = m }
-            return Theme(colors: [c], angle: 315, intensity: dark ? 0.95 : 0.6)
+            return Theme(colors: [c], angle: 315, intensity: dark ? 0.95 : 0.6, grain: grain)
         }
         if let grad = (color["blendedGradient"] as? [String: Any])?["_0"] as? [String: Any],
            let bases = grad["baseColors"] as? [Any] {
             let cs = bases.compactMap(hex).prefix(3)
-            if !cs.isEmpty { return Theme(colors: Array(cs), angle: 315, intensity: dark ? 0.95 : 0.85) }
+            if !cs.isEmpty { return Theme(colors: Array(cs), angle: 315, intensity: dark ? 0.95 : 0.85, grain: grain) }
         }
-        return midTone.map { Theme(colors: [$0], angle: 315, intensity: 0.6) }
+        return midTone.map { Theme(colors: [$0], angle: 315, intensity: 0.6, grain: grain) }
     }
 
     // MARK: Chrome, Helium, Brave, Edge, Vivaldi, Dia

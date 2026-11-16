@@ -212,30 +212,27 @@ struct Theme: Codable, Equatable {
     var angle: Double
     /// 0 = barely tinted, 1 = full color.
     var intensity: Double
+    /// Film grain over the colours, 0…1 (Arc's noise slider). nil = `Theme.defaultGrain` (ThemeLook.swift).
+    var grain: Double? = nil
 
+    /// Arc's palette: its single colours and two-colour gradients, softened when drawn (ThemeLook.swift), with
+    /// two deep ones for dark spaces.
     static let presets: [Theme] = [
-        Theme(colors: ["#7C9CFF", "#C59BFF"], angle: 315, intensity: 0.55),
-        Theme(colors: ["#46C2A8", "#8FD46B"], angle: 300, intensity: 0.5),
-        Theme(colors: ["#FF9A6B", "#FF6F91"], angle: 320, intensity: 0.55),
-        Theme(colors: ["#FFD36B", "#FF9F5A"], angle: 300, intensity: 0.5),
-        Theme(colors: ["#5AC8FA", "#5A7BFA"], angle: 290, intensity: 0.55),
-        Theme(colors: ["#F58FD0", "#9B8CFF", "#6BC8FF"], angle: 315, intensity: 0.55),
+        Theme(colors: ["#8978F9", "#6CBAD9"], angle: 315, intensity: 0.8),
+        Theme(colors: ["#34E895"], angle: 300, intensity: 0.8),
+        Theme(colors: ["#FE6F3E"], angle: 320, intensity: 0.8),
+        Theme(colors: ["#F1535A"], angle: 320, intensity: 0.8, grain: 0.65),
+        Theme(colors: ["#6CBAD9"], angle: 300, intensity: 0.85),
+        Theme(colors: ["#E8F978", "#8978F9"], angle: 315, intensity: 0.85),
+        Theme(colors: ["#F8D558", "#658AFA"], angle: 315, intensity: 0.85),
+        Theme(colors: ["#DEDA31"], angle: 300, intensity: 0.78),
         Theme(colors: ["#2B3A67", "#51407A"], angle: 315, intensity: 0.95),
-        Theme(colors: ["#12372A", "#2E5E4E"], angle: 300, intensity: 0.95),
-        Theme(colors: ["#3A1F2B", "#7A2E48"], angle: 320, intensity: 0.95),
-        Theme(colors: ["#A0A4AB"], angle: 0, intensity: 0.25),
+        Theme(colors: ["#F2EAE4", "#E2F1F1"], angle: 315, intensity: 1),
     ]
 
-    /// Colors as drawn: each is blended toward a neutral base by the intensity.
+    /// Colors as drawn: each is softened and mixed toward a neutral base by the intensity, in OKLab (ThemeLook.swift).
     func resolvedColors(systemIsDark: Bool) -> [NSColor] {
-        let base = systemIsDark ? NSColor(srgbRed: 0.12, green: 0.12, blue: 0.14, alpha: 1)
-                                : NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
-        let t = CGFloat(max(0, min(1, intensity)))
-        var out = colors.compactMap { NSColor(hex: $0) }.map { c in
-            base.blended(withFraction: t, of: c) ?? c
-        }
-        if out.isEmpty { out = [base] }
-        return out
+        softLabs(dark: systemIsDark).map(\.color)
     }
 
     /// Whether text on top of this theme should be light.
@@ -285,9 +282,10 @@ func systemIsDark() -> Bool {
     NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
 }
 
-/// A view that draws a space's gradient.
+/// A view that draws a space's gradient, softened Arc-style, with the space's grain over it (ThemeLook.swift).
 final class ThemeBackgroundView: NSView {
     private let gradient = CAGradientLayer()
+    private let grain = CALayer()
     var cornerRadius: CGFloat = 0 { didSet { gradient.cornerRadius = cornerRadius } }
     private(set) var theme = Theme.presets[0]
 
@@ -295,53 +293,55 @@ final class ThemeBackgroundView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         gradient.masksToBounds = true
+        grain.backgroundColor = Grain.pattern
+        grain.actions = ["bounds": NSNull(), "position": NSNull(), "frame": NSNull()]
+        gradient.addSublayer(grain)
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func makeBackingLayer() -> CALayer { gradient }
 
+    override func layout() {
+        super.layout()
+        Motion.layer(0) { grain.frame = gradient.bounds }
+    }
+
+    private static func ends(_ th: Theme) -> (CGPoint, CGPoint) {
+        let rad = th.angle * .pi / 180
+        let dx = CGFloat(cos(rad)) / 2, dy = CGFloat(sin(rad)) / 2
+        return (CGPoint(x: 0.5 - dx, y: 0.5 - dy), CGPoint(x: 0.5 + dx, y: 0.5 + dy))
+    }
+
+    private func setGrain(_ amount: Double) {
+        grain.opacity = Grain.opacity(amount)
+        grain.isHidden = amount <= 0.001
+    }
+
     func apply(_ theme: Theme, animated: Bool = false) {
         self.theme = theme
-        var cs = theme.resolvedColors(systemIsDark: systemIsDark()).map { $0.cgColor }
-        if cs.count == 1 { cs.append(cs[0]) }
-        let rad = theme.angle * .pi / 180
-        let dx = CGFloat(cos(rad)) / 2, dy = CGFloat(sin(rad)) / 2
+        let cs = theme.gradientStops(dark: systemIsDark()).map(\.cgColor)
+        let (start, end) = Self.ends(theme)
         Motion.layer(animated ? 0.35 : 0) {
             gradient.colors = cs
-            gradient.startPoint = CGPoint(x: 0.5 - dx, y: 0.5 - dy)
-            gradient.endPoint = CGPoint(x: 0.5 + dx, y: 0.5 + dy)
+            gradient.startPoint = start
+            gradient.endPoint = end
+            setGrain(theme.grainAmount)
         }
     }
 
     /// Shows a mix of two spaces' gradients, `f` of the way from `a` to `b`, at once (a space swipe calls
-    /// this every frame). Gradients with different numbers of colours are resampled to the same stops first.
+    /// this every frame). Every theme draws the same number of stops, so they mix stop by stop in OKLab.
     func blend(_ a: Theme, _ b: Theme, _ f: CGFloat) {
-        let dark = systemIsDark()
-        let ca = a.resolvedColors(systemIsDark: dark), cb = b.resolvedColors(systemIsDark: dark)
-        let n = max(ca.count, cb.count, 2)
-        func sample(_ cs: [NSColor], _ t: CGFloat) -> NSColor {
-            guard cs.count > 1 else { return cs[0] }
-            let x = t * CGFloat(cs.count - 1)
-            let i = min(Int(x), cs.count - 2)
-            return cs[i].blended(withFraction: x - CGFloat(i), of: cs[i + 1]) ?? cs[i]
-        }
-        let colors = (0..<n).map { k -> CGColor in
-            let t = CGFloat(k) / CGFloat(n - 1)
-            let c1 = sample(ca, t), c2 = sample(cb, t)
-            return (c1.blended(withFraction: f, of: c2) ?? c1).cgColor
-        }
-        func ends(_ th: Theme) -> (CGPoint, CGPoint) {
-            let rad = th.angle * .pi / 180
-            let dx = CGFloat(cos(rad)) / 2, dy = CGFloat(sin(rad)) / 2
-            return (CGPoint(x: 0.5 - dx, y: 0.5 - dy), CGPoint(x: 0.5 + dx, y: 0.5 + dy))
-        }
-        let (sa, ea) = ends(a), (sb, eb) = ends(b)
+        let colors = Theme.blendedStops(a, b, f, dark: systemIsDark()).map(\.cgColor)
+        let (sa, ea) = Self.ends(a), (sb, eb) = Self.ends(b)
         func mix(_ p: CGPoint, _ q: CGPoint) -> CGPoint { CGPoint(x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f) }
         Motion.layer(0) {
             gradient.removeAllAnimations()
+            grain.removeAllAnimations()
             gradient.colors = colors
             gradient.startPoint = mix(sa, sb)
             gradient.endPoint = mix(ea, eb)
+            setGrain(a.grainAmount + (b.grainAmount - a.grainAmount) * Double(f))
         }
     }
 
