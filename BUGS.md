@@ -27,8 +27,9 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
-### claude.ai (and other sites) call Sorrel an outdated browser on macOS 15 (fixed 2026-11-16, branch `ua-compat`)
-- **Repro:** Sorrel on macOS 15.x (Sequoia, the minimum supported), open claude.ai.
+### claude.ai (and other sites) call Sorrel an outdated browser on other Macs (fixed 2026-11-16, branch `ua-compat`)
+- **Reported:** on another person's Mac running macOS newer than 15 (exact version unknown), Sorrel 0.2.0. Most likely macOS 26: the binary records SDK 15.4 (SwiftPM uses Package.swift's minimum), and macOS 26 reports "16.x" to such apps, so the old code sent `Version/16.0`, which claude.ai's check flags (verified: `Version/16.0` -> `"browser"`). This Mac (macOS 27.2) no longer does that, so it couldn't be reproduced natively; `SORREL_FAKE_OS=16.0` simulates it.
+- **Repro:** Sorrel on macOS 15.x or 26.x, open claude.ai.
 - **Expected:** treated like that Mac's Safari (18.x), no warning.
 - **Actual:** the user agent said `Version/15.4 Safari/605.1.15`. claude.ai's own check (`p5()` in its bundle; minimum Safari 17, Chrome 127, Firefox 128) returns `"browser"`, which shows its unsupported/outdated-browser banner. Reproduced by running that check inside SorrelTest with the 15.x user agent; on this Mac (macOS 27.2 = Safari 27.2) the old code happened to be right.
 - **Cause:** the Safari version in the user agent was the macOS version. They match only from macOS 26 on; macOS 15.x ships Safari 18.x. Fix: `Engine.safariVersion` reads the installed Safari's `CFBundleShortVersionString` (same system WebKit; readable under the sandbox, confirmed), falling back to macOS 26+ = same number, macOS 15.x = 18.x. After: real path `Version/27.2`, simulated 15.4 (`SORREL_FAKE_OS=15.4`) `Version/18.4`, both pass claude.ai's check. Also: the Chrome user agent used only on Proton's sign-in pages was frozen at Chrome 131 (Nov 2024); it now counts forward from Chrome 142 (2025-10-28) at one release per 31 days (154 on 2026-11-16).

@@ -245,8 +245,11 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             return v
         }
         let os = ProcessInfo.processInfo.operatingSystemVersion
-        let major = fakeOS?.first ?? os.majorVersion
-        let minor = fakeOS.map { $0.count > 1 ? $0[1] : 0 } ?? os.minorVersion
+        var major = fakeOS?.first ?? os.majorVersion
+        var minor = fakeOS.map { $0.count > 1 ? $0[1] : 0 } ?? os.minorVersion
+        // There was no macOS 16: macOS 26 reports "16.x" to apps built for the 15.x SDK, which SwiftPM
+        // records for Sorrel (Package.swift's 15.4 minimum). That made "Safari 16.0", below claude.ai's 17.
+        if major == 16 { (major, minor) = (26, 0) }
         // macOS 26 and later share Safari's number; macOS 15.x shipped Safari 18.x.
         return "\(major >= 26 ? major : major + 3).\(minor)"
     }()
