@@ -589,13 +589,35 @@ final class Extensions: NSObject {
                 if entry.chromeID != nil,
                    let external = ext.manifest["externally_connectable"] as? [String: Any],
                    let matches = external["matches"] as? [String] {
-                    entry.companionSites = matches.compactMap { try? WKWebExtension.MatchPattern(string: $0) }
+                    entry.companionSites = ChromeCompat.exactHostPatterns(matches).compactMap { try? WKWebExtension.MatchPattern(string: $0) }
                 }
                 context.isInspectable = true
 
-                // Switching an extension on grants what its manifest requires; the person agreed to that then.
+                // Switching an extension on grants what its manifest requires; the person agreed to that then, and
+                // it is recorded. Extensions update themselves, so a later version that requires more (every
+                // website, cookies, …) is held back, with the extension off, until the person agrees.
                 // Optional extras (clipboard, more sites, …) are asked for when the extension wants them,
                 // and remembered once approved.
+                let required = ext.requestedPermissions.map { "perm:" + $0.rawValue }
+                    + ext.allRequestedMatchPatterns.map { "match:" + $0.string }
+                let approved = Settings.current.extensionApproved[entry.id]
+                let added = approved.map { have in required.filter { !have.contains($0) } } ?? []
+                if !added.isEmpty {
+                    let name = ext.displayName ?? entry.name
+                    guard await self.approveNewAccess(name: name, added: added) else {
+                        entry.isLoading = false
+                        entry.error = "Switched off: its new version wants more access (\(Self.describe(added))). Switch it on to review."
+                        Settings.current.extensionStates[entry.id] = false
+                        Settings.current.save()
+                        self.afterStateChange(entry)
+                        completion?(false)
+                        return
+                    }
+                }
+                if approved.map({ Set($0) }) != Set(required).union(approved ?? []) {
+                    Settings.current.extensionApproved[entry.id] = Array(Set(required).union(approved ?? [])).sorted()
+                    Settings.current.save()
+                }
                 for permission in ext.requestedPermissions {
                     context.setPermissionStatus(.grantedExplicitly, for: permission)
                 }
@@ -750,8 +772,32 @@ final class Extensions: NSObject {
         if let id = entry.chromeID { try? FileManager.default.removeItem(at: pendingUpdateFolder(for: id)) }
         Settings.current.extensionStates[entry.id] = nil
         Settings.current.extensionGrants[entry.id] = nil
+        Settings.current.extensionApproved[entry.id] = nil
         Settings.current.save()
         discover()
+    }
+
+    /// "perm:cookies", "match:<all_urls>" -> words for a prompt.
+    static func describe(_ access: [String]) -> String {
+        access.map { item -> String in
+            if item.hasPrefix("perm:") { return String(item.dropFirst(5)) }
+            let pattern = String(item.dropFirst(6))
+            if pattern == "<all_urls>" || pattern.hasPrefix("*://*/") || pattern.contains("://*/") { return "every website" }
+            return pattern
+        }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.prefix(8).joined(separator: ", ")
+    }
+
+    /// An updated extension requires access it didn't have when switched on. Asks once; tests never ask (no).
+    private func approveNewAccess(name: String, added: [String]) async -> Bool {
+        if isQuietTest {
+            FileHandle.standardError.write("ext: \(name) now requires more access, held back: \(Self.describe(added))\n".data(using: .utf8)!)
+            return false
+        }
+        return await withCheckedContinuation { done in
+            ask("\(name) was updated and now wants more access",
+                "The new version asks for: \(Self.describe(added)).\n\nIf you don’t allow it, Sorrel switches the extension off. You can switch it back on in Settings ▸ Extensions to see this again.",
+                completion: { done.resume(returning: $0) })
+        }
     }
 
     // MARK: Pages

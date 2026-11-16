@@ -1049,6 +1049,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_SECTEST2"] != nil {
+            // Security audit fixes (2026-11-15): a leftover "Continue" offer, dialogs from hidden tabs, sorrel:// names
+            // that climb out of the app, and downloads a page starts without a click. Set SORREL_DOWNLOADS to a scratch
+            // folder: if the download check failed, the file would otherwise land in the real Downloads folder.
+            func js(_ wv: WKWebView?, _ code: String, _ done: @escaping (String) -> Void) {
+                wv?.evaluateJavaScript(code) { r, e in done("\(r ?? e?.localizedDescription ?? "nil")") }
+            }
+            let stale = self.store.newTab(url: env["SORREL_SECTEST_HTTP"] ?? "http://expired.badssl.com/")
+            let hidden = self.store.newTab(url: "https://example.com/", select: false)
+            _ = Engine.shared.ensurePage(for: hidden)
+            let home = Paths.support.deletingLastPathComponent()
+            try? "<h1>outside</h1>".write(to: home.appendingPathComponent("sectest2-outside.html"), atomically: true, encoding: .utf8)
+            let depth = Bundle.main.resourceURL?.pathComponents.count ?? 12
+            let climb = String(repeating: "../", count: depth) + String(home.appendingPathComponent("sectest2-outside").path.dropFirst())
+            let lone = Engine.shared.makePage(profileID: nil)
+            Engine.shared.load("sorrel://" + climb, in: lone)
+            let welcome = Engine.shared.makePage(profileID: nil)
+            Engine.shared.load("sorrel://welcome", in: welcome)
+            let dlTab = self.store.newTab(url: "about:blank")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                // Two ways a page saves a file without a click: a scripted click on a download link, and a frame
+                // pointed at something the browser can't show.
+                Engine.shared.ensurePage(for: dlTab).webView.loadHTMLString("""
+                    <script>
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(new Blob(['unasked'], {type: 'application/octet-stream'}));
+                    a.download = 'unasked.bin'; document.documentElement.appendChild(a); a.click();
+                    const f = document.createElement('iframe');
+                    f.src = URL.createObjectURL(new Blob(['unasked2'], {type: 'application/x-unknown-thing'}));
+                    document.documentElement.appendChild(f);
+                    </script>
+                    """, baseURL: URL(string: "https://example.org/")!)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                log("sec2: sorrel:// climbing out loaded=\(lone.webView.url?.absoluteString ?? "nothing")")
+                log("sec2: sorrel://welcome loaded=\(welcome.webView.url?.lastPathComponent ?? "nothing")")
+                log("sec2: page-started download prompt=\(Engine.shared.lastDownloadPrompt ?? "none") recorded=\(Engine.shared.downloads.map(\.file.lastPathComponent))")
+                log("sec2: hidden tab inWindow=\(hidden.page?.webView.window != nil)")
+                let started = Date()
+                js(hidden.page?.webView, "alert('hi'); String(confirm('sure?')) + '|' + String(prompt('password?'))") { r in
+                    log("sec2: hidden tab dialogs answered=\(r) after \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
+                }
+                js(stale.page?.webView, "document.title") { title in
+                    log("sec2: warning showing=\(title)")
+                    // Leave the warning, then try its Continue link from the next page.
+                    if let p = stale.page { Engine.shared.load("https://example.com/", in: p) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        js(stale.page?.webView, "location.href='sorrel-insecure:continue'; 'sent'") { _ in }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                            log("sec2: after leftover Continue url=\(stale.page?.webView.url?.absoluteString ?? "nil") (must stay https://example.com/)")
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
+            }
+        }
         if env["SORREL_SECTEST"] != nil {
             // Security checks: HTTPS-first (upgrade and warning), private links staying private,
             // pages opening other apps, data: navigations, download quarantine.

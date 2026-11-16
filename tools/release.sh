@@ -108,12 +108,15 @@ publish_release() {
     local TOKEN=${GITHUB_TOKEN:-$(cat "$HOME/.config/sorrel/github-token" 2>/dev/null || true)}
     [ -n "$TOKEN" ] || die "install the gh CLI (and gh auth login), or put a GitHub token in GITHUB_TOKEN / ~/.config/sorrel/github-token"
     local API="https://api.github.com/repos/$REPO/releases"
+    # The token goes to curl as a header file, never as an argument: arguments show in `ps` to every process.
+    # (printf is a shell builtin, so it never runs as a process of its own either.)
+    auth() { printf 'Authorization: Bearer %s\n' "$TOKEN"; }
     local BODY; BODY=$(python3 -c 'import json,sys; print(json.dumps({"tag_name": "v"+sys.argv[1], "name": "Sorrel "+sys.argv[1], "body": open("dist/notes.md").read(), "draft": False, "prerelease": False}))' "$VERSION")
-    local RESP; RESP=$(curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" "$API" -d "$BODY")
+    local RESP; RESP=$(curl -sS -X POST -H @<(auth) -H "Accept: application/vnd.github+json" "$API" -d "$BODY")
     local UPLOAD; UPLOAD=$(python3 -c 'import json,sys; r=json.load(sys.stdin); print(r.get("upload_url","").split("{")[0] or sys.exit("GitHub said: "+json.dumps(r)))' <<<"$RESP")
     for f in "$ZIP" dist/updates.json; do
       local TYPE=application/zip; [[ "$f" == *.json ]] && TYPE=application/json
-      curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: $TYPE" --data-binary @"$f" \
+      curl -sS -X POST -H @<(auth) -H "Content-Type: $TYPE" --data-binary @"$f" \
         "$UPLOAD?name=$(basename "$f")" >/dev/null
     done
     echo "release: created https://github.com/$REPO/releases/tag/v$VERSION"

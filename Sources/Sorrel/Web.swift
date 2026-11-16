@@ -124,10 +124,18 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     private var downloadsFile: URL { Paths.support.appendingPathComponent("downloads.json") }
     private static let savedDownloadLimit = 30
 
-    /// Starts a download directly (used by tests).
+    /// Starts a download directly (used by tests). Sorrel started it, so it doesn't ask.
     func startDownload(_ url: URL, in webView: WKWebView) {
-        webView.startDownload(using: URLRequest(url: url)) { [weak self] download in download.delegate = self }
+        webView.startDownload(using: URLRequest(url: url)) { [weak self] download in
+            self?.sorrelStartedDownloads.insert(ObjectIdentifier(download))
+            download.delegate = self
+        }
     }
+    /// Downloads Sorrel itself started, which need no permission.
+    private var sorrelStartedDownloads: Set<ObjectIdentifier> = []
+    /// Sites allowed to start downloads without a click, until Sorrel quits.
+    private var downloadGrants: Set<String> = []
+    private var downloadPromptOpen = false
 
     func clearFinishedDownloads() {
         downloads.removeAll { $0.state != .running }
@@ -294,7 +302,9 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let urlString = urlString.hasPrefix("drift://") ? "sorrel://" + urlString.dropFirst("drift://".count) : urlString
         if urlString.hasPrefix("sorrel://") {
             let name = String(urlString.dropFirst("sorrel://".count))
-            if let file = Bundle.main.url(forResource: name, withExtension: "html") {
+            // A plain name only: Bundle.url(forResource:) follows "../", which would reach files outside the app.
+            if name.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil,
+               let file = Bundle.main.url(forResource: name, withExtension: "html") {
                 page.webView.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
             }
             return
@@ -340,9 +350,12 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             return
         }
         if scheme == Self.insecureContinueScheme {
-            // "Continue to site" on Sorrel's own not-secure warning. Honoured only while that warning is showing.
+            // "Continue to site" on Sorrel's own not-secure warning. Honoured only from that warning, while it is
+            // the page showing (its address is the offered one); a page loaded after it can't use a leftover offer.
             decisionHandler(.cancel)
-            if isMain, let target = insecureOffers.removeValue(forKey: id), let host = target.host?.lowercased() {
+            if isMain, navigationAction.sourceFrame.isMainFrame, let offer = insecureOffers[id],
+               webView.url?.absoluteString == offer.absoluteString,
+               let target = insecureOffers.removeValue(forKey: id), let host = target.host?.lowercased() {
                 insecureAllowed.insert(host)
                 upgrades[id] = nil
                 webView.load(URLRequest(url: target))
@@ -447,6 +460,11 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         // An https:// upgrade that got this far worked.
         let id = ObjectIdentifier(webView)
         internalLoads[id] = nil
+        // Anything other than the not-secure warning itself ends its offer to continue.
+        if let offer = insecureOffers[id], webView.url?.absoluteString != offer.absoluteString { insecureOffers[id] = nil }
+        // A new page starts with a clean slate for dialogs.
+        dialogCounts[id] = nil
+        silencedPages.remove(id)
         if let tried = upgrades[id], webView.url?.scheme == "https", webView.url?.host == tried.host { upgrades[id] = nil }
         // Each site remembers its own zoom level.
         let zoom = ZoomStore.shared.level(forHost: webView.url?.host)
@@ -643,8 +661,21 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         }
     }
 
+    /// Web view -> when its page last crashed, to stop a page that keeps crashing from reloading forever.
+    private var crashTimes: [ObjectIdentifier: [Date]] = [:]
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        webView.reload()
+        let id = ObjectIdentifier(webView)
+        let recent = (crashTimes[id] ?? []).filter { Date().timeIntervalSince($0) < 60 } + [Date()]
+        crashTimes[id] = recent
+        if recent.count <= 2 {
+            webView.reload()
+        } else {
+            crashTimes[id] = nil
+            showError(NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: [
+                NSLocalizedDescriptionKey: "This page stopped working several times in a row, so Sorrel stopped reloading it."]),
+                in: webView)
+        }
     }
 
     // MARK: New windows
@@ -669,11 +700,30 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     // MARK: Dialogs
 
+    /// Shows a page's dialog as a sheet on its own window. A tab that isn't on screen gets an immediate "Cancel":
+    /// an app-wide modal dialog would freeze all of Sorrel and appear over whatever site is in front.
     private func sheet(_ alert: NSAlert, for webView: WKWebView, completion: @escaping (NSApplication.ModalResponse) -> Void) {
-        if let window = webView.window {
-            alert.beginSheetModal(for: window, completionHandler: completion)
-        } else {
-            completion(alert.runModal())
+        guard let window = webView.window else { completion(.cancel); return }
+        alert.beginSheetModal(for: window, completionHandler: completion)
+    }
+
+    /// Dialogs each page has shown since it loaded, and pages the person silenced (until they navigate).
+    private var dialogCounts: [ObjectIdentifier: Int] = [:]
+    private var silencedPages: Set<ObjectIdentifier> = []
+
+    /// alert/confirm/prompt: from the second dialog on, offer to stop this page showing more.
+    private func pageDialog(_ alert: NSAlert, for webView: WKWebView, completion: @escaping (NSApplication.ModalResponse) -> Void) {
+        let id = ObjectIdentifier(webView)
+        if silencedPages.contains(id) { completion(.cancel); return }
+        let shown = dialogCounts[id, default: 0]
+        dialogCounts[id] = shown + 1
+        if shown >= 1 {
+            alert.showsSuppressionButton = true
+            alert.suppressionButton?.title = "Don’t let this page show more dialogs"
+        }
+        sheet(alert, for: webView) { [weak self] response in
+            if alert.showsSuppressionButton, alert.suppressionButton?.state == .on { self?.silencedPages.insert(id) }
+            completion(response)
         }
     }
 
@@ -683,7 +733,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         alert.messageText = frame.request.url?.host ?? "This page says"
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
-        sheet(alert, for: webView) { _ in completionHandler() }
+        pageDialog(alert, for: webView) { _ in completionHandler() }
     }
 
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
@@ -693,7 +743,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Cancel")
-        sheet(alert, for: webView) { completionHandler($0 == .alertFirstButtonReturn) }
+        pageDialog(alert, for: webView) { completionHandler($0 == .alertFirstButtonReturn) }
     }
 
     func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?,
@@ -706,7 +756,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         alert.accessoryView = field
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Cancel")
-        sheet(alert, for: webView) { completionHandler($0 == .alertFirstButtonReturn ? field.stringValue : nil) }
+        pageDialog(alert, for: webView) { completionHandler($0 == .alertFirstButtonReturn ? field.stringValue : nil) }
     }
 
     func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
@@ -759,6 +809,40 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
+        // A download the person didn't click for needs their OK, once per site until Sorrel quits.
+        let started = sorrelStartedDownloads.remove(ObjectIdentifier(download)) != nil
+        let site = download.webView?.url?.host?.lowercased() ?? download.originatingFrame.securityOrigin.host.lowercased()
+        if started || download.isUserInitiated || downloadGrants.contains(site) {
+            chooseDestination(for: download, response: response, suggestedFilename: suggestedFilename, completionHandler: completionHandler)
+            return
+        }
+        let name = suggestedFilename.isEmpty ? "a file" : "“\(suggestedFilename)”"
+        guard let webView = download.webView, webView.window != nil, !downloadPromptOpen, !isQuietTest else {
+            // Hidden tabs and repeated requests don't get to ask (tests record it instead of asking).
+            if isQuietTest { lastDownloadPrompt = "\(site): \(suggestedFilename)" }
+            onToast?("Blocked a download from \(site.isEmpty ? "a page" : site)")
+            completionHandler(nil)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Allow \(site.isEmpty ? "this page" : site) to download files?"
+        alert.informativeText = "It wants to save \(name) to your Downloads folder. You didn’t click a download link."
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Don’t Allow")
+        downloadPromptOpen = true
+        sheet(alert, for: webView) { [weak self] answer in
+            guard let self else { completionHandler(nil); return }
+            self.downloadPromptOpen = false
+            guard answer == .alertFirstButtonReturn else { completionHandler(nil); return }
+            self.downloadGrants.insert(site)
+            self.chooseDestination(for: download, response: response, suggestedFilename: suggestedFilename, completionHandler: completionHandler)
+        }
+    }
+
+    /// What a quiet test saw instead of the download prompt.
+    private(set) var lastDownloadPrompt: String?
+
+    private func chooseDestination(for download: WKDownload, response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
         var dir = Sandbox.downloads
         if let override = ProcessInfo.processInfo.environment["SORREL_DOWNLOADS"] {   // testing: never write to the real folder
             dir = URL(fileURLWithPath: override, isDirectory: true)
