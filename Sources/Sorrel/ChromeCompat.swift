@@ -38,7 +38,7 @@ enum ChromeCompat {
     }
 
     private static let marker = "sorrel_compat"
-    private static let version = 13
+    private static let version = 14
     /// The names this layer used before the app was renamed. A copy patched back then chains through them;
     /// `apply` collapses the chain so the extension runs the current layer straight from its own files.
     private static let oldPrefix = "drift"
@@ -307,9 +307,36 @@ enum ChromeCompat {
             try? code.write(to: url, atomically: true, encoding: .utf8)
         }
 
+        guardChromeOnlyEvents(in: dir, skipping: [shimName, bridgeName, backgroundName])
+
         for old in [oldShim, oldLoader, oldBridge] { try? fm.removeItem(at: dir.appendingPathComponent(old)) }
         manifest[marker] = version
         guard let out = try? JSONSerialization.data(withJSONObject: manifest, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return false }
         return (try? out.write(to: manifestURL, options: .atomic)) != nil
+    }
+
+    /// Chrome-only events (no WebKit equivalent). The shim gives each an inert stand-in, but on some
+    /// background restarts WebKit hands the worker fresh `runtime`/`webRequest`/… objects without them
+    /// (seen with Proton Pass: `runtime.onUpdateAvailable` undefined at start-up, background dead).
+    private static let chromeOnlyEvents = [
+        "onUpdateAvailable", "onRestartRequired", "onSuspend", "onSuspendCanceled", "onBrowserUpdateAvailable",
+        "onUserScriptConnect", "onUserScriptMessage", "onConnectNative", "onAuthRequired", "onActionIgnored",
+        "onZoomChange", "onHighlighted", "onBoundsChanged", "onUserSettingsChanged", "onTabReplaced", "onCreatedNavigationTarget"
+    ]
+
+    /// So the extension's own code reaches those events with optional chaining: `x.onUpdateAvailable.addListener(f)`
+    /// becomes `x.onUpdateAvailable?.addListener(f)`. Where the stand-in is present nothing changes; where it is
+    /// missing the line does nothing instead of throwing. Only these exact member chains are touched.
+    private static func guardChromeOnlyEvents(in dir: URL, skipping ours: Set<String>) {
+        let names = chromeOnlyEvents.joined(separator: "|")
+        guard let regex = try? NSRegularExpression(pattern: "\\.(\(names))\\.(addListener|removeListener|hasListener)\\(") else { return }
+        guard let files = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil) else { return }
+        for case let file as URL in files where file.pathExtension.lowercased() == "js" && !ours.contains(file.lastPathComponent) {
+            guard let code = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            let range = NSRange(code.startIndex..., in: code)
+            guard regex.firstMatch(in: code, range: range) != nil else { continue }
+            let guarded = regex.stringByReplacingMatches(in: code, range: range, withTemplate: ".$1?.$2(")
+            try? guarded.write(to: file, atomically: true, encoding: .utf8)
+        }
     }
 }
