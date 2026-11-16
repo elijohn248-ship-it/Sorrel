@@ -182,20 +182,14 @@ final class Store {
         rebuildParents()
     }
 
+    /// A fresh profile: one plain space with the welcome page open. Nothing tailored to any one person;
+    /// people add their own spaces (the + by the space icons) or bring them over with Import.
     private static func seed() -> AppState {
-        let personal = Space(name: "Personal", icon: "🏠", theme: Theme.presets[0])
-        let school = Space(name: "School", icon: "🩺", theme: Theme.presets[1])
+        let home = Space(name: "Home", icon: "🏠", theme: Theme.presets[0])
         let welcome = Item(url: "sorrel://welcome", title: "Welcome to Sorrel")
-        personal.today = [welcome]
-        personal.selectedID = welcome.id
-
-        let study = Item.folder(named: "Study")
-        let pubmed = Item(url: "https://pubmed.ncbi.nlm.nih.gov/", title: "PubMed")
-        pubmed.pinnedURL = pubmed.url
-        study.children = [pubmed]
-        school.pinned = [study]
-
-        return AppState(spaces: [personal, school], favorites: [], currentSpaceID: personal.id)
+        home.today = [welcome]
+        home.selectedID = welcome.id
+        return AppState(spaces: [home], favorites: [], currentSpaceID: home.id)
     }
 
     // MARK: Reading

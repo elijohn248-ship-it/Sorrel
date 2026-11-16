@@ -26,12 +26,20 @@
          border-radius: 5px; padding: 1px 5px; }
   p { margin: 0 0 10px; }
   .note { color: var(--dim); }
+  .note code { overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <main>
   <h1>Welcome to Sorrel</h1>
   <p class="lede">Spaces, a sidebar that gets out of the way, and bangs — on Safari’s engine.</p>
+
+  <h2>Your first space</h2>
+  <p>You’re in <strong>Home</strong>, a space to start with. A space is a set of tabs with its own colors — one for work, one for a class, one for everything else. Rename this one or make more whenever you like.</p>
+  <table>
+    <tr><td>New space</td><td>Click <strong>+</strong> next to the space icons at the bottom of the sidebar and choose New Space.</td></tr>
+    <tr><td>Import</td><td>Coming from another browser? File ▸ Import from Another Browser… brings over Arc spaces, pinned tabs and favorites, or bookmarks and history from Chrome, Firefox, Safari and others.</td></tr>
+  </table>
 
   <h2>Start here</h2>
   <table>
@@ -72,13 +80,12 @@
   </table>
 
   <h2>Bangs</h2>
-  <p>Bangs are handled on your Mac. <code>!w kidney</code> goes straight to Wikipedia without passing through a search engine.</p>
+  <p>Bangs are handled on your Mac. <code>!w volcano</code> goes straight to Wikipedia without passing through a search engine.</p>
   <table>
-    <tr><td><code>!pm</code> <code>!up</code> <code>!amb</code></td><td>PubMed, UpToDate, AMBOSS</td></tr>
-    <tr><td><code>!rad</code> <code>!mdc</code></td><td>Radiopaedia, MDCalc</td></tr>
-    <tr><td><code>!w</code> <code>!yt</code> <code>!g</code> <code>!gh</code></td><td>Wikipedia, YouTube, Google, GitHub — and about 13,000 more</td></tr>
+    <tr><td><code>!w</code> <code>!yt</code> <code>!g</code></td><td>Wikipedia, YouTube, Google</td></tr>
+    <tr><td><code>!a</code> <code>!gmap</code> <code>!gh</code></td><td>Amazon, Google Maps, GitHub — and about 13,000 more</td></tr>
   </table>
-  <p class="note">Add your own in <code>bangs.json</code>.</p>
+  <p class="note">Add your own in <code>bangs.json</code> in the settings folder — entries in its list look like <code>{"t": "wk", "s": "Wiktionary", "u": "https://en.wiktionary.org/w/index.php?search={{{s}}}"}</code>, separated by commas. Yours win over the built-in ones; <kbd>⌘K</kbd> <kbd>⌘R</kbd> picks up changes.</p>
 
   <h2>Make it yours</h2>
   <p>Press <kbd>⌘,</kbd> for Settings: search engine, privacy, tabs, how the sidebar reveals itself, and every keyboard shortcut. Double-click a command there to record a new shortcut for it.</p>
