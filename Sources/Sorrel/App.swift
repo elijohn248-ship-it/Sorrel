@@ -916,6 +916,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                     action?.popupWebView?.evaluateJavaScript("(function(){var box=function(el){if(!el)return null;var r=el.getBoundingClientRect(),c=getComputedStyle(el);return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height),c.display,c.visibility,c.opacity,c.overflow].join(' ');};var root=document.querySelector('.app-root');return JSON.stringify({ready: document.readyState, text: (document.body ? document.body.innerText : '').slice(0, 120), nodes: document.querySelectorAll('*').length, win: innerWidth+'x'+innerHeight, html: box(document.documentElement), body: box(document.body), appRoot: box(root), first: box(root&&root.firstElementChild), second: box(root&&root.firstElementChild&&root.firstElementChild.firstElementChild), vars: [getComputedStyle(document.documentElement).getPropertyValue('--popup-width'), getComputedStyle(document.documentElement).getPropertyValue('--popup-height')], inline: document.documentElement.getAttribute('style'), bodyInline: document.body.getAttribute('style')});})()") { r, e in
                                         log("ui: popup page \(r ?? "nil") \(e.map { $0.localizedDescription } ?? "")")
                                     }
+                                    // Does the pop-up page think it is on screen? Hidden pages run no animation frames and no CSS animations.
+                                    if let wv = action?.popupWebView {
+                                        group.enter()
+                                        wv.callAsyncJavaScript("return await new Promise(function (done) { var t = setTimeout(function () { done('stalled') }, 1000); requestAnimationFrame(function () { clearTimeout(t); done('ok') }) }).then(function (raf) { return 'visibility=' + document.visibilityState + ' focus=' + document.hasFocus() + ' rAF=' + raf + ' animations=' + document.getAnimations().map(function (a) { return a.playState }).join(',') })",
+                                                               arguments: [:], in: nil, in: .page) { result in
+                                            if case .success(let v) = result { log("ui: popup frames \(v)") } else { log("ui: popup frames \(result)") }
+                                            log("ui: popover window visible=\(wv.window?.isVisible ?? false) occlusion=\(wv.window?.occlusionState.contains(.visible) ?? false) key=\(wv.window?.isKeyWindow ?? false)")
+                                            group.leave()
+                                        }
+                                    }
                                     log("ui: context errors=\((ubol.context?.errors ?? []).map { $0.localizedDescription })")
                                     shoot(action?.popupWebView, env["SORREL_SNAPSHOT_POPUP"])
                                     shoot(self.store.selected?.page?.webView, env["SORREL_SNAPSHOT_DASH"])

@@ -932,6 +932,22 @@ final class Extensions: NSObject {
         Store.shared.newTab(url: url.absoluteString, title: entry.name)
     }
 
+    /// A pop-up is only ever on screen while its popover is shown, so it must never count as hidden.
+    /// WebKit treats a page as hidden when macOS reports its window as covered (occluded), even if the
+    /// popover is plainly in front. A hidden page gets no animation frames and its CSS animations stop
+    /// at their first frame. Proton Pass fades its item list and item details in (opacity 0 until the
+    /// animation runs) and sizes its list on an animation frame, so the pop-up showed its header and
+    /// counts but a blank list and blank details. With occlusion detection off, WebKit counts the
+    /// pop-up as visible whenever its window is visible. Only pop-ups get this; tabs keep WebKit's
+    /// power saving for covered windows.
+    private func keepPopupAwake(_ webView: WKWebView?) {
+        let setter = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        guard let webView, webView.responds(to: setter), let method = webView.method(for: setter) else { return }
+        // Called directly: key-value coding looks for a differently named setter and throws.
+        typealias SetBool = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(method, to: SetBool.self)(webView, setter, false)
+    }
+
     /// If a pop-up's own stylesheet gives it a fixed size larger than the window it currently has, tell
     /// the page to be at least that big. WebKit's popover then grows to fit, and the page settles there.
     private func applyDeclaredSize(to action: WKWebExtension.Action) {
@@ -1098,6 +1114,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
         let (view, rect, edge) = main.extensionPopupAnchor(for: entry(for: context))
         completionHandler(nil)
         openPopover = popover
+        keepPopupAwake(action.popupWebView)
         popover.show(relativeTo: rect, of: view, preferredEdge: edge)
         // WebKit sizes the pop-up to fit its content. A pop-up built for Chrome may declare a fixed size
         // instead (Proton Pass: 600 by 430) and then adapt to whatever window it is given, so WebKit and
