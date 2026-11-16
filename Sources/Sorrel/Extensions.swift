@@ -1116,6 +1116,7 @@ extension Extensions: WKWebExtensionControllerDelegate {
         openPopover = popover
         keepPopupAwake(action.popupWebView)
         popover.show(relativeTo: rect, of: view, preferredEdge: edge)
+        PopupDiagnostics.start(webView: action.popupWebView, popover: popover)   // TEMPORARY, see PopupDiagnostics.swift
         // WebKit sizes the pop-up to fit its content. A pop-up built for Chrome may declare a fixed size
         // instead (Proton Pass: 600 by 430) and then adapt to whatever window it is given, so WebKit and
         // the page talk each other down to a thin strip. Checked a few times as the page loads.
