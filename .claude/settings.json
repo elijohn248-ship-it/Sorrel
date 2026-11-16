@@ -1,0 +1,64 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(swift build)",
+      "Bash(swift build *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "ask": [
+      "Bash(tools/release.sh *)",
+      "Bash(./tools/release.sh *)",
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)",
+      "Bash(git clean *)",
+      "Bash(codesign *)",
+      "Edit(/Resources/Sorrel.entitlements)",
+      "Edit(/Resources/Info.plist)",
+      "Edit(/Resources/SorrelUpdater.plist)",
+      "Edit(/build.sh)",
+      "Edit(/Package.swift)",
+      "Edit(/Sources/SorrelUpdateCore/**)",
+      "Edit(/Sources/SorrelUpdater/**)",
+      "Edit(/tools/release.sh)",
+      "Edit(/tools/update-sign.swift)",
+      "Edit(/vendor/**)",
+      "Edit(/.claude/**)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(curl * | sh)",
+      "Bash(curl * | bash)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/security-scan.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/build-check.sh\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
