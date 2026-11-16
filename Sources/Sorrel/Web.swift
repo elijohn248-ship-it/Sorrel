@@ -220,11 +220,35 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     /// Opened from a page without asking, but only when the person clicked the link.
     private static let quietExternalSchemes: Set<String> = ["mailto", "tel", "sms", "facetime", "facetime-audio"]
 
-    static let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    /// What the few sites in `Extensions.isChromeCompanionSite` see. Chrome's user agent carries only its
+    /// major version, and a fixed number ages into sites' "update your browser" warnings, so it is
+    /// counted from Chrome 142 (2025-10-28) at one release per 31 days: Chrome ships every 4 weeks with
+    /// longer gaps at holidays, so this stays current or slightly behind, never ahead.
+    static let chromeUserAgent: String = {
+        let anchor = Date(timeIntervalSince1970: 1_761_609_600) // 2025-10-28 00:00 UTC
+        let days = max(0, Int(Date().timeIntervalSince(anchor) / 86_400))
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(142 + days / 31).0.0.0 Safari/537.36"
+    }()
 
-    private lazy var safariVersion: String = {
-        let v = ProcessInfo.processInfo.operatingSystemVersion
-        return "\(v.majorVersion).\(v.minorVersion)"
+    /// The Safari version Sorrel presents ("Version/<this> Safari/605.1.15"), so sites treat it exactly
+    /// like the Safari on this Mac. It is read from the installed Safari, which always runs on the same
+    /// system WebKit as Sorrel. It is NOT the macOS version: before macOS 26 the two differ (macOS 15.4
+    /// ships Safari 18.4), and "Safari 15.4" got outdated-browser warnings (claude.ai wants Safari 17+).
+    static let safariVersion: String = {
+        let env = ProcessInfo.processInfo.environment
+        // Test builds only: pretend to be another macOS whose Safari can't be read (checks the fallback).
+        let fakeOS = isTestProfile ? env["SORREL_FAKE_OS"].map { $0.split(separator: ".").compactMap { Int($0) } } : nil
+        if fakeOS == nil,
+           let v = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String,
+           v.range(of: #"^[0-9]{2,3}(\.[0-9]+){0,2}$"#, options: .regularExpression) != nil,
+           let major = Int(v.prefix { $0 != "." }), major >= 18 {
+            return v
+        }
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let major = fakeOS?.first ?? os.majorVersion
+        let minor = fakeOS.map { $0.count > 1 ? $0[1] : 0 } ?? os.minorVersion
+        // macOS 26 and later share Safari's number; macOS 15.x shipped Safari 18.x.
+        return "\(major >= 26 ? major : major + 3).\(minor)"
     }()
 
     // MARK: Creating pages
@@ -250,7 +274,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         }
         Blocker.shared.register(c.userContentController, isPrivate: isPrivate)
         // Present as Safari so sites serve the same pages they serve Safari.
-        c.applicationNameForUserAgent = "Version/\(safariVersion) Safari/605.1.15"
+        c.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
         c.preferences.isElementFullscreenEnabled = true
         c.preferences.setValue(true, forKey: "developerExtrasEnabled")
         c.preferences.javaScriptCanOpenWindowsAutomatically = false

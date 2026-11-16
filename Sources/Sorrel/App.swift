@@ -1800,6 +1800,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
+        if let body = env["SORREL_EVALASYNC"] {
+            // Like SORREL_EVAL, but the text is an async function body (may `await`; `return` the answer),
+            // started SORREL_EVALAT seconds in (default 4). The app stays open until it answers or SORREL_DELAY ends.
+            let at = Double(env["SORREL_EVALAT"] ?? "") ?? 4
+            DispatchQueue.main.asyncAfter(deadline: .now() + at) {
+                self.main.currentWebView?.callAsyncJavaScript(body, arguments: [:], in: nil, in: .page) { result in
+                    switch result {
+                    case .success(let r): log("evalasync: \(r)")
+                    case .failure(let e): log("evalasync: error \(e.localizedDescription)")
+                    }
+                }
+            }
+        }
         if env["SORREL_FEATURETEST"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 // Shortcut editing
