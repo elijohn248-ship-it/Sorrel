@@ -13,6 +13,8 @@
 #   4. install: Sorrel ▸ Relaunch to Update path (relaunch off in tests); the installer swaps the bundle after the app quits
 #   5. quit:    install-on-quit path with build+2
 #   6. version: the swapped app runs and reports the new build
+#   7. badlog:  the updater service must refuse every log path that isn't the app's own update.log
+#   8. swapzip: the zip is overwritten right after the handoff; the service must still install the bytes it checked
 # Each app launch is a quiet background test run (SORREL_SNAPSHOT), so nothing takes focus.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -56,6 +58,7 @@ EOF
 }
 fake_release $((BASE + 1))
 fake_release $((BASE + 2))
+fake_release $((BASE + 3))
 
 run() {   # $1 = SORREL_UPDATETEST mode, $2 = feed file
   rm -rf "$T/home/Updates"   # a fresh download each time
@@ -82,6 +85,13 @@ echo "== version after install"; run version "$T/feed/updates-$((BASE + 1)).json
 echo "== quit (install on quit)"; run quit "$T/feed/updates-$((BASE + 2)).json"; wait_for_install
 echo "== version after quit-install"; run version "$T/feed/updates-$((BASE + 2)).json"
 echo "== already current (no newer build)"; run check "$T/feed/updates-$((BASE + 2)).json"
+echo "== bad log paths (each must be refused)"; run badlog "$T/feed/updates-$((BASE + 3)).json"
+echo "== zip swapped after handoff (must still install the checked bytes; logs inside the app's container, like the real app)"
+run swapzip "$T/feed/updates-$((BASE + 3)).json"
+for _ in $(seq 1 40); do [ "$($PB -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")" = "$((BASE + 3))" ] && break; sleep 0.5; done
+sleep 1; run containerlog "$T/feed/updates-$((BASE + 3)).json" | grep containerlog: | sed 's/^updater: containerlog: /  log: /'
+echo "== version after swapzip"; run version "$T/feed/updates-$((BASE + 3)).json"
+echo "   private copies left: $(ls "$HOME/Library/Caches/app.sorrel.browser.test.updater" 2>/dev/null | wc -l | tr -d ' ') (in ~/Library/Caches/app.sorrel.browser.test.updater)"
 
 if [ "$APPDIR" != "$T/app" ]; then rm -rf "$APP"; echo "removed $APP"; fi
 echo "done; scratch in $T"

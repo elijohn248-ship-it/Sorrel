@@ -498,6 +498,10 @@ private final class URLPill: NSView {
     private var extensionButtons: [ExtensionIconButton] = []
     static let maxExtensionIcons = 4
     private var copyButton: IconButton!
+    /// An open lock in front of the host when the page came over plain http://. Kept apart from the text so
+    /// cutting a long host short never cuts the lock.
+    private let lockView = NSImageView()
+    private var labelLeading: NSLayoutConstraint!
     private var canCopy = false
     private var hovered = false
     private var area: NSTrackingArea?
@@ -507,10 +511,19 @@ private final class URLPill: NSView {
         wantsLayer = true
         layer?.cornerRadius = 9
         label.font = .systemFont(ofSize: 13)
-        label.lineBreakMode = .byTruncatingTail
+        // A long host is cut at the front, so the part that says whose site it is (evil.com in
+        // "paypal.com.secure-login.evil.com") is the part that always shows.
+        label.lineBreakMode = .byTruncatingHead
+        label.maximumNumberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(label)
+        lockView.image = NSImage(systemSymbolName: "lock.open.fill", accessibilityDescription: "Not Secure")?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold).applying(.init(paletteColors: [.systemOrange])))
+        lockView.translatesAutoresizingMaskIntoConstraints = false
+        lockView.isHidden = true
+        addSubview(lockView)
+        labelLeading = label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12)
         copyButton = IconButton(symbol: "link", size: 12) { [weak self] in self?.onCopy?() }
         copyButton.isHidden = true
         addSubview(copyButton)
@@ -520,7 +533,9 @@ private final class URLPill: NSView {
         extensionStack.setContentHuggingPriority(.required, for: .horizontal)
         addSubview(extensionStack)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            labelLeading,
+            lockView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            lockView.centerYAnchor.constraint(equalTo: centerYAnchor),
             label.trailingAnchor.constraint(lessThanOrEqualTo: copyButton.leadingAnchor, constant: -4),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             extensionStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
@@ -553,9 +568,15 @@ private final class URLPill: NSView {
         for b in extensionButtons where id == nil || b.entryID == id { b.refresh() }
     }
 
-    func set(_ text: String?, canCopy: Bool) {
+    /// `insecure`: the page came over plain http://. An open lock goes in front of the host so that is never hidden.
+    func set(_ text: String?, canCopy: Bool, insecure: Bool = false) {
         label.stringValue = text ?? "Search or enter address"
         label.textColor = text == nil ? .tertiaryLabelColor : .labelColor
+        let notSecure = insecure && text != nil
+        label.toolTip = notSecure ? "Not Secure: this page isn’t encrypted. Others on the network can see and change it." : nil
+        lockView.toolTip = label.toolTip
+        lockView.isHidden = !notSecure
+        labelLeading.constant = notSecure ? 27 : 12
         self.canCopy = canCopy
         let key = Keybindings.shared.display(for: "tab.copyURL")
         copyButton.toolTip = "Copy link" + (key.map { " (\($0))" } ?? "")
@@ -1209,8 +1230,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         if let u = item?.url, u.hasPrefix("sorrel://") {
             pill.set("Sorrel", canCopy: false)
         } else {
-            pill.set(item?.host?.replacingOccurrences(of: "www.", with: "") ?? item?.url,
-                     canCopy: item?.url?.hasPrefix("http") ?? false)
+            pill.set(Site.display(item?.host) ?? item?.url,
+                     canCopy: item?.url?.hasPrefix("http") ?? false,
+                     insecure: item?.host != nil && item?.url?.lowercased().hasPrefix("http://") == true)
         }
     }
 

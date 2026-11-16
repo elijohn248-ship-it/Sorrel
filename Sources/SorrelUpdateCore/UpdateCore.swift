@@ -59,6 +59,13 @@ public enum UpdateSigning {
     public static func verify(file: URL, signature: String, sha256: String? = nil, size: Int? = nil,
                               publicKey: String = UpdateConfig.publicKey) throws {
         let data = try Data(contentsOf: file, options: .mappedIfSafe)
+        try verify(data: data, signature: signature, sha256: sha256, size: size, publicKey: publicKey)
+    }
+
+    /// The same check on bytes already in memory. The updater service uses this so that the bytes it checked
+    /// are the bytes it installs: re-reading a file the app can write would let the app swap it in between.
+    public static func verify(data: Data, signature: String, sha256: String? = nil, size: Int? = nil,
+                              publicKey: String = UpdateConfig.publicKey) throws {
         if let size, data.count != size { throw Failure("The download is \(data.count) bytes, expected \(size)") }
         if let sha256 {
             let got = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -92,11 +99,14 @@ public struct BundleInfo {
 }
 
 /// The XPC service's interface. The sandboxed app may only ask it to install an archive the service itself
-/// verifies against the built-in key, into the app bundle whose id matches the service's own.
+/// verifies against the built-in key, over the app bundle that contains the service. The service works out
+/// that bundle's location itself; it never takes a path to write to from the app (see SorrelUpdater/main.swift).
 @objc(SorrelUpdaterXPC) public protocol SorrelUpdaterXPC {
-    /// Checks the archive, then starts a detached installer that waits for `pid` to exit, swaps `app` for the
-    /// archive's bundle, and opens it again if `relaunch`. Replies with nil, or a sentence saying what refused.
-    func install(zip: String, signature: String, app: String, pid: Int32, relaunch: Bool, log: String,
+    /// Reads and checks the archive, keeps a private copy, then starts a detached installer that waits for
+    /// `pid` to exit, swaps the app for the archive's bundle, and opens it again if `relaunch`. `log` must be
+    /// the app's own Updates/update.log (inside its container, or under /private/tmp for the test build).
+    /// Replies with nil, or a sentence saying what refused.
+    func install(zip: String, signature: String, pid: Int32, relaunch: Bool, log: String,
                  reply: @escaping (String?) -> Void)
 }
 

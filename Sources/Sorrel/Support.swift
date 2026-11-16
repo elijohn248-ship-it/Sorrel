@@ -107,6 +107,9 @@ struct Settings: Codable {
     /// Extra access the person approved when an extension asked for it, by extension id
     /// ("perm:<name>", "match:<pattern>", "url:<address>"). What a manifest requires is granted on switch-on.
     var extensionGrants: [String: [String]] = [:]
+    /// What each extension's manifest required when the person switched it on (or later approved), by extension id,
+    /// in the same "perm:"/"match:" form. An update that asks for more is held until the person agrees.
+    var extensionApproved: [String: [String]] = [:]
     /// Unpinned tabs untouched for this many hours are archived. 0 = never.
     var archiveAfterHours = 24.0
     var fallbackBrowser = "Helium"
@@ -145,6 +148,7 @@ struct Settings: Codable {
         stripTrackingParameters = try c.decodeIfPresent(Bool.self, forKey: .stripTrackingParameters) ?? d.stripTrackingParameters
         httpsFirst = try c.decodeIfPresent(Bool.self, forKey: .httpsFirst) ?? d.httpsFirst
         extensionGrants = try c.decodeIfPresent([String: [String]].self, forKey: .extensionGrants) ?? d.extensionGrants
+        extensionApproved = try c.decodeIfPresent([String: [String]].self, forKey: .extensionApproved) ?? d.extensionApproved
         blockAds = try c.decodeIfPresent(Bool.self, forKey: .blockAds) ?? d.blockAds
         blockCookieNotices = try c.decodeIfPresent(Bool.self, forKey: .blockCookieNotices) ?? d.blockCookieNotices
         blockingDisabledSites = try c.decodeIfPresent([String].self, forKey: .blockingDisabledSites) ?? d.blockingDisabledSites
