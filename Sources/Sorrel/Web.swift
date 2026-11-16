@@ -291,6 +291,11 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             decisionHandler(.download)
             return
         }
+        if isMain, Extensions.shared.isExtensionURL(url) {
+            // An extension's own page in a tab: start its background first (Extensions.wakeBackground).
+            Extensions.shared.wakeBackground(beforeLoading: url) { decisionHandler(.allow) }
+            return
+        }
         if isMain, scheme == "data" {
             // Pages may not send the whole tab to a data: address (a common way to fake a sign-in page).
             decisionHandler(.cancel)

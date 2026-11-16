@@ -767,6 +767,14 @@ final class Extensions: NSObject {
 
     func isExtensionURL(_ url: URL) -> Bool { controller.extensionContext(for: url) != nil }
 
+    /// Before a tab loads one of an extension's own pages (its settings, a restored or re-woken tab), make
+    /// sure the extension's background is running. If the page is what restarts a stopped service worker,
+    /// Proton Pass's background starts without its compat stand-ins and crashes (see wakeBackground).
+    func wakeBackground(beforeLoading url: URL, then run: @escaping () -> Void) {
+        guard let context = controller.extensionContext(for: url), let entry = entry(for: context) else { run(); return }
+        wakeBackground(of: entry, context: context, then: run)
+    }
+
     /// True for a website that a switched-on Chrome extension declares as its own (its sign-in page, say).
     /// Such a site hands things to "the Chrome extension", so it has to be told this browser is Chrome.
     func isChromeCompanionSite(_ url: URL) -> Bool {
@@ -819,14 +827,18 @@ final class Extensions: NSObject {
     /// When the background is already running, WebKit answers at once and nothing waits.
     private func wakeBackground(of entry: ExtensionEntry, context: WKWebExtensionContext, then run: @escaping () -> Void) {
         guard context.webExtension.hasBackgroundContent else { run(); return }
+        // `run` happens exactly once, whatever WebKit does: a tab's navigation is held until it's called, and
+        // WebKit has been seen never answering loadBackgroundContent after a failed start.
+        var done = false
+        let once = { if !done { done = true; run() } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: once)
         let started = Date()
         context.loadBackgroundContent { error in
-            guard entry.context === context else { return }
             let cold = Date().timeIntervalSince(started) > 0.03
             if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil {
                 FileHandle.standardError.write("ext: woke background of \(entry.id) first (\(cold ? "it had stopped" : "already running"))\(error.map { ": \($0.localizedDescription)" } ?? "")\n".data(using: .utf8)!)
             }
-            if cold { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: run) } else { run() }
+            if cold { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: once) } else { once() }
         }
     }
 

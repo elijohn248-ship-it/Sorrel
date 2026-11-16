@@ -870,38 +870,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                           // Open the toolbar pop-up and the dashboard page, and photograph both.
                           let run = {
                             if env["SORREL_UI_NODASH"] == nil { Extensions.shared.openOptions(ubol) }
-                            let tabAtClick = self.store.selected?.extensionTab
-                            bringAppForward()
-                            Extensions.shared.performAction(ubol)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_WAIT"] ?? "") ?? 8)) {
-                                let action = ubol.context?.action(for: tabAtClick)
-                                let pop = action?.popupPopover
-                                log("ui: popover shown=\(pop?.isShown ?? false) contentSize=\(pop?.contentSize ?? .zero) contentView=\(pop?.contentViewController?.view.frame.size ?? .zero) appActive=\(NSApp.isActive) loading=\(action?.popupWebView?.isLoading ?? false) title=\(action?.popupWebView?.title ?? "nil")")
-                                if let out = env["SORREL_SNAPSHOT_POPOVER"], let v = pop?.contentViewController?.view, v.bounds.width > 0,
-                                   let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
-                                    v.cacheDisplay(in: v.bounds, to: rep)
-                                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
-                                }
-                                log("ui: popup open=\(Extensions.shared.isPopupOpen) popupWebView=\(action?.popupWebView != nil) popupURL=\(action?.popupWebView?.url?.absoluteString ?? "nil") popupSize=\(action?.popupWebView?.frame.size ?? .zero)")
-                                log("ui: dashboard tab title=\(self.store.selected?.title ?? "nil") url=\(self.store.selected?.url ?? "nil") loaded=\(self.store.selected?.page?.webView.url?.absoluteString ?? "nil")")
-                                let group = DispatchGroup()
-                                func shoot(_ wv: WKWebView?, _ path: String?) {
-                                    guard let wv, let path else { return }
-                                    group.enter()
-                                    wv.takeSnapshot(with: nil) { image, _ in
-                                        if let tiff = image?.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
-                                            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
-                                        }
-                                        group.leave()
+                            // SORREL_UI_PREOPEN=<url>: open a web page first (its content scripts reach the idle background).
+                            if let pre = env["SORREL_UI_PREOPEN"] { self.store.newTab(url: pre) }
+                            // SORREL_UI_CLICKDELAY=<s>: wait before clicking the icon (lets PREOPEN's page wake the background alone).
+                            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_CLICKDELAY"] ?? "") ?? 0)) {
+                                let tabAtClick = self.store.selected?.extensionTab
+                                bringAppForward()
+                                Extensions.shared.performAction(ubol)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_WAIT"] ?? "") ?? 8)) {
+                                    let action = ubol.context?.action(for: tabAtClick)
+                                    let pop = action?.popupPopover
+                                    log("ui: popover shown=\(pop?.isShown ?? false) contentSize=\(pop?.contentSize ?? .zero) contentView=\(pop?.contentViewController?.view.frame.size ?? .zero) appActive=\(NSApp.isActive) loading=\(action?.popupWebView?.isLoading ?? false) title=\(action?.popupWebView?.title ?? "nil")")
+                                    if let out = env["SORREL_SNAPSHOT_POPOVER"], let v = pop?.contentViewController?.view, v.bounds.width > 0,
+                                       let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                                        v.cacheDisplay(in: v.bounds, to: rep)
+                                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: out))
                                     }
+                                    log("ui: popup open=\(Extensions.shared.isPopupOpen) popupWebView=\(action?.popupWebView != nil) popupURL=\(action?.popupWebView?.url?.absoluteString ?? "nil") popupSize=\(action?.popupWebView?.frame.size ?? .zero)")
+                                    log("ui: dashboard tab title=\(self.store.selected?.title ?? "nil") url=\(self.store.selected?.url ?? "nil") loaded=\(self.store.selected?.page?.webView.url?.absoluteString ?? "nil")")
+                                    let group = DispatchGroup()
+                                    func shoot(_ wv: WKWebView?, _ path: String?) {
+                                        guard let wv, let path else { return }
+                                        group.enter()
+                                        wv.takeSnapshot(with: nil) { image, _ in
+                                            if let tiff = image?.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) {
+                                                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                                            }
+                                            group.leave()
+                                        }
+                                    }
+                                    action?.popupWebView?.evaluateJavaScript("(function(){var box=function(el){if(!el)return null;var r=el.getBoundingClientRect(),c=getComputedStyle(el);return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height),c.display,c.visibility,c.opacity,c.overflow].join(' ');};var root=document.querySelector('.app-root');return JSON.stringify({ready: document.readyState, text: (document.body ? document.body.innerText : '').slice(0, 120), nodes: document.querySelectorAll('*').length, win: innerWidth+'x'+innerHeight, html: box(document.documentElement), body: box(document.body), appRoot: box(root), first: box(root&&root.firstElementChild), second: box(root&&root.firstElementChild&&root.firstElementChild.firstElementChild), vars: [getComputedStyle(document.documentElement).getPropertyValue('--popup-width'), getComputedStyle(document.documentElement).getPropertyValue('--popup-height')], inline: document.documentElement.getAttribute('style'), bodyInline: document.body.getAttribute('style')});})()") { r, e in
+                                        log("ui: popup page \(r ?? "nil") \(e.map { $0.localizedDescription } ?? "")")
+                                    }
+                                    log("ui: context errors=\((ubol.context?.errors ?? []).map { $0.localizedDescription })")
+                                    shoot(action?.popupWebView, env["SORREL_SNAPSHOT_POPUP"])
+                                    shoot(self.store.selected?.page?.webView, env["SORREL_SNAPSHOT_DASH"])
+                                    group.notify(queue: .main) { NSApp.terminate(nil) }
                                 }
-                                action?.popupWebView?.evaluateJavaScript("(function(){var box=function(el){if(!el)return null;var r=el.getBoundingClientRect(),c=getComputedStyle(el);return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height),c.display,c.visibility,c.opacity,c.overflow].join(' ');};var root=document.querySelector('.app-root');return JSON.stringify({ready: document.readyState, text: (document.body ? document.body.innerText : '').slice(0, 120), nodes: document.querySelectorAll('*').length, win: innerWidth+'x'+innerHeight, html: box(document.documentElement), body: box(document.body), appRoot: box(root), first: box(root&&root.firstElementChild), second: box(root&&root.firstElementChild&&root.firstElementChild.firstElementChild), vars: [getComputedStyle(document.documentElement).getPropertyValue('--popup-width'), getComputedStyle(document.documentElement).getPropertyValue('--popup-height')], inline: document.documentElement.getAttribute('style'), bodyInline: document.body.getAttribute('style')});})()") { r, e in
-                                    log("ui: popup page \(r ?? "nil") \(e.map { $0.localizedDescription } ?? "")")
-                                }
-                                log("ui: context errors=\((ubol.context?.errors ?? []).map { $0.localizedDescription })")
-                                shoot(action?.popupWebView, env["SORREL_SNAPSHOT_POPUP"])
-                                shoot(self.store.selected?.page?.webView, env["SORREL_SNAPSHOT_DASH"])
-                                group.notify(queue: .main) { NSApp.terminate(nil) }
                             }
                           }
                           if ubol.isLoaded {
