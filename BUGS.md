@@ -23,23 +23,22 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-### Proton Pass background crashes in the owner's real profile (NOT fixed; reported 2026-11-15, still failing 2026-11-16)
-- **Repro (owner's profile only):** Sorrel signed in to Proton Pass (Chrome Web Store build 1.43.0). Click the Proton icon, also after waiting a minute idle.
-- **Expected:** Proton's pop-up with the password list.
-- **Actual:** a dark, empty pop-up at full size. Proton's Settings ▸ "Problems it reported" (2026-11-15, before the v14 guard): `TypeError: undefined is not an object (evaluating 'r_.runtime.onUpdateAvailable.addListener') (background.js:62:39368)` / `The background content failed to load due to an error.` **The error text after the v14 guard hasn't been captured yet; get it from the owner first.**
-- **Tried, merged into `main`, did not fix it for the owner:**
-  1. `proton-popup` (merged 8eda812): wake the background before a pop-up opens and before any extension page loads in a tab (`Extensions.wakeBackground`, Web.swift navigation policy). Fixed every repro in test profiles (10/10 crashes before, 0 after).
-  2. `proton-guard` (merged 7521e29, ChromeCompat 14): rewrite Chrome-only event listeners in the extension's code to optional chaining (`onUpdateAvailable?.addListener(`). Confirmed applied to the owner's installed copy on 2026-11-16 (manifest `sorrel_compat` 14, background.js has the guarded line and no unguarded one). With the shim switched off in a test profile, the background still started, yet the owner says it is not fixed.
-- **Couldn't reproduce outside the owner's profile:** fresh test profiles and a persistent extension store (`SORREL_EXT_STORE`, two launches) both pass with the current code. Differences left: signed-in state (Proton's own timers/alarms restarting the worker), the owner's real tabs, WebKit data accumulated in the real container (possibly a cached copy of the old worker script), and whatever WebKit does on the owner's machine that a test window doesn't (visible window, focus).
-- **Leads for the next attempt:** (a) get the current "Problems it reported" text: same `onUpdateAvailable` error at the same position would mean WebKit is not running the patched files (cached worker?); a different error is the next missing piece. (b) Check whether the background fails at launch or only after idle (ask the owner to open the pop-up right after launch). (c) Never test against the real profile; reproduce with a copy in `SORREL_HOME`.
+(none)
 
 ## Fixed
+
+### Proton Pass pop-up: header but blank item list and details (fixed 2026-11-16, branch `proton-list`)
+- **Repro (owner's signed-in profile):** click the Proton Pass icon (also after a minute idle).
+- **Expected:** the password list and the selected item's details.
+- **Actual:** header, search and "All (353)" showed; the list and details were blank. (Earlier on 2026-11-15/16 the background crashed instead: `runtime.onUpdateAvailable` undefined; the wake-up and guard fixes on `proton-popup`/`proton-guard` stopped that.)
+- **Cause:** `applyDeclaredSize` gave the page only `min-width/min-height`. Proton sizes `html`/`body`/`.app-root` with `height: 100%`, which resolves against the real height (small while WebKit measures the pop-up), so the app area shrank to its header (600x115 of 600x430) and the list panes got 0 height. Found with temporary on-device layout diagnostics (removed). Fix: real `width/height` on html and body. Owner confirmed it works. Also on the branch: pop-ups never count as hidden (`keepPopupAwake`; suspected first, not the cause, kept because covered pop-ups and test windows now draw) and the pop-up speed work in CLAUDE.md.
 
 ### Command bar flickers while typing (fixed 2026-11-16, branch `command-bar-fluid`)
 - **Repro:** ⌘T (or ⌘L), with search suggestions on, type a word at a normal pace.
 - **Expected:** rows that still fit stay put, new ones fill in smoothly below, the bar glides to its new size.
 - **Actual:** after every letter the suggestion rows vanished and came back ~0.2 s later, so the list collapsed and regrew (`SORREL_TYPETEST=nephro`: 8 shrink-then-grow reversals in 6 letters, list rebuilt 12 times); the shadow snapped to the end size while the panel was still resizing.
 - **Cause:** suggestions were shown only for the exact text they were fetched for, and every keystroke ran `reloadData`. Now the previous suggestions that still fit stay up until the new answer arrives, rows are matched by a key and updated in place (new ones fade in, gone ones fade out), and the list height follows a display-synced spring that re-lays out the whole bar each frame (`CommandBar.setListHeight`). After: the list holds its rows while typing, 2 rebuilds (opening only), field never moves.
+
 
 ### Centered command bar moves while typing (fixed 2026-11-15, branch `command-bar`)
 - **Repro:** ⌘T, type something that fills several suggestion rows.

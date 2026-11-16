@@ -313,6 +313,38 @@ final class ThemeBackgroundView: NSView {
         }
     }
 
+    /// Shows a mix of two spaces' gradients, `f` of the way from `a` to `b`, at once (a space swipe calls
+    /// this every frame). Gradients with different numbers of colours are resampled to the same stops first.
+    func blend(_ a: Theme, _ b: Theme, _ f: CGFloat) {
+        let dark = systemIsDark()
+        let ca = a.resolvedColors(systemIsDark: dark), cb = b.resolvedColors(systemIsDark: dark)
+        let n = max(ca.count, cb.count, 2)
+        func sample(_ cs: [NSColor], _ t: CGFloat) -> NSColor {
+            guard cs.count > 1 else { return cs[0] }
+            let x = t * CGFloat(cs.count - 1)
+            let i = min(Int(x), cs.count - 2)
+            return cs[i].blended(withFraction: x - CGFloat(i), of: cs[i + 1]) ?? cs[i]
+        }
+        let colors = (0..<n).map { k -> CGColor in
+            let t = CGFloat(k) / CGFloat(n - 1)
+            let c1 = sample(ca, t), c2 = sample(cb, t)
+            return (c1.blended(withFraction: f, of: c2) ?? c1).cgColor
+        }
+        func ends(_ th: Theme) -> (CGPoint, CGPoint) {
+            let rad = th.angle * .pi / 180
+            let dx = CGFloat(cos(rad)) / 2, dy = CGFloat(sin(rad)) / 2
+            return (CGPoint(x: 0.5 - dx, y: 0.5 - dy), CGPoint(x: 0.5 + dx, y: 0.5 + dy))
+        }
+        let (sa, ea) = ends(a), (sb, eb) = ends(b)
+        func mix(_ p: CGPoint, _ q: CGPoint) -> CGPoint { CGPoint(x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f) }
+        Motion.layer(0) {
+            gradient.removeAllAnimations()
+            gradient.colors = colors
+            gradient.startPoint = mix(sa, sb)
+            gradient.endPoint = mix(ea, eb)
+        }
+    }
+
     override var mouseDownCanMoveWindow: Bool { true }
 }
 

@@ -865,12 +865,23 @@ final class Extensions: NSObject {
         wakeBackground(of: entry, context: context) { context.performAction(for: tab) }
     }
 
+    /// Starts an extension's background as the pointer reaches its icon, so a click a moment later finds it
+    /// running and the pop-up opens without the cold-start wait below (about 0.45 s for Proton Pass).
+    func prewarm(_ entry: ExtensionEntry) {
+        guard let context = entry.context, context.webExtension.hasBackgroundContent else { return }
+        wakeBackground(of: entry, context: context) {}
+    }
+
+    /// When each extension's background last had to be restarted (it had stopped), by entry id.
+    private var restartedAt: [String: Date] = [:]
+
     /// WebKit stops an idle extension's background script after 30 s. If a pop-up is what brings a service
     /// worker back (Proton Pass), WebKit starts the worker in the pop-up's own process, reports it loaded
     /// before its install step has run, and shuts it down again a few milliseconds later. The pop-up is left
     /// with nobody to talk to and stays an empty 50×50 box. So the background is woken first, and the pop-up
     /// opens once the worker has had a moment to finish starting (it needs ~50 ms; 0.1 s passed in tests).
-    /// When the background is already running, WebKit answers at once and nothing waits.
+    /// When the background is already running, WebKit answers at once and nothing waits; if a hover
+    /// (`prewarm`) restarted it moments ago, only the rest of that settling time is waited out.
     private func wakeBackground(of entry: ExtensionEntry, context: WKWebExtensionContext, then run: @escaping () -> Void) {
         guard context.webExtension.hasBackgroundContent else { run(); return }
         // `run` happens exactly once, whatever WebKit does: a tab's navigation is held until it's called, and
@@ -879,12 +890,16 @@ final class Extensions: NSObject {
         let once = { if !done { done = true; run() } }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: once)
         let started = Date()
-        context.loadBackgroundContent { error in
+        let settle: TimeInterval = 0.3
+        context.loadBackgroundContent { [weak self] error in
             let cold = Date().timeIntervalSince(started) > 0.03
             if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil {
                 FileHandle.standardError.write("ext: woke background of \(entry.id) first (\(cold ? "it had stopped" : "already running"))\(error.map { ": \($0.localizedDescription)" } ?? "")\n".data(using: .utf8)!)
             }
-            if cold { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: once) } else { once() }
+            if cold { self?.restartedAt[entry.id] = Date() }
+            let since = self?.restartedAt[entry.id].map { Date().timeIntervalSince($0) } ?? .infinity
+            let wait = settle - since
+            if wait > 0 { DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: once) } else { once() }
         }
     }
 
@@ -932,10 +947,28 @@ final class Extensions: NSObject {
         Store.shared.newTab(url: url.absoluteString, title: entry.name)
     }
 
+    /// A pop-up is only ever on screen while its popover is shown, so it must never count as hidden.
+    /// WebKit treats a page as hidden when macOS reports its window as covered (occluded), even if the
+    /// popover is plainly in front. A hidden page gets no animation frames and its CSS animations stop
+    /// at their first frame, so a pop-up like Proton Pass's (content faded in from opacity 0) stays blank.
+    /// With occlusion detection off, WebKit counts the pop-up as visible whenever its window is visible.
+    /// This was NOT the cause of the owner's blank Proton list (their pop-up was visible; see
+    /// applyDeclaredSize), but it keeps pop-ups drawing when the window is reported covered, which is also
+    /// what lets background test windows see a pop-up render. Tabs keep WebKit's power saving.
+    private func keepPopupAwake(_ webView: WKWebView?) {
+        let setter = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
+        guard let webView, webView.responds(to: setter), let method = webView.method(for: setter) else { return }
+        // Called directly: key-value coding looks for a differently named setter and throws.
+        typealias SetBool = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(method, to: SetBool.self)(webView, setter, false)
+    }
+
     /// If a pop-up's own stylesheet gives it a fixed size larger than the window it currently has, tell
     /// the page to be at least that big. WebKit's popover then grows to fit, and the page settles there.
-    private func applyDeclaredSize(to action: WKWebExtension.Action) {
-        guard let webView = action.popupWebView else { return }
+    /// Also shortens fade-in animations to a brisk 0.12 s with no delay. `done` gets the size the page
+    /// was told to take, or nil when nothing needed correcting (or there was no page to check).
+    private func applyDeclaredSize(to action: WKWebExtension.Action, done: ((CGSize?) -> Void)? = nil) {
+        guard let webView = action.popupWebView else { done?(nil); return }
         // Read the size from the stylesheet, not from the live page: the live page has already shrunk.
         let script = """
         (function () {
@@ -962,11 +995,25 @@ final class Extensions: NSObject {
               ['width', 'height'].forEach(function (prop) { var v = px(r.style.getPropertyValue(prop)); if (v > declared[prop]) declared[prop] = v; });
             });
           });
+          // Pop-ups are opened to be used at once: Proton nests several fade-ins (box, main area, and each
+          // child, each after a 50-100 ms delay), which together read as a slow ~0.6 s fade. Make each one a
+          // brisk 0.12 s with no delay. A constructed stylesheet, so the page's own CSP is not involved.
+          if (!window.__sorrelQuickFade && document.adoptedStyleSheets) {
+            try {
+              var quick = new CSSStyleSheet();
+              quick.replaceSync('.anime-fade-in, .anime-fade-in > * { animation-duration: .12s !important; animation-delay: 0s !important; }');
+              document.adoptedStyleSheets = document.adoptedStyleSheets.concat([quick]);
+              window.__sorrelQuickFade = true;
+            } catch (e) {}
+          }
           var w = Math.min(800, declared.width), h = Math.min(600, declared.height), changed = 0;
           if (w > window.innerWidth + 20 || h > window.innerHeight + 20) {
+            // A real width and height, not only a minimum: the page's own `height: 100%` chain (html -> body ->
+            // app) resolves against the height WebKit measures the pop-up with, not against a minimum. With only
+            // min-height, Proton's app area collapsed to its header (115 of 430) and its list got 0 height.
             [root, body].forEach(function (el) {
-              if (w) el.style.setProperty('min-width', w + 'px', 'important');
-              if (h) el.style.setProperty('min-height', h + 'px', 'important');
+              if (w) { el.style.setProperty('min-width', w + 'px', 'important'); el.style.setProperty('width', w + 'px', 'important'); }
+              if (h) { el.style.setProperty('min-height', h + 'px', 'important'); el.style.setProperty('height', h + 'px', 'important'); }
             });
             changed = 1;
           }
@@ -974,6 +1021,7 @@ final class Extensions: NSObject {
         })()
         """
         webView.evaluateJavaScript(script) { result, _ in
+            done?((result as? [Double]).flatMap { $0.count == 5 && $0[4] == 1 ? CGSize(width: $0[0], height: $0[1]) : nil })
             if ProcessInfo.processInfo.environment["SORREL_SNAPSHOT"] != nil, let r = result as? [Double], r.count == 5 {
                 FileHandle.standardError.write("popup size: declared \(Int(r[0]))x\(Int(r[1])), window \(Int(r[2]))x\(Int(r[3])), corrected=\(r[4] == 1)\n".data(using: .utf8)!)
                 // Testing: where the page's main boxes actually are.
@@ -1098,16 +1146,43 @@ extension Extensions: WKWebExtensionControllerDelegate {
         let (view, rect, edge) = main.extensionPopupAnchor(for: entry(for: context))
         completionHandler(nil)
         openPopover = popover
-        popover.show(relativeTo: rect, of: view, preferredEdge: edge)
+        keepPopupAwake(action.popupWebView)
         // WebKit sizes the pop-up to fit its content. A pop-up built for Chrome may declare a fixed size
         // instead (Proton Pass: 600 by 430) and then adapt to whatever window it is given, so WebKit and
-        // the page talk each other down to a thin strip. Checked a few times as the page loads.
-        for delay in [0.1, 0.4, 1.0, 2.0, 4.0] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, popover.isShown, self.openPopover === popover else { return }
-                self.applyDeclaredSize(to: action)
+        // the page talk each other down to a thin strip. The size is set BEFORE the popover shows, so it
+        // opens at full size instead of appearing small and jumping (about 0.1 s spent before showing).
+        // Checked again a few times as the page settles.
+        let show = { [weak self] in
+            guard let self, self.openPopover === popover, !popover.isShown else { return }
+            popover.show(relativeTo: rect, of: view, preferredEdge: edge)
+            for delay in [0.1, 0.4, 1.0, 2.0, 4.0] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self, popover.isShown, self.openPopover === popover else { return }
+                    self.applyDeclaredSize(to: action)
+                }
             }
         }
+        applyDeclaredSize(to: action) { target in
+            guard let target else { show(); return }
+            // Wait for the web view to ask for that size (~20 ms). Its frame and the popover's size stay 0x0
+            // until shown; the intrinsic size is what WebKit fits the popover to.
+            let started = Date()
+            func showWhenSized() {
+                let size = action.popupWebView?.intrinsicContentSize ?? .zero
+                let sized = size.width >= target.width - 20 && size.height >= target.height - 20
+                if sized {
+                    // WebKit passes that size on to its popover and view after a short delay of its own; shown
+                    // sooner, the page opened at the old size and jumped ~80 ms later. Setting the popover's or
+                    // view's size by hand did not stick. Measured: 60 ms after the page asks for it, it opens at
+                    // full size; 80 ms leaves some margin.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { show() }
+                } else if Date().timeIntervalSince(started) > 0.25 { show() } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { showWhenSized() }
+                }
+            }
+            showWhenSized()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { show() }   // in case the page never answers
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, sendMessage message: Any,
