@@ -1,4 +1,4 @@
 # Progress
 
-- Proton Pass pop-up fixes (`proton-popup` merged; `proton-guard` follows it): verified in test profiles signed out. Still needs the owner, signed in, to confirm the password list shows after Sorrel has sat idle for a minute or more, and that opening Proton's settings (right-click its icon) then its pop-up still works.
+- **Proton Pass in the owner's profile: still broken, paused by the owner (2026-11-16).** Both fixes (`proton-popup`, `proton-guard`/ChromeCompat 14) are merged and pass in test profiles, but the owner's signed-in pop-up is still empty. The owner asked that no further fix be attempted for now. Details, what was tried and next leads: BUGS.md ▸ Open.
 - Browser import (`browser-import`, not merged): built and tested against fixtures for every format and, counts only, against copies of the owner's real Arc, Helium and Zen data. Needs the owner: the real Open panel (does Allow on Arc's pre-selected folder hand it over, and does Safari's folder open or fall back to the export message), and the feel of the card's motion on screen. Not read: Zen workspaces, Chromium open tabs, cookies, passwords.
