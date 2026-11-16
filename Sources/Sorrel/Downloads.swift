@@ -2,14 +2,20 @@ import AppKit
 import QuickLookThumbnailing
 import UniformTypeIdentifiers
 
-// Arc-style downloads: the space bar's button fills a ring while files download, and opens a panel of
-// recent downloads with thumbnails, live progress, drag-out, and quick actions.
+// Arc-style downloads. The Library button at the bottom left of the sidebar fills a ring while files download,
+// shows recent downloads when hovered, and opens the Library (Library.swift) when clicked. Downloads in progress
+// also sit in a strip at the bottom of the sidebar with their size, time left and a cancel button.
 
 // MARK: - Space bar button
 
-/// The downloads button: an arrow that drops in when a download starts, inside a ring that fills as it goes.
+/// The Library button: books when idle; while downloading, an arrow that drops in, inside a ring that fills.
+/// Hovering it asks for the recent-downloads preview.
 final class DownloadsButton: NSView {
     private(set) var button: IconButton!
+    /// Called with true after the cursor has rested on the button, and false when it leaves.
+    var onHover: ((Bool) -> Void)?
+    private var hoverWork: DispatchWorkItem?
+    private static let idleSymbol = "books.vertical"
     private let track = CAShapeLayer()
     private let ring = CAShapeLayer()
     private var runningIDs: Set<ObjectIdentifier> = []
@@ -19,7 +25,7 @@ final class DownloadsButton: NSView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
-        button = IconButton(symbol: "arrow.down.circle", size: 12, tooltip: "Downloads", handler: handler)
+        button = IconButton(symbol: Self.idleSymbol, size: 12, tooltip: "Library", handler: handler)
         addSubview(button)
         NSLayoutConstraint.activate([
             button.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -65,11 +71,30 @@ final class DownloadsButton: NSView {
         }
     }
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                       owner: self, userInfo: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hoverWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.onHover?(true) }
+        hoverWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hoverWork?.cancel()
+        hoverWork = nil
+        onHover?(false)
+    }
+
+    /// A click opens the Library, so a pending preview shouldn't pop up after it.
+    func cancelHover() { hoverWork?.cancel(); hoverWork = nil }
+
     func update(_ list: [DownloadRecord]) {
-        if isHidden != list.isEmpty {
-            isHidden = list.isEmpty
-            if !isHidden { layer?.popIn(scale: 0.6, duration: 0.3) }
-        }
         let running = list.filter { $0.state == .running }
         let ids = Set(running.map(ObjectIdentifier.init))
         let started = !ids.subtracting(runningIDs).isEmpty
@@ -81,7 +106,7 @@ final class DownloadsButton: NSView {
         let fraction: Double? = running.isEmpty || sized.count < running.count ? nil
             : Double(sized.reduce(0) { $0 + $1.received }) / Double(max(1, sized.reduce(0) { $0 + $1.total }))
 
-        button.image = symbol(running.isEmpty ? "arrow.down.circle" : "arrow.down", size: running.isEmpty ? 12 : 9,
+        button.image = symbol(running.isEmpty ? Self.idleSymbol : "arrow.down", size: running.isEmpty ? 12 : 9,
                               weight: running.isEmpty ? .medium : .bold)
         button.contentTintColor = running.isEmpty ? .secondaryLabelColor : .controlAccentColor
         Motion.layer(0.25) {
@@ -99,7 +124,7 @@ final class DownloadsButton: NSView {
         } else if running.count > 1 {
             button.toolTip = "Downloading \(running.count) files" + (fraction.map { " (\(Int($0 * 100))%)" } ?? "")
         } else {
-            button.toolTip = "Downloads"
+            button.toolTip = "Library"
         }
     }
 
@@ -124,145 +149,125 @@ final class DownloadsButton: NSView {
     }
 }
 
-// MARK: - Panel
+// MARK: - Hover preview
 
-/// The popover's contents: header, then one row per recent download, newest first.
-final class DownloadsPanel: NSViewController {
-    static let width: CGFloat = 320
-    static let rowHeight: CGFloat = 52
-    static let maxVisibleRows = 6
-    private static let headerHeight: CGFloat = 40
-
-    /// Closes the popover (after opening a file, say).
+/// What hovering the Library button shows: the most recent downloads, newest first.
+final class DownloadsPreview: NSViewController {
+    static let width: CGFloat = 280
+    static let limit = 5
     var onClose: (() -> Void)?
     private let stack = NSStackView()
-    private let scroll = NSScrollView()
-    private let empty = NSTextField(labelWithString: "No downloads yet")
-    private var clearButton: NSButton!
-    private var scrollHeight: NSLayoutConstraint!
     private(set) var rows: [DownloadRow] = []
-    private var clock: Timer?
 
     override func loadView() {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 120))
-
-        let title = NSTextField(labelWithString: "Downloads")
-        title.font = .systemFont(ofSize: 13, weight: .semibold)
-        clearButton = NSButton(title: "Clear", target: self, action: #selector(clear))
-        clearButton.isBordered = false
-        clearButton.attributedTitle = NSAttributedString(string: "Clear", attributes: [
-            .font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.secondaryLabelColor])
-        clearButton.toolTip = "Clear finished downloads from this list (the files stay)"
-        let folder = IconButton(symbol: "folder", size: 12, tooltip: "Open Downloads Folder") { [weak self] in
-            self?.onClose?()
-            Commands.shared.run("downloads.show")
-        }
-        for c in [title, clearButton!, folder] as [NSView] {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: Self.width, height: 100))
+        let title = NSTextField(labelWithString: "Recent Downloads")
+        title.font = .systemFont(ofSize: 11, weight: .semibold)
+        title.textColor = .secondaryLabelColor
+        stack.orientation = .vertical
+        stack.spacing = 0
+        stack.alignment = .leading
+        for c in [title, stack] as [NSView] {
             c.translatesAutoresizingMaskIntoConstraints = false
             v.addSubview(c)
         }
-
-        let document = FlippedContainer()
-        document.translatesAutoresizingMaskIntoConstraints = false
-        stack.orientation = .vertical
-        stack.spacing = 2
-        stack.alignment = .leading
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 6, bottom: 6, right: 6)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        document.addSubview(stack)
-        scroll.documentView = document
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        scroll.scrollerStyle = .overlay
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(scroll)
-
-        empty.font = .systemFont(ofSize: 12)
-        empty.textColor = .secondaryLabelColor
-        empty.alignment = .center
-        empty.translatesAutoresizingMaskIntoConstraints = false
-        v.addSubview(empty)
-
-        scrollHeight = scroll.heightAnchor.constraint(equalToConstant: Self.rowHeight)
         NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: v.topAnchor, constant: 10),
             title.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 14),
-            title.centerYAnchor.constraint(equalTo: v.topAnchor, constant: Self.headerHeight / 2),
-            folder.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -10),
-            folder.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            folder.widthAnchor.constraint(equalToConstant: 24),
-            folder.heightAnchor.constraint(equalToConstant: 24),
-            clearButton.trailingAnchor.constraint(equalTo: folder.leadingAnchor, constant: -4),
-            clearButton.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-
-            scroll.topAnchor.constraint(equalTo: v.topAnchor, constant: Self.headerHeight),
-            scroll.leadingAnchor.constraint(equalTo: v.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: v.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: v.bottomAnchor),
-            scrollHeight,
-
-            document.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            document.trailingAnchor.constraint(equalTo: scroll.contentView.trailingAnchor),
-            document.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: document.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: document.bottomAnchor),
-
-            empty.centerXAnchor.constraint(equalTo: scroll.centerXAnchor),
-            empty.centerYAnchor.constraint(equalTo: scroll.centerYAnchor, constant: -4),
+            stack.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 4),
+            stack.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: v.trailingAnchor, constant: -6),
         ])
         view = v
-        NotificationCenter.default.addObserver(self, selector: #selector(changed), name: .sorrelDownloads, object: nil)
-        reload(animated: false)
+        NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .sorrelDownloads, object: nil)
+        reload()
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        // "Just now" becomes "2 min ago" while the panel stays open.
-        clock = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in self?.rows.forEach { $0.refresh() } }
-    }
-
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-        clock?.invalidate()
-        clock = nil
-    }
-
-    @objc private func changed() { reload(animated: true) }
-
-    @objc private func clear() { Engine.shared.clearFinishedDownloads() }
-
-    func reload(animated: Bool) {
-        let list = Engine.shared.downloads
+    @objc func reload() {
+        let list = Array(Engine.shared.downloads.prefix(Self.limit))
         if list.count == rows.count, zip(list, rows).allSatisfy({ $0 === $1.record }) {
             rows.forEach { $0.refresh() }
-        } else {
-            let old = Dictionary(uniqueKeysWithValues: rows.map { (ObjectIdentifier($0.record), $0) })
-            stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
-            rows = list.map { old[ObjectIdentifier($0)] ?? DownloadRow(record: $0, panel: self) }
-            for row in rows {
-                stack.addArrangedSubview(row)
-                row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -12).isActive = true
-                row.refresh()
-            }
-            if animated {
-                stack.layoutSubtreeIfNeeded()
-                for row in rows where old[ObjectIdentifier(row.record)] == nil { row.layer?.popIn(scale: 0.96, rise: 4) }
-            }
+            return
         }
-        empty.isHidden = !list.isEmpty
-        clearButton.isHidden = !list.contains { $0.state != .running }
-        let visible = CGFloat(min(list.count, Self.maxVisibleRows))
-        let height = list.isEmpty ? 56 : visible * Self.rowHeight + max(0, visible - 1) * stack.spacing + 6
-        scrollHeight.constant = height
-        preferredContentSize = NSSize(width: Self.width, height: Self.headerHeight + height)
+        stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
+        rows = list.map { DownloadRow(record: $0, onOpened: { [weak self] in self?.onClose?() }) }
+        for row in rows {
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            row.refresh()
+        }
+        preferredContentSize = NSSize(width: Self.width, height: 32 + CGFloat(rows.count) * DownloadRow.height + 6)
     }
 }
 
-private final class FlippedContainer: NSView {
+// MARK: - In-progress strip
+
+/// Downloads in progress, at the bottom of the sidebar above the space bar: name, size, time left, cancel.
+/// It is empty (zero height) when nothing is downloading.
+final class DownloadsStrip: NSView {
+    private let stack = NSStackView()
+    private var height: NSLayoutConstraint!
+    private(set) var rows: [DownloadRow] = []
+    static let maxRows = 3
+    /// While the Library is open its own list shows the progress, so the strip steps aside.
+    var isSuppressed = false {
+        didSet { if isSuppressed != oldValue { resize() } }
+    }
+    var debugHeight: CGFloat { height.constant }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.masksToBounds = true
+        stack.orientation = .vertical
+        stack.spacing = 0
+        stack.alignment = .leading
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        height = heightAnchor.constraint(equalToConstant: 0)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            height,
+        ])
+        NotificationCenter.default.addObserver(self, selector: #selector(reload), name: .sorrelDownloads, object: nil)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc func reload() {
+        let running = Array(Engine.shared.downloads.filter { $0.state == .running }.prefix(Self.maxRows))
+        if running.count == rows.count, zip(running, rows).allSatisfy({ $0 === $1.record }) {
+            rows.forEach { $0.refresh() }
+            return
+        }
+        let old = Dictionary(uniqueKeysWithValues: rows.map { (ObjectIdentifier($0.record), $0) })
+        stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
+        rows = running.map { old[ObjectIdentifier($0)] ?? DownloadRow(record: $0) }
+        for row in rows {
+            stack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            row.refresh()
+        }
+        resize()
+        for row in rows where old[ObjectIdentifier(row.record)] == nil { row.layer?.popIn(scale: 0.97, rise: -4) }
+    }
+
+    /// The strip grows and shrinks with the sidebar's contents sliding to make room.
+    private func resize() {
+        let target = isSuppressed ? 0 : CGFloat(rows.count) * DownloadRow.height
+        guard height.constant != target else { return }
+        // Set at once rather than animating the sidebar's layout: animating it shifted the tab list's scroll
+        // position. New rows pop in instead (reload), and an emptied strip just closes.
+        height.constant = target
+    }
+}
+
+final class FlippedContainer: NSView {
     override var isFlipped: Bool { true }
 }
 
@@ -272,7 +277,9 @@ private final class FlippedContainer: NSView {
 /// right-click has the rest.
 final class DownloadRow: NSView, NSDraggingSource {
     let record: DownloadRecord
-    private weak var panel: DownloadsPanel?
+    static let height: CGFloat = 46
+    /// Called after the row opened its file or showed it in Finder (the hover preview closes then).
+    private let onOpened: (() -> Void)?
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
@@ -285,6 +292,8 @@ final class DownloadRow: NSView, NSDraggingSource {
     private var pressedAt: NSPoint?
     private var dragging = false
     private var thumbFor: String?
+    /// The first refresh sets the hover button without a fade, so a new row appears in its final state.
+    private var settled = false
 
     /// Quick Look pictures by path (only real previews; plain icons aren't cached here).
     private static let thumbs = NSCache<NSString, NSImage>()
@@ -306,9 +315,9 @@ final class DownloadRow: NSView, NSDraggingSource {
         return f
     }()
 
-    init(record: DownloadRecord, panel: DownloadsPanel) {
+    init(record: DownloadRecord, onOpened: (() -> Void)? = nil) {
         self.record = record
-        self.panel = panel
+        self.onOpened = onOpened
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -318,7 +327,7 @@ final class DownloadRow: NSView, NSDraggingSource {
 
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.wantsLayer = true
-        name.font = .systemFont(ofSize: 13)
+        name.font = .systemFont(ofSize: 12.5)
         name.lineBreakMode = .byTruncatingMiddle
         name.cell?.truncatesLastVisibleLine = true
         name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -332,26 +341,27 @@ final class DownloadRow: NSView, NSDraggingSource {
         barHolder.layer?.addSublayer(barTrack)
         barHolder.layer?.addSublayer(bar)
         action = IconButton(symbol: "magnifyingglass", size: 11) { [weak self] in self?.primaryAction() }
+        action.isHidden = true   // shown on hover, or always while downloading
 
         for v in [icon, name, detail, barHolder, action!] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: DownloadsPanel.rowHeight),
+            heightAnchor.constraint(equalToConstant: Self.height),
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 34),
-            icon.heightAnchor.constraint(equalToConstant: 34),
+            icon.widthAnchor.constraint(equalToConstant: 30),
+            icon.heightAnchor.constraint(equalToConstant: 30),
             name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
             name.trailingAnchor.constraint(lessThanOrEqualTo: action.leadingAnchor, constant: -6),
-            name.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            name.topAnchor.constraint(equalTo: topAnchor, constant: 6),
             detail.leadingAnchor.constraint(equalTo: name.leadingAnchor),
             detail.trailingAnchor.constraint(lessThanOrEqualTo: action.leadingAnchor, constant: -6),
             detail.topAnchor.constraint(equalTo: name.bottomAnchor, constant: 1),
             barHolder.leadingAnchor.constraint(equalTo: name.leadingAnchor),
             barHolder.trailingAnchor.constraint(equalTo: action.leadingAnchor, constant: -6),
-            barHolder.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -6),
+            barHolder.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
             barHolder.heightAnchor.constraint(equalToConstant: 3),
             action.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             action.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -413,7 +423,12 @@ final class DownloadRow: NSView, NSDraggingSource {
         }
         icon.alphaValue = record.state == .done && present ? 1 : 0.55
         let showAction = record.state == .running || (hovering && (record.state != .done || present))
-        if action.isHidden == showAction { action.fade(in: showAction) }
+        if !settled {
+            action.isHidden = !showAction
+            settled = true
+        } else if action.isHidden == showAction {
+            action.fade(in: showAction)
+        }
         barHolder.isHidden = record.state != .running
         updateBar(animated: true)
     }
@@ -465,7 +480,7 @@ final class DownloadRow: NSView, NSDraggingSource {
         icon.image = NSWorkspace.shared.icon(forFile: path)
         framePreview(false)
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let request = QLThumbnailGenerator.Request(fileAt: record.file, size: CGSize(width: 34, height: 34),
+        let request = QLThumbnailGenerator.Request(fileAt: record.file, size: CGSize(width: 30, height: 30),
                                                    scale: scale, representationTypes: .all)
         QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { [weak self] rep, _ in
             // Only a real preview (a page, a photo) replaces the icon; an icon-type result is no better.
@@ -511,13 +526,13 @@ final class DownloadRow: NSView, NSDraggingSource {
         guard canOpen else { return }
         // Downloads are quarantined, so macOS still checks apps and installers before they run.
         NSWorkspace.shared.open(record.file)
-        panel?.onClose?()
+        onOpened?()
     }
 
     private func showInFinder() {
         guard exists else { return }
         NSWorkspace.shared.activateFileViewerSelecting([record.file])
-        panel?.onClose?()
+        onOpened?()
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {

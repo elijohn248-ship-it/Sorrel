@@ -782,7 +782,6 @@ private final class SpaceBar: NSView {
         downloadsButton = DownloadsButton { [weak self] in
             if let self { self.onDownloads?(self.downloadsButton) }
         }
-        downloadsButton.isHidden = true   // appears once something has been downloaded
         addSubview(downloadsButton)
         NSLayoutConstraint.activate([
             downloadsButton.leadingAnchor.constraint(equalTo: extensionsButton.trailingAnchor, constant: 0),
@@ -883,6 +882,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private var themePopover: NSPopover?
 
     private var store: Store { Store.shared }
+    /// Arc's Library, over the sidebar's contents (Library.swift), and the in-progress downloads strip.
+    private(set) lazy var library = LibraryView(store: store)
+    private let downloadsStrip = DownloadsStrip()
 
     /// The extensions button, which extension pop-ups attach to.
     var extensionsAnchor: NSView { spaceBar.extensionsButton }
@@ -892,7 +894,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     /// True while something in the sidebar needs it to stay on screen.
     var wantsToStayOpen: Bool {
-        editingCount > 0 || (themePopover?.isShown ?? false) || (downloadsPopover?.isShown ?? false)
+        editingCount > 0 || (themePopover?.isShown ?? false) || (previewPopover?.isShown ?? false)
     }
 
     override init(frame: NSRect) {
@@ -923,10 +925,12 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         floatingBackground.layer?.borderWidth = 0.5
         floatingBackground.layer?.borderColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
-        for v in [floatingBackground, topRow, pill, favorites, spaceContainer, spaceBar, handle] as [NSView] {
+        for v in [floatingBackground, topRow, pill, favorites, spaceContainer, library, downloadsStrip, spaceBar, handle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
+        library.isHidden = true
+        library.onClose = { [weak self] in self?.closeLibrary() }
 
         // Top row: sidebar toggle after the window buttons, navigation on the right.
         let toggle = IconButton(symbol: "sidebar.left", size: 14, tooltip: "Hide or show the sidebar") {
@@ -1005,7 +1009,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         spaceBar.menuProvider = { [weak self] in self?.menu(for: $0) ?? NSMenu() }
         spaceBar.onAdd = { [weak self] anchor in self?.showAddMenu(from: anchor) }
         spaceBar.onExtensions = { [weak self] anchor in self?.showExtensionsMenu(from: anchor) }
-        spaceBar.onDownloads = { [weak self] anchor in self?.showDownloads(from: anchor) }
+        spaceBar.onDownloads = { [weak self] _ in self?.toggleLibrary() }
+        spaceBar.downloadsButton.onHover = { [weak self] on in self?.hoverPreview(on) }
         handle.onDrag = { [weak self] x in self?.controller?.resizeSidebar(to: x) }
 
         NSLayoutConstraint.activate([
@@ -1036,7 +1041,18 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             spaceContainer.topAnchor.constraint(equalTo: favorites.bottomAnchor, constant: 8),
             spaceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
             spaceContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            spaceContainer.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -4),
+            spaceContainer.bottomAnchor.constraint(equalTo: downloadsStrip.topAnchor, constant: -4),
+
+            library.topAnchor.constraint(equalTo: topRow.bottomAnchor, constant: 2),
+            library.leadingAnchor.constraint(equalTo: leadingAnchor),
+            library.trailingAnchor.constraint(equalTo: trailingAnchor),
+            // To the space bar, not the strip: the strip steps aside while the Library is open, and the Library
+            // must not resize when it does.
+            library.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -4),
+
+            downloadsStrip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            downloadsStrip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            downloadsStrip.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -2),
 
             spaceIcon.topAnchor.constraint(equalTo: spaceContainer.topAnchor, constant: 2),
             spaceIcon.leadingAnchor.constraint(equalTo: spaceContainer.leadingAnchor, constant: 14),
@@ -1659,25 +1675,78 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         spaceBar.downloadsButton.update(Engine.shared.downloads)
     }
 
-    private var downloadsPopover: NSPopover?
+    // MARK: Library and downloads
 
-    /// The Arc-style downloads panel, above the space bar's downloads button. A second click closes it.
-    func showDownloads(from anchor: NSView? = nil) {
-        if let pop = downloadsPopover, pop.isShown { pop.close(); return }
-        let button: NSView = spaceBar.downloadsButton
-        let anchor = anchor ?? (button.isHidden ? extensionsAnchor : button)
-        let pop = NSPopover()
-        pop.behavior = .transient
-        let panel = DownloadsPanel()
-        panel.onClose = { [weak pop] in pop?.close() }
-        pop.contentViewController = panel
-        pop.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: anchor.isFlipped ? .minY : .maxY)
-        downloadsPopover = pop
+    var isLibraryOpen: Bool { !library.isHidden }
+
+    /// The Library button: opens the Library over the sidebar, or closes it. A section name switches to it.
+    func toggleLibrary(_ section: LibraryView.Section? = nil) {
+        spaceBar.downloadsButton.cancelHover()
+        previewPopover?.close()
+        if isLibraryOpen, section == nil || section == library.section {
+            closeLibrary()
+        } else {
+            openLibrary(section ?? library.section)
+        }
     }
 
-    /// Test hooks: the downloads panel and button as text.
-    var debugDownloadsPanel: DownloadsPanel? { downloadsPopover?.contentViewController as? DownloadsPanel }
+    /// Slides the Library in over the address box, favorites and tabs, which fade away beneath it.
+    func openLibrary(_ section: LibraryView.Section) {
+        library.show(section)
+        guard !isLibraryOpen else { return }
+        downloadsStrip.isSuppressed = true
+        for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: false, duration: 0.16) }
+        library.fade(in: true, duration: 0.2)
+        library.layer?.popIn(scale: 0.98, rise: 6, fade: false, duration: 0.28)
+        library.didAppear()
+    }
+
+    func closeLibrary() {
+        guard isLibraryOpen else { return }
+        library.didDisappear()
+        downloadsStrip.isSuppressed = false
+        library.fade(in: false, duration: 0.14)
+        for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: true, duration: 0.2) }
+    }
+
+    private var previewPopover: NSPopover?
+    private var previewWatch: Timer?
+
+    /// Hovering the Library button shows the latest downloads above it, as Arc does. It stays while the cursor
+    /// is on the button or the preview, and goes once it is on neither.
+    private func hoverPreview(_ on: Bool) {
+        guard on else { return }   // leaving is handled by the watch below, so the cursor can move into the preview
+        guard previewPopover?.isShown != true, !isLibraryOpen, !Engine.shared.downloads.isEmpty, window != nil else { return }
+        let anchor = spaceBar.downloadsButton!
+        let pop = NSPopover()
+        pop.behavior = .semitransient
+        pop.animates = true
+        let preview = DownloadsPreview()
+        preview.onClose = { [weak pop] in pop?.close() }
+        pop.contentViewController = preview
+        pop.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        previewPopover = pop
+        previewWatch?.invalidate()
+        var outsideSince: Date?
+        previewWatch = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak pop] timer in
+            guard let self, let pop, pop.isShown else { timer.invalidate(); return }
+            let mouse = NSEvent.mouseLocation
+            let onButton = anchor.window.map { w in
+                w.convertToScreen(anchor.convert(anchor.bounds, to: nil)).insetBy(dx: -4, dy: -4).contains(mouse)
+            } ?? false
+            let onPreview = pop.contentViewController?.view.window?.frame.insetBy(dx: -6, dy: -6).contains(mouse) ?? false
+            if onButton || onPreview { outsideSince = nil; return }
+            let since = outsideSince ?? Date()
+            outsideSince = since
+            if Date().timeIntervalSince(since) > 0.3 { pop.close(); timer.invalidate(); self.previewWatch = nil }
+        }
+    }
+
+    /// Test hooks: the Library, the hover preview and the button, as seen by tests.
     var debugDownloadsRing: String { spaceBar.downloadsButton.debugRing }
+    var debugPreview: DownloadsPreview? { previewPopover?.contentViewController as? DownloadsPreview }
+    var debugStripRows: [String] { ["height=\(Int(downloadsStrip.debugHeight))"] + downloadsStrip.rows.map { $0.debugDescription_ } }
+    func debugShowPreview() { hoverPreview(true) }
 
     func showExtensionsMenu(from anchor: NSView? = nil) {
         let anchor = anchor ?? extensionsAnchor
