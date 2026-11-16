@@ -1143,6 +1143,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private(set) lazy var library = LibraryView(store: store)
     private let downloadsStrip = DownloadsStrip()
 
+    /// The Library button, where a starting download's icon flies to (DownloadFlight).
+    var downloadsAnchor: DownloadsButton { spaceBar.downloadsButton }
+
     /// The extensions button, which extension pop-ups attach to.
     var extensionsAnchor: NSView { spaceBar.extensionsButton }
 

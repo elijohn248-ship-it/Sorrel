@@ -443,6 +443,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let card = ContentCard()
     let sidebar = SidebarView()
     let commandBar = CommandBar()
+    /// Downloads in progress over the page's bottom left, while the sidebar is hidden (DownloadFlight.swift).
+    let downloadsCapsule = DownloadsCapsule()
     private(set) var peek: PeekOverlay?
     /// The Import from Another Browser card while it is open (showImporter).
     fileprivate(set) var importer: ImportOverlay?
@@ -519,6 +521,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
+        downloadsCapsule.attach(to: root, over: card)
         commandBar.isHidden = true
         commandBar.controller = self
 
@@ -743,6 +746,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         background.apply(theme, animated: animated)
         sidebar.applyTheme(theme)
         card.setTheme(isDark: theme.isDark(systemIsDark: systemIsDark()))
+        downloadsThemeChanged()
     }
 
     /// During a space swipe: the window (and floating sidebar) show `f` of the way from `a`'s colours to `b`'s.
@@ -783,6 +787,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func applyMode(animated: Bool) {
+        downloadsCapsule.sidebarHidden = mode == .hidden
         let apply = {
             switch self.mode {
             case .pinned:

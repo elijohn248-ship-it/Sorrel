@@ -172,6 +172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.main.showPeek(url, profileID: source.profileID)
         }
         engine.onToast = { [weak self] text in self?.main.showToast(text) }
+        engine.onDownloadStarted = { [weak self] record, webView in self?.main.downloadStarted(record, in: webView) ?? false }
+        DownloadFlight.install()
     }
 
     // MARK: Context
@@ -1567,10 +1569,109 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                         try? Data(count: 1024).write(to: running.file)
                                         running.received = 1024
                                         NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
                                             button("finished")
                                             png(self.main.window?.contentView, "finished.png")
                                             NSApp.terminate(nil)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if env["SORREL_FLIGHTTEST"] != nil, let dir = env["SORREL_DOWNLOADS"] {
+            // Download flight (DownloadFlight.swift): the icon flies to the Library button and the strip waits for
+            // it; the themed bar shows progress; a finished row lingers with a tick, then leaves; with the sidebar
+            // hidden the icon lands in the capsule over the page; a real download goes the same way without toasts.
+            let out = URL(fileURLWithPath: dir)
+            let sidebar = self.main.sidebar
+            let root = self.main.root
+            func png(_ name: String) {
+                guard let view = self.main.window?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                if let data = rep.representation(using: .png, properties: [:]) { try? data.write(to: out.appendingPathComponent(name)) }
+            }
+            func flier(_ label: String) {
+                guard let p = DownloadFlight.debugFlier?.presentation() else { log("flight: [\(label)] no icon in the air"); return }
+                let sc = (p.value(forKeyPath: "transform.scale.x") as? NSNumber)?.doubleValue ?? 1
+                log("flight: [\(label)] icon at (\(Int(p.position.x)),\(Int(p.position.y))) scale=\(String(format: "%.2f", sc)) opacity=\(String(format: "%.2f", p.opacity))")
+            }
+            func state(_ label: String) {
+                log("flight: [\(label)] inFlight=\(DownloadFlight.inFlight.count) strip=\(sidebar.debugStripRows) ring=\(sidebar.debugDownloadsRing)")
+                log("flight: [\(label)] capsule \(self.main.downloadsCapsule.debugLine)")
+            }
+            func after(_ s: Double, _ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + s, execute: f) }
+            after(2) {
+                let tab = self.store.newTab(url: "sorrel://welcome")
+                after(2) {
+                    guard let wv = tab.page?.webView else { log("flight: no page"); NSApp.terminate(nil); return }
+                    let a = sidebar.downloadsAnchor
+                    let target = a.convert(NSPoint(x: a.bounds.midX, y: a.bounds.midY), to: root)
+                    let page = wv.convert(wv.bounds, to: root)
+                    log("flight: page centre (\(Int(page.midX)),\(Int(page.midY))) button (\(Int(target.x)),\(Int(target.y)))")
+                    // 1. Sidebar showing, a known size.
+                    let r = DownloadRecord(file: out.appendingPathComponent("Pharmacology Notes.pdf"))
+                    r.total = 12_000_000
+                    let shown = self.main.downloadStarted(r, in: wv)
+                    Engine.shared.debugAddDownload(r)
+                    log("flight: [start] flew=\(shown) (expect true)")
+                    state("start (expect inFlight=1, strip height=0, ring off)")
+                    after(0.05) { flier("t=0.05 lifting at the page") }
+                    after(0.35) { flier("t=0.35 mid-arc") }
+                    after(0.7) { flier("t=0.70 arriving, small") }
+                    after(1.1) {
+                        state("landed (expect inFlight=0, one row with bar, ring on)")
+                        r.received = 5_000_000
+                        NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+                        after(0.6) {
+                            png("bar-progress.png")
+                            try? Data(count: 2048).write(to: r.file)
+                            r.received = 2048
+                            r.state = .done
+                            r.finished = Date()
+                            NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+                            after(0.8) {
+                                state("done (expect row still there, action=-, ring off)")
+                                png("bar-done.png")
+                                after(2.4) {
+                                    state("after linger (expect strip height=0)")
+                                    // 2. Sidebar hidden, size unknown: lands in the capsule.
+                                    self.main.toggleSidebar()
+                                    after(0.8) {
+                                        let r2 = DownloadRecord(file: out.appendingPathComponent("Anatomy Atlas.zip"))
+                                        let flew = self.main.downloadStarted(r2, in: wv)
+                                        Engine.shared.debugAddDownload(r2)
+                                        log("flight: [capsule] flew=\(flew) landing at \(self.main.downloadsCapsule.landingPoint(in: root))")
+                                        state("capsule start (expect not shown)")
+                                        after(1.1) {
+                                            state("capsule landed (expect shown, one row)")
+                                            png("capsule.png")
+                                            r2.state = .failed
+                                            r2.cancelled = true
+                                            r2.finished = Date()
+                                            NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+                                            after(0.5) {
+                                                state("capsule cancelled (expect row reads Cancelled)")
+                                                after(1.8) {
+                                                    state("capsule after linger (expect not shown)")
+                                                    // 3. A real download through the engine, sidebar back.
+                                                    self.main.toggleSidebar()
+                                                    after(0.8) {
+                                                        if let f = URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf") {
+                                                            Engine.shared.startDownload(f, in: wv)
+                                                        }
+                                                        after(5) {
+                                                            let first = Engine.shared.downloads.first
+                                                            log("flight: [real] \(first?.file.lastPathComponent ?? "-") state=\(String(describing: first?.state)) shownInWindow=\(first?.shownInWindow ?? false) (expect true)")
+                                                            state("real")
+                                                            NSApp.terminate(nil)
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

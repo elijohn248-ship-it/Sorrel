@@ -37,6 +37,8 @@ final class DownloadRecord {
     var isPrivate = false
     /// Stopped on purpose (so it reads "Cancelled", not "Didn't finish").
     var cancelled = false
+    /// The window showed this download arriving (DownloadFlight), so no toasts are needed for it.
+    var shownInWindow = false
     init(file: URL, started: Date = Date()) { self.file = file; self.started = started }
 
     /// What `downloads.json` keeps: just enough to list the file again.
@@ -118,6 +120,8 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     /// Called to show a link as a preview over the current page.
     var onPeek: ((_ url: URL, _ source: Page) -> Void)?
     var onToast: ((String) -> Void)?
+    /// A download is about to join the list; true if the window shows it arriving (DownloadFlight).
+    var onDownloadStarted: ((DownloadRecord, WKWebView?) -> Bool)?
 
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
     /// Recent downloads, newest first: this session's, plus finished ones remembered from earlier launches.
@@ -943,10 +947,11 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
                 NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
             }
         }
+        record.shownInWindow = onDownloadStarted?(record, download.webView) ?? false
         downloads.insert(record, at: 0)
         if downloads.count > 40 { downloads.removeLast() }
         NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
-        onToast?("Downloading \(dest.lastPathComponent)…")
+        if !record.shownInWindow { onToast?("Downloading \(dest.lastPathComponent)…") }
         completionHandler(dest)
     }
 
@@ -962,7 +967,8 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             r.total = r.received
             downloadsChanged(save: true)
         }
-        onToast?("Downloaded \(dest.lastPathComponent)")
+        // The strip shows a finished download with a tick; other windows' downloads still get a toast.
+        if record(for: download)?.shownInWindow != true { onToast?("Downloaded \(dest.lastPathComponent)") }
         DistributedNotificationCenter.default().post(
             name: Notification.Name("com.apple.DownloadFileFinished"), object: dest.path)
     }

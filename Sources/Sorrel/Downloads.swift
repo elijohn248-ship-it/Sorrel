@@ -95,7 +95,8 @@ final class DownloadsButton: NSView {
     func cancelHover() { hoverWork?.cancel(); hoverWork = nil }
 
     func update(_ list: [DownloadRecord]) {
-        let running = list.filter { $0.state == .running }
+        // A download whose icon is still flying in counts once it lands, so the ring starts as it arrives.
+        let running = list.filter { $0.state == .running && !DownloadFlight.inFlight.contains(ObjectIdentifier($0)) }
         let ids = Set(running.map(ObjectIdentifier.init))
         let started = !ids.subtracting(runningIDs).isEmpty
         let finished = !runningIDs.subtracting(ids).isEmpty && list.contains { runningIDs.contains(ObjectIdentifier($0)) && $0.state == .done }
@@ -125,6 +126,56 @@ final class DownloadsButton: NSView {
             button.toolTip = "Downloading \(running.count) files" + (fraction.map { " (\(Int($0 * 100))%)" } ?? "")
         } else {
             button.toolTip = "Library"
+        }
+    }
+
+    /// A flying download icon just dropped in: the button gives under it and a ring of the space's colour
+    /// spreads out from it.
+    func catchLanding(tint: [NSColor]) {
+        guard let host = layer, !Motion.reduced else { return }
+        let c = CGPoint(x: bounds.midX, y: bounds.midY)
+        let squash = CAKeyframeAnimation(keyPath: "transform")
+        squash.values = [1, 1.3, 0.9, 1.04, 1].map { s -> CATransform3D in
+            var t = CATransform3DMakeTranslation(c.x, c.y, 0)
+            t = CATransform3DScale(t, s, s, 1)
+            return CATransform3DTranslate(t, -c.x, -c.y, 0)
+        }
+        squash.keyTimes = [0, 0.25, 0.55, 0.8, 1]
+        squash.duration = 0.5
+        squash.timingFunction = Motion.glide
+        host.add(squash, forKey: "catch")
+
+        for (i, color) in [tint.first, tint.last].compactMap({ $0 }).enumerated() {
+            let ripple = CAShapeLayer()
+            ripple.frame = bounds
+            ripple.path = CGPath(ellipseIn: CGRect(x: c.x - 9, y: c.y - 9, width: 18, height: 18), transform: nil)
+            ripple.fillColor = nil
+            ripple.strokeColor = color.cgColor
+            ripple.lineWidth = i == 0 ? 2 : 1.2
+            ripple.opacity = 0
+            host.addSublayer(ripple)
+            var big = CATransform3DMakeTranslation(c.x, c.y, 0)
+            big = CATransform3DScale(big, 2.3, 2.3, 1)
+            big = CATransform3DTranslate(big, -c.x, -c.y, 0)
+            var small = CATransform3DMakeTranslation(c.x, c.y, 0)
+            small = CATransform3DScale(small, 0.7, 0.7, 1)
+            small = CATransform3DTranslate(small, -c.x, -c.y, 0)
+            let grow = CABasicAnimation(keyPath: "transform")
+            grow.fromValue = small
+            grow.toValue = big
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0.85
+            fade.toValue = 0
+            let g = CAAnimationGroup()
+            g.animations = [grow, fade]
+            g.duration = 0.6
+            g.beginTime = CACurrentMediaTime() + Double(i) * 0.09
+            g.timingFunction = Motion.settle
+            g.fillMode = .backwards
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { ripple.removeFromSuperlayer() }
+            ripple.add(g, forKey: "ripple")
+            CATransaction.commit()
         }
     }
 
@@ -205,12 +256,20 @@ final class DownloadsPreview: NSViewController {
 // MARK: - In-progress strip
 
 /// Downloads in progress, at the bottom of the sidebar above the space bar: name, size, time left, cancel.
-/// It is empty (zero height) when nothing is downloading.
+/// A row arrives as its file's icon lands (DownloadFlight), and stays a moment after the download ends, with a
+/// full bar and a tick (or "Cancelled"), before it fades. It is empty (zero height) when nothing is downloading.
 final class DownloadsStrip: NSView {
     private let stack = NSStackView()
     private var height: NSLayoutConstraint!
     private(set) var rows: [DownloadRow] = []
     static let maxRows = 3
+    /// How long an ended download stays in the strip.
+    static let lingerDone: TimeInterval = 2.6
+    static let lingerFailed: TimeInterval = 1.6
+    /// Called with the number of rows about to show (0 as the last row starts to fade).
+    var onRowsChanged: ((Int) -> Void)?
+    private var expiry: Timer?
+    private var leaving = false
     /// While the Library is open its own list shows the progress, so the strip steps aside.
     var isSuppressed = false {
         didSet { if isSuppressed != oldValue { resize() } }
@@ -239,22 +298,77 @@ final class DownloadsStrip: NSView {
     required init?(coder: NSCoder) { fatalError() }
     deinit { NotificationCenter.default.removeObserver(self) }
 
+    /// What the strip shows: running downloads whose icon has landed, and ones that ended a moment ago.
+    private func wanted() -> [DownloadRecord] {
+        let now = Date()
+        return Array(Engine.shared.downloads.filter { r in
+            if DownloadFlight.inFlight.contains(ObjectIdentifier(r)) { return false }
+            return r.state == .running || (Self.lingersUntil(r).map { $0 > now } ?? false)
+        }.prefix(Self.maxRows))
+    }
+
+    /// When an ended download leaves the strip: a while after it ended, or after its icon landed if that was later.
+    static func lingersUntil(_ r: DownloadRecord) -> Date? {
+        guard r.state != .running, let finished = r.finished else { return nil }
+        let base = max(finished, DownloadFlight.landedAt[ObjectIdentifier(r)] ?? .distantPast)
+        return base.addingTimeInterval(r.state == .done ? lingerDone : lingerFailed)
+    }
+
     @objc func reload() {
-        let running = Array(Engine.shared.downloads.filter { $0.state == .running }.prefix(Self.maxRows))
-        if running.count == rows.count, zip(running, rows).allSatisfy({ $0 === $1.record }) {
+        let list = wanted()
+        let ids = list.map(ObjectIdentifier.init)
+        scheduleExpiry(list)
+        if ids == rows.map({ ObjectIdentifier($0.record) }) {
             rows.forEach { $0.refresh() }
             return
         }
+        guard !leaving else { return }   // the rebuild after the fade picks this change up
+        // Rows that are going fade and shrink away first; the rest of the change follows once they've gone.
+        let going = rows.filter { !ids.contains(ObjectIdentifier($0.record)) }
+        if !going.isEmpty, !isSuppressed, window != nil {
+            leaving = true
+            if ids.isEmpty { onRowsChanged?(0) }
+            for row in going {
+                row.layer?.popOut(scale: 0.96, duration: 0.2)
+                row.fade(in: false, duration: 0.2)
+            }
+            rows.filter { r in !going.contains { $0 === r } }.forEach { $0.refresh() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { [weak self] in
+                self?.leaving = false
+                self?.rebuild()
+            }
+            return
+        }
+        rebuild()
+    }
+
+    private func rebuild() {
+        let list = wanted()
         let old = Dictionary(uniqueKeysWithValues: rows.map { (ObjectIdentifier($0.record), $0) })
         stack.arrangedSubviews.forEach { stack.removeArrangedSubview($0); $0.removeFromSuperview() }
-        rows = running.map { old[ObjectIdentifier($0)] ?? DownloadRow(record: $0) }
+        rows = list.map { old[ObjectIdentifier($0)] ?? DownloadRow(record: $0) }
         for row in rows {
+            row.showsCompletion = true
+            row.layer?.clearPopOut()
+            row.isHidden = false
+            row.alphaValue = 1
             stack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             row.refresh()
         }
         resize()
-        for row in rows where old[ObjectIdentifier(row.record)] == nil { row.layer?.popIn(scale: 0.97, rise: -4) }
+        onRowsChanged?(rows.count)
+        // A new row rises into place as the icon drops onto it.
+        for row in rows where old[ObjectIdentifier(row.record)] == nil { row.layer?.popIn(scale: 0.94, rise: -6, duration: 0.36) }
+    }
+
+    private func scheduleExpiry(_ list: [DownloadRecord]) {
+        expiry?.invalidate()
+        expiry = nil
+        guard let next = list.compactMap(Self.lingersUntil).min() else { return }
+        expiry = Timer.scheduledTimer(withTimeInterval: max(0.05, next.timeIntervalSinceNow + 0.02), repeats: false) { [weak self] _ in
+            self?.reload()
+        }
     }
 
     /// The strip grows and shrinks with the sidebar's contents sliding to make room.
@@ -283,9 +397,24 @@ final class DownloadRow: NSView, NSDraggingSource {
     private let icon = NSImageView()
     private let name = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
-    private let bar = CALayer()
+    /// The progress bar: a gradient in the space's colours with a soft glow, a light that sweeps along the filled
+    /// part while it downloads, and a short segment that glides back and forth while the size is unknown.
+    private let bar = CAGradientLayer()
     private let barTrack = CALayer()
     private let barHolder = NSView()
+    private let shineClip = CALayer()
+    private let shine = CAGradientLayer()
+    private var barRevealed = false
+    private var shimmerWidth: CGFloat = -1
+    private var indeterminateWidth: CGFloat = -1
+    /// The tick that draws itself when a download in the strip finishes.
+    private let checkDisc = CAShapeLayer()
+    private let checkMark = CAShapeLayer()
+    private var checkShown = false
+    private var checkDrawn = false
+    /// In the strip (and the capsule), an ended download keeps its full bar and shows a tick before it goes.
+    var showsCompletion = false
+    private static let barHeight: CGFloat = 4
     private var action: IconButton!
     private let highlight = CALayer()
     private var hovering = false
@@ -336,12 +465,36 @@ final class DownloadRow: NSView, NSDraggingSource {
         detail.lineBreakMode = .byTruncatingTail
         detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         barHolder.wantsLayer = true
-        barTrack.cornerRadius = 1.5
-        bar.cornerRadius = 1.5
+        let r = Self.barHeight / 2
+        barTrack.cornerRadius = r
+        bar.cornerRadius = r
+        bar.startPoint = CGPoint(x: 0, y: 0.5)
+        bar.endPoint = CGPoint(x: 1, y: 0.5)
+        bar.shadowOpacity = 0.55
+        bar.shadowRadius = 3
+        bar.shadowOffset = .zero
+        shineClip.cornerRadius = r
+        shineClip.masksToBounds = true
+        shine.startPoint = CGPoint(x: 0, y: 0.5)
+        shine.endPoint = CGPoint(x: 1, y: 0.5)
+        shine.colors = [0, 0.6, 0].map { NSColor.white.withAlphaComponent($0).cgColor }
+        shine.opacity = 0
+        shineClip.addSublayer(shine)
+        bar.addSublayer(shineClip)
         barHolder.layer?.addSublayer(barTrack)
         barHolder.layer?.addSublayer(bar)
         action = IconButton(symbol: "magnifyingglass", size: 11) { [weak self] in self?.primaryAction() }
         action.isHidden = true   // shown on hover, or always while downloading
+        checkDisc.opacity = 0
+        checkMark.fillColor = nil
+        checkMark.strokeColor = NSColor.white.cgColor
+        checkMark.lineWidth = 1.8
+        checkMark.lineCap = .round
+        checkMark.lineJoin = .round
+        checkMark.strokeEnd = 0
+        checkDisc.addSublayer(checkMark)
+        layer?.addSublayer(checkDisc)
+        NotificationCenter.default.addObserver(self, selector: #selector(tintChanged), name: .sorrelDownloadTint, object: nil)
 
         for v in [icon, name, detail, barHolder, action!] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
@@ -362,7 +515,7 @@ final class DownloadRow: NSView, NSDraggingSource {
             barHolder.leadingAnchor.constraint(equalTo: name.leadingAnchor),
             barHolder.trailingAnchor.constraint(equalTo: action.leadingAnchor, constant: -6),
             barHolder.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
-            barHolder.heightAnchor.constraint(equalToConstant: 3),
+            barHolder.heightAnchor.constraint(equalToConstant: Self.barHeight),
             action.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             action.centerYAnchor.constraint(equalTo: centerYAnchor),
             action.widthAnchor.constraint(equalToConstant: 22),
@@ -371,6 +524,7 @@ final class DownloadRow: NSView, NSDraggingSource {
         applyColors()
     }
     required init?(coder: NSCoder) { fatalError() }
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     private var exists: Bool { FileManager.default.fileExists(atPath: record.file.path) }
     private var canOpen: Bool { record.state == .done && exists }
@@ -381,9 +535,21 @@ final class DownloadRow: NSView, NSDraggingSource {
             highlight.frame = bounds
             barTrack.frame = barHolder.bounds
             bar.frame.size.height = barHolder.bounds.height
+            // The tick sits where the action button is.
+            let a = action.frame
+            checkDisc.frame = CGRect(x: a.midX - 8, y: a.midY - 8, width: 16, height: 16)
+            checkDisc.path = CGPath(ellipseIn: checkDisc.bounds, transform: nil)
+            checkMark.frame = checkDisc.bounds
+            let tick = CGMutablePath()
+            tick.move(to: CGPoint(x: 4.6, y: 8.2))
+            tick.addLine(to: CGPoint(x: 7, y: 5.6))
+            tick.addLine(to: CGPoint(x: 11.6, y: 10.6))
+            checkMark.path = tick
         }
         updateBar(animated: false)
     }
+
+    @objc private func tintChanged() { applyColors() }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -394,7 +560,10 @@ final class DownloadRow: NSView, NSDraggingSource {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             highlight.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor
             barTrack.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
-            bar.backgroundColor = NSColor.controlAccentColor.cgColor
+            let tint = Store.shared.currentSpace.theme.progressColors(dark: isDarkAppearance)
+            bar.colors = tint.map(\.cgColor)
+            bar.shadowColor = (tint.last ?? tint[0]).cgColor
+            checkDisc.fillColor = tint[0].cgColor
         }
     }
 
@@ -422,15 +591,39 @@ final class DownloadRow: NSView, NSDraggingSource {
             action.toolTip = "Remove from List"
         }
         icon.alphaValue = record.state == .done && present ? 1 : 0.55
-        let showAction = record.state == .running || (hovering && (record.state != .done || present))
+        // A download that just finished in the strip shows a tick in the button's place until hovered.
+        let completed = showsCompletion && record.state == .done && present
+        let tick = completed && !hovering
+        let showAction = !tick && (record.state == .running || (hovering && (record.state != .done || present)))
         if !settled {
             action.isHidden = !showAction
             settled = true
         } else if action.isHidden == showAction {
             action.fade(in: showAction)
         }
-        barHolder.isHidden = record.state != .running
+        setCheck(tick)
+        barHolder.isHidden = record.state != .running && !completed
         updateBar(animated: true)
+    }
+
+    private func setCheck(_ on: Bool) {
+        guard on != checkShown else { return }
+        checkShown = on
+        Motion.layer(on ? 0.16 : 0.12) { checkDisc.opacity = on ? 1 : 0 }
+        guard on, !checkDrawn else { return }
+        // The first time: the disc pops in and the tick draws itself across it.
+        checkDrawn = true
+        checkDisc.popIn(scale: 0.3, fade: false, duration: 0.4)
+        Motion.layer(0) { checkMark.strokeEnd = 1 }
+        guard !Motion.reduced else { return }
+        let draw = CABasicAnimation(keyPath: "strokeEnd")
+        draw.fromValue = 0
+        draw.toValue = 1
+        draw.beginTime = CACurrentMediaTime() + 0.14
+        draw.duration = 0.3
+        draw.fillMode = .backwards
+        draw.timingFunction = Motion.settle
+        checkMark.add(draw, forKey: "draw")
     }
 
     private func detailText(present: Bool) -> String {
@@ -458,9 +651,66 @@ final class DownloadRow: NSView, NSDraggingSource {
     }
 
     private func updateBar(animated: Bool) {
-        let width = barHolder.bounds.width
-        let f = record.total > 0 ? CGFloat(max(0, min(1, Double(record.received) / Double(record.total)))) : 0.15
-        Motion.layer(animated ? 0.25 : 0) { bar.frame = CGRect(x: 0, y: 0, width: max(3, width * f), height: barHolder.bounds.height) }
+        let width = barHolder.bounds.width, h = barHolder.bounds.height
+        guard width > 0, !barHolder.isHidden else { return }
+        let running = record.state == .running
+        let unknown = running && record.total <= 0
+        let f: CGFloat = record.state == .done ? 1
+            : unknown ? 0.3
+            : record.total > 0 ? CGFloat(max(0, min(1, Double(record.received) / Double(record.total)))) : 0
+        let target = CGRect(x: 0, y: 0, width: max(h, width * f), height: h)
+        var duration: TimeInterval = animated ? 0.3 : 0
+        if !barRevealed {
+            // The bar's first appearance: it grows out from the left as the row arrives.
+            barRevealed = true
+            Motion.layer(0) { bar.frame = CGRect(x: 0, y: 0, width: h, height: h) }
+            duration = Motion.reduced ? 0 : 0.55
+        }
+        Motion.layer(duration, duration > 0.3 ? Motion.settle : Motion.glide) {
+            bar.frame = target
+            shineClip.frame = CGRect(origin: .zero, size: target.size)
+        }
+        setIndeterminate(unknown && !Motion.reduced ? width : nil)
+        setShimmer(running && !unknown && !Motion.reduced ? width : nil)
+    }
+
+    /// While the size is unknown, the segment glides from end to end and back.
+    private func setIndeterminate(_ width: CGFloat?) {
+        guard width != indeterminateWidth else { return }
+        indeterminateWidth = width ?? -1
+        bar.removeAnimation(forKey: "unknown")
+        guard let width else { return }
+        let a = CABasicAnimation(keyPath: "position.x")
+        a.fromValue = width * 0.15
+        a.toValue = width * 0.85
+        a.duration = 1.0
+        a.autoreverses = true
+        a.repeatCount = .infinity
+        a.timingFunction = Motion.glide
+        bar.add(a, forKey: "unknown")
+    }
+
+    /// A light passes along the filled part of the bar every couple of seconds while it downloads.
+    private func setShimmer(_ width: CGFloat?) {
+        guard width != shimmerWidth else { return }
+        shimmerWidth = width ?? -1
+        shine.removeAnimation(forKey: "sweep")
+        guard let width else { Motion.layer(0) { shine.opacity = 0 }; return }
+        let w: CGFloat = 44
+        Motion.layer(0) {
+            shine.opacity = 1
+            shine.frame = CGRect(x: -w, y: 0, width: w, height: Self.barHeight)
+        }
+        let sweep = CABasicAnimation(keyPath: "position.x")
+        sweep.fromValue = -w / 2
+        sweep.toValue = width + w / 2
+        sweep.duration = 1.3
+        sweep.timingFunction = Motion.glide
+        let loop = CAAnimationGroup()
+        loop.animations = [sweep]
+        loop.duration = 2.2
+        loop.repeatCount = .infinity
+        shine.add(loop, forKey: "sweep")
     }
 
     /// The file's own icon, swapped for a Quick Look picture (PDF page, image, video frame) once it exists.
