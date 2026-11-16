@@ -13,7 +13,7 @@
 #   4. install: Sorrel ▸ Relaunch to Update path (relaunch off in tests); the installer swaps the bundle after the app quits
 #   5. quit:    install-on-quit path with build+2
 #   6. version: the swapped app runs and reports the new build
-#   7. badlog:  the updater service must refuse every log path that isn't the app's own update.log
+#   7. badlog:  the updater service must refuse a log that isn't a plain single-link file (pipe, folder, hard link)
 #   8. swapzip: the zip is overwritten right after the handoff; the service must still install the bytes it checked
 #   9. card:    the "update ready" card at the bottom of the sidebar: ready -> Update and Restart -> "Updated";
 #               then a broken update (signed, but its app fails codesign) -> "Update didn't install" with the reason,
@@ -67,6 +67,7 @@ fake_release $((BASE + 2))
 fake_release $((BASE + 3))
 fake_release $((BASE + 4))
 fake_release $((BASE + 5)) broken
+fake_release $((BASE + 6)) broken
 
 run() {   # $1 = SORREL_UPDATETEST mode, $2 = feed file
   rm -rf "$T/home/Updates"   # a fresh download each time
@@ -93,7 +94,7 @@ echo "== version after install"; run version "$T/feed/updates-$((BASE + 1)).json
 echo "== quit (install on quit)"; run quit "$T/feed/updates-$((BASE + 2)).json"; wait_for_install
 echo "== version after quit-install"; run version "$T/feed/updates-$((BASE + 2)).json"
 echo "== already current (no newer build)"; run check "$T/feed/updates-$((BASE + 2)).json"
-echo "== bad log paths (each must be refused)"; run badlog "$T/feed/updates-$((BASE + 3)).json"
+echo "== bad logs (each must be refused)"; run badlog "$T/feed/updates-$((BASE + 3)).json"
 echo "== zip swapped after handoff (must still install the checked bytes; logs inside the app's container, like the real app)"
 run swapzip "$T/feed/updates-$((BASE + 3)).json"
 for _ in $(seq 1 40); do [ "$($PB -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")" = "$((BASE + 3))" ] && break; sleep 0.5; done
@@ -117,18 +118,23 @@ wait_new() {   # waits for the installer started after log line $1 to finish (in
   echo "  now: build $($PB -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")"
 }
 loglines() { wc -l < "$T/home/Updates/update.log" 2>/dev/null | tr -d ' ' || echo 0; }
-GOOD="$T/feed/updates-$((BASE + 4)).json"; BROKEN="$T/feed/updates-$((BASE + 5)).json"
+GOOD="$T/feed/updates-$((BASE + 4)).json"; BROKEN="$T/feed/updates-$((BASE + 5)).json"; BROKEN2="$T/feed/updates-$((BASE + 6)).json"
 echo "-- 1. an update is ready (expect: none at launch, ready after the check, the box, ×)"; card card "$GOOD" 1-ready
-echo "-- 2. Update and Restart (expect: updating, then installed and reopened)"; N=$(loglines); card relaunch "$GOOD" 2-relaunch; wait_new "$N"
-echo "-- 3. next launch (expect: Updated to …-test$((BASE + 4)), and still that after the check, never ready)"; card card "$GOOD" 3-updated
-echo "-- 4. a broken update (expect: installer fails codesign, still reopens)"; N=$(loglines); card relaunch "$BROKEN" 4-broken; wait_new "$N"
-echo "-- 5. next launch (expect: failed with the codesign reason, and still failed after the check, never ready)"; card card "$BROKEN" 5-failed
-echo "-- 6. Try Again (expect: downloading/updating, installer fails again, reopens)"; N=$(loglines); card retry "$BROKEN" 6-retry; wait_new "$N"
-echo "-- 7. next launch (expect: gaveUp at launch and after the check)"; card card "$BROKEN" 7-gaveup
-echo "-- 8. quitting with the broken update ready (expect: install on quit skipped)"; N=$(loglines)
+echo "-- 2. Update and Restart (expect: updating, then installed; reopen logged, not done, in tests)"; N=$(loglines); card relaunch "$GOOD" 2-relaunch; wait_new "$N"
+echo "-- 3. next launch (expect: Updated to …-test$((BASE + 4)), still that after the check, never ready)"; card card "$GOOD" 3-updated
+echo "-- 4. a broken update (expect: installer fails codesign, then the reopen step)"; N=$(loglines); card relaunch "$BROKEN" 4-broken; wait_new "$N"
+echo "-- 5. next launch (expect: failed with the codesign reason, still failed after the check, never ready; then Try Again -> updating)"
+N=$(loglines); card card "$BROKEN" 5-failed; wait_new "$N"
+echo "-- 6. next launch after the 2nd failure (expect: gaveUp at launch and after the check)"; card card "$BROKEN" 6-gaveup
+echo "-- 7. quitting with that update ready (expect: install on quit skipped)"; N=$(loglines)
 SORREL_HOME="$T/home" SORREL_SNAPSHOT="$T/shot.png" SORREL_DELAY=60 SORREL_UPDATETEST=quit SORREL_UPDATE_FEED="file://$BROKEN" \
   "$APP/Contents/MacOS/Sorrel" 2>&1 | grep -E '^updater: (state|install on quit)' || true
 sleep 2; echo "  installer runs after quitting: $(tail -n +$((N + 1)) "$T/home/Updates/update.log" | grep -c 'installer: start' || true)"
+echo "-- 8. a newer broken release (expect: ready again, since it replaces the one that gave up), then it fails"
+N=$(loglines); card relaunch "$BROKEN2" 8-broken2; wait_new "$N"
+echo "-- 9. Try Again straight from the failure card at launch (expect: fresh download, then updating, fails again)"
+N=$(loglines); card retry "$BROKEN2" 9-retry; wait_new "$N"
+echo "-- 10. next launch (expect: gaveUp for …-test$((BASE + 6)))"; card card "$BROKEN2" 10-gaveup
 echo "   pictures: $T/cards"
 
 if [ "$APPDIR" != "$T/app" ]; then rm -rf "$APP"; echo "removed $APP"; fi

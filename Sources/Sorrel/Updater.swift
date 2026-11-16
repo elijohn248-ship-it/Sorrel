@@ -478,8 +478,8 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
             } else {
                 NSApp.terminate(nil)
                 // Still running long after: quitting was cancelled, and the installer has given up waiting.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 95) { [weak self] in
-                    guard let self, self.installing else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 95) {
+                    guard self.installing else { return }
                     self.installing = false
                     try? FileManager.default.removeItem(at: self.marker)
                     self.recordFailure(build: m.build, version: m.version, reason: "Sorrel didn’t quit, so the update couldn’t install.")
@@ -502,9 +502,12 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
     }
 
     /// Hands the verified archive to SorrelUpdater.xpc. The completion runs on the main thread.
-    private func install(relaunch: Bool, logOverride: String? = nil, completion: @escaping (String?) -> Void) {
+    private func install(relaunch: Bool, logOverride: FileHandle? = nil, completion: @escaping (String?) -> Void) {
         guard case .ready(let m, let zip) = state else { completion("No update is ready"); return }
         guard let id = Bundle.main.bundleIdentifier else { completion("Sorrel has no bundle id"); return }
+        // Both go to the service as open files: it isn't allowed into this app's container by path (UpdateCore).
+        guard let zipHandle = try? FileHandle(forReadingFrom: zip) else { completion("The downloaded update is missing"); return }
+        guard let logHandle = logOverride ?? Self.openForAppending(logFile) else { completion("Couldn’t open update.log"); return }
         installing = true
         let connection = NSXPCConnection(serviceName: id + UpdaterService.suffix)
         connection.remoteObjectInterface = NSXPCInterface(with: SorrelUpdaterXPC.self)
@@ -526,11 +529,16 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
             finish("Couldn't reach the updater: \(error.localizedDescription)")
         }) as? SorrelUpdaterXPC else { finish("The updater is unavailable"); return }
         try? "\(m.build)\n\(m.version)\n".write(to: marker, atomically: true, encoding: .utf8)
-        proxy.install(zip: zip.path, signature: m.signature, pid: getpid(), relaunch: relaunch, log: logOverride ?? logFile.path) { error in
+        proxy.install(zip: zipHandle, signature: m.signature, pid: getpid(), relaunch: relaunch, log: logHandle) { error in
             if error != nil { try? FileManager.default.removeItem(at: self.marker) }
             finish(error)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { finish("The updater didn't answer") }
+    }
+
+    static func openForAppending(_ url: URL) -> FileHandle? {
+        let fd = open(url.path, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0o644)
+        return fd >= 0 ? FileHandle(fileDescriptor: fd, closeOnDealloc: true) : nil
     }
 
     // MARK: Tests (SORREL_UPDATETEST=version|check|install|quit, with SORREL_UPDATE_FEED; tools/update-test.sh)
@@ -572,7 +580,7 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                     // The service must install the bytes it checked, not whatever the zip holds by the time it unpacks.
                     try? FileManager.default.createDirectory(at: containerLog.deletingLastPathComponent(), withIntermediateDirectories: true)
                     try? FileManager.default.removeItem(at: containerLog)
-                    self.install(relaunch: false, logOverride: containerLog.path) { error in
+                    self.install(relaunch: false, logOverride: Self.openForAppending(containerLog)) { error in
                         log("install: \(error ?? "handed to the updater")")
                         if case .ready(_, let zip) = self.state {
                             let junk = (try? Data(contentsOf: zip)).map { Data($0.reversed()) } ?? Data("junk".utf8)
@@ -588,25 +596,27 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                         NSApp.terminate(nil)
                     }
                 case "badlog":
-                    // The service writes only to the app's own update.log: every one of these must be refused.
+                    // The service writes only to a plain file the app opened itself: anything else must be refused.
                     let scratch = "/private/tmp/sorrel-badlog-\(getpid())"
                     try? FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
                     try? "victim\n".write(toFile: scratch + "/victim.txt", atomically: true, encoding: .utf8)
-                    try? FileManager.default.createDirectory(atPath: scratch + "/sym", withIntermediateDirectories: true)
-                    try? FileManager.default.createSymbolicLink(atPath: scratch + "/sym/update.log", withDestinationPath: scratch + "/victim.txt")
-                    try? FileManager.default.createSymbolicLink(atPath: scratch + "/outside", withDestinationPath: Sandbox.realHome.appendingPathComponent("Library/Caches").path)
-                    let cases = [("wrong name", scratch + "/victim.txt"),
-                                 ("symlinked file", scratch + "/sym/update.log"),
-                                 ("symlinked folder", scratch + "/outside/update.log"),
-                                 ("outside the allowed folders", Sandbox.realHome.appendingPathComponent("update.log").path)]
+                    link(scratch + "/victim.txt", scratch + "/second-name.txt")
+                    let pipe = Pipe()
+                    let folderFD = open(scratch, O_RDONLY | O_CLOEXEC)
+                    let cases: [(String, FileHandle?)] = [
+                        ("a pipe", pipe.fileHandleForWriting),
+                        ("a folder", folderFD >= 0 ? FileHandle(fileDescriptor: folderFD, closeOnDealloc: true) : nil),
+                        ("a file with a second name (hard link)", Self.openForAppending(URL(fileURLWithPath: scratch + "/victim.txt"))),
+                    ]
                     func next(_ i: Int) {
                         guard i < cases.count else {
                             let victim = (try? String(contentsOfFile: scratch + "/victim.txt", encoding: .utf8)) ?? "?"
-                            log("badlog: victim file untouched=\(victim == "victim\n") createdOutside=\(["Library/Caches/update.log", "update.log"].contains { FileManager.default.fileExists(atPath: Sandbox.realHome.appendingPathComponent($0).path) })")
+                            log("badlog: victim file untouched=\(victim == "victim\n")")
                             NSApp.terminate(nil)
                             return
                         }
-                        self.install(relaunch: false, logOverride: cases[i].1) { error in
+                        guard let handle = cases[i].1 else { log("badlog: \(cases[i].0): couldn't set up"); next(i + 1); return }
+                        self.install(relaunch: false, logOverride: handle) { error in
                             log("badlog: \(cases[i].0): \(error.map { "refused (\($0))" } ?? "ACCEPTED")")
                             next(i + 1)
                         }
@@ -655,8 +665,8 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                 return   // the fresh copy installs and Sorrel quits by itself
             }
             var settled = false
-            NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { [weak self] _ in
-                guard let self, !settled else { return }
+            NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { _ in
+                guard !settled else { return }
                 switch self.state {
                 case .upToDate, .failed: settled = true; after(0.6) { say("after check"); shot("after-check"); quit() }
                 case .ready:
@@ -668,6 +678,12 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                             view.debugPressButton()
                             after(0.05) { say("after Update and Restart") }
                             return   // handed to the installer; Sorrel quits by itself
+                        }
+                        if case .failed? = self.card {
+                            // Try Again with the fresh copy already downloaded: straight to installing.
+                            view.debugPressButton()
+                            after(0.05) { say("after Try Again") }
+                            return   // Sorrel quits by itself
                         }
                         guard case .ready? = self.card else { quit(); return }
                         view.debugClickAuto()

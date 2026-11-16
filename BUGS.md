@@ -23,10 +23,15 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-### `tools/update-test.sh` swapzip step doesn't install (found 2026-11-16, not investigated)
-- The "zip swapped after handoff" step ends on the old build: the service refuses the test app's own container log (`The updater only writes to Sorrel's own update.log, not ~/Library/Containers/app.sorrel.browser.test/Data/…/Sorrel Test/Updates/update.log`). Same result with ad-hoc and self-signed builds, so it predates the signing change. Normal install and install-on-quit pass. Check the service's allowed-log-path rule for the test build's profile name ("Sorrel Test").
+
+(none)
 
 ## Fixed
+
+### Updates refused for the real app: the updater service can't reach Sorrel's container (fixed 2026-11-16, branch `update-card`)
+- **Found as:** `tools/update-test.sh` swapzip step didn't install (`The updater only writes to Sorrel's own update.log, not ~/Library/Containers/…`), same with ad-hoc and self-signed builds, and also when launched through LaunchServices (`open -g`).
+- **Cause:** macOS app-data protection. `sandboxd` logs `TCC denied kTCCServiceSystemPolicyAppDataDetailed` when the (unsandboxed) updater service touches a path in the app's container, where the real app keeps both the downloaded zip and `update.log`. Other tests passed only because `SORREL_HOME` moves both to /private/tmp. So real installs were most likely always refused at the hand-off.
+- **Fix:** the app opens the zip and the log itself and passes them as `FileHandle`s over XPC; the service takes no paths at all (log: plain file, one link, this user's). Verified: swapzip now installs with the log in the container, and the test build on its own container profile (launched with `open -g`) installed an update whose zip and log were both in its container. Copies already on 0.2.0–0.2.2 keep the old service, so they will most likely need one manual download.
 
 ### "Allow Sorrel to access files in your Downloads folder" on every download after a rebuild or update (fixed 2026-11-16, branch `downloads-tcc`)
 - **Repro:** rebuild or update Sorrel, download a file.

@@ -100,13 +100,17 @@ public struct BundleInfo {
 
 /// The XPC service's interface. The sandboxed app may only ask it to install an archive the service itself
 /// verifies against the built-in key, over the app bundle that contains the service. The service works out
-/// that bundle's location itself; it never takes a path to write to from the app (see SorrelUpdater/main.swift).
+/// that bundle's location itself; it never takes a path from the app (see SorrelUpdater/main.swift).
+///
+/// The archive and the log arrive as files the app has already opened, not paths: macOS's app-data protection
+/// (TCC `SystemPolicyAppDataDetailed`) refuses the service any path inside the app's container, where both
+/// live (found 2026-11-16; every real install was refused). An open file also means the service can only ever
+/// write where the sandboxed app itself could.
 @objc(SorrelUpdaterXPC) public protocol SorrelUpdaterXPC {
     /// Reads and checks the archive, keeps a private copy, then starts a detached installer that waits for
-    /// `pid` to exit, swaps the app for the archive's bundle, and opens it again if `relaunch`. `log` must be
-    /// the app's own Updates/update.log (inside its container, or under /private/tmp for the test build).
-    /// Replies with nil, or a sentence saying what refused.
-    func install(zip: String, signature: String, pid: Int32, relaunch: Bool, log: String,
+    /// `pid` to exit, swaps the app for the archive's bundle, and opens it again if `relaunch`. `log` is the
+    /// app's Updates/update.log, opened for appending. Replies with nil, or a sentence saying what refused.
+    func install(zip: FileHandle, signature: String, pid: Int32, relaunch: Bool, log: FileHandle,
                  reply: @escaping (String?) -> Void)
 }
 

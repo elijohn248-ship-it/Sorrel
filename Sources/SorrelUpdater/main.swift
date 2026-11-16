@@ -12,8 +12,9 @@
 //   - it never installs over a path the app names: the app is the bundle that contains this service;
 //   - it never re-reads a file the app can write after checking it: it checks bytes in memory and unpacks a copy
 //     kept where the sandbox can't reach (~/Library/Caches/<service id>);
-//   - it writes its log only to the app's own Updates/update.log (inside the app's container, or under
-//     /private/tmp for the test build), never through a symlink or hard link, with control characters removed.
+//   - it takes no paths at all from the app: the archive and the log arrive as files the app opened itself (so
+//     the service can only write where the sandboxed app could), the log must be a plain file with one link,
+//     and control characters are removed from what is written to it.
 import Foundation
 import SorrelUpdateCore
 
@@ -62,28 +63,19 @@ func resolved(_ path: String) -> String? {
     return String(cString: p)
 }
 
-/// Opens the log the app asked for, only if it is the app's own update.log: inside the app's container (or, for
-/// the test build, under /private/tmp), a plain file with one link, reached without symlinks. Returns an fd.
-func openLog(_ path: String) -> Int32? {
-    guard let appID else { return nil }
-    var roots = [realHome.appendingPathComponent("Library/Containers/\(appID)/Data").path]
-    if isTestService { roots.append("/private/tmp") }
-    let allowed = roots.compactMap(resolved)
-    func inside(_ p: String) -> Bool { allowed.contains { p.hasPrefix($0 + "/") } }
-
-    let url = URL(fileURLWithPath: path)
-    guard url.lastPathComponent == "update.log", let dir = resolved(url.deletingLastPathComponent().path), inside(dir + "/")
-    else { return nil }
-    let fd = open(dir + "/update.log", O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o644)
-    guard fd >= 0 else { return nil }
-    // Check what was actually opened, in case a folder on the way was swapped for a symlink after the check above.
+/// The log the app opened (its Updates/update.log): only a plain file of this user's with a single link, so
+/// the service never writes into a pipe, device or a second name for some other file. Returns its descriptor.
+func checkedLog(_ handle: FileHandle) -> Int32? {
+    let fd = handle.fileDescriptor
     var st = stat()
-    var buf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-    guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_nlink == 1, st.st_uid == getuid(),
-          fcntl(fd, F_GETPATH, &buf) != -1 else { close(fd); return nil }
-    let opened = String(cString: buf)
-    guard inside(opened), opened.hasSuffix("/update.log") else { close(fd); return nil }
+    guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_nlink == 1, st.st_uid == getuid() else { return nil }
     return fd
+}
+
+/// Where an open file is, or "" (used only to tell a test run's log under /private/tmp).
+func path(of fd: Int32) -> String {
+    var buf = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+    return fcntl(fd, F_GETPATH, &buf) != -1 ? String(cString: buf) : ""
 }
 
 /// The app this service may replace, as it is now.
@@ -95,8 +87,11 @@ func installedApp() throws -> BundleInfo {
 }
 
 /// Reads the archive once, checks those bytes, and writes them to a fresh private folder. Returns the copy.
-func stagePrivateCopy(of zip: String, signature: String) throws -> URL {
-    guard let data = try? Data(contentsOf: URL(fileURLWithPath: zip)) else { throw Refused(why: "The downloaded update is missing") }
+func stagePrivateCopy(of zip: FileHandle, signature: String) throws -> URL {
+    var st = stat()
+    guard fstat(zip.fileDescriptor, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG,
+          (try? zip.seek(toOffset: 0)) != nil, let data = try? zip.readToEnd(), !data.isEmpty
+    else { throw Refused(why: "The downloaded update couldn’t be read") }
     do { try UpdateSigning.verify(data: data, signature: signature) } catch { throw Refused(why: "\(error)") }
     let fm = FileManager.default
     try? fm.createDirectory(at: privateFolder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -141,9 +136,11 @@ func stripQuarantine(_ root: URL) {
 
 // MARK: - Installer (detached)
 
-/// Test runs (the test build's service, started for a run with SORREL_UPDATETEST) log the reopen instead of
-/// opening a window. Sorrel.app drops every SORREL_* variable at launch, and its service isn't a test service.
-let dryReopen = isTestService && ProcessInfo.processInfo.environment["SORREL_UPDATETEST"] != nil
+/// Test runs log the reopen instead of opening a window that would take focus with no scratch profile. The
+/// service decides (a test build logging under /private/tmp, i.e. a SORREL_HOME run) and tells the installer
+/// with relaunch "2"; only the test build's service honours it. The environment can't be used: launchd doesn't
+/// pass the app's variables to the service (found 2026-11-16).
+var dryReopen = false
 
 func reopenApp(_ log: Log, _ why: String) {
     if dryReopen { log.line("installer: reopen skipped in a test (\(why))"); return }
@@ -236,14 +233,13 @@ func installSteps(zip: String, signature: String, pid: Int32, log: Log) -> Int32
 // MARK: - XPC service
 
 final class Service: NSObject, SorrelUpdaterXPC {
-    func install(zip: String, signature: String, pid: Int32, relaunch: Bool, log logPath: String,
+    func install(zip: FileHandle, signature: String, pid: Int32, relaunch: Bool, log logHandle: FileHandle,
                  reply: @escaping (String?) -> Void) {
-        guard let logFD = openLog(logPath) else {
-            reply("The updater only writes to Sorrel's own update.log, not \(clean(logPath))")
+        guard let logFD = checkedLog(logHandle) else {
+            reply("The updater only writes to a plain log file")
             return
         }
-        defer { close(logFD) }
-        let log = Log(handle: FileHandle(fileDescriptor: logFD, closeOnDealloc: false), echo: true)
+        let log = Log(handle: logHandle, echo: true)
         let copy: URL
         do {
             _ = try installedApp()
@@ -254,7 +250,8 @@ final class Service: NSObject, SorrelUpdaterXPC {
 
         // Start the installer in its own session with its output on the log, so it outlives this service.
         guard let exe = Bundle.main.executablePath else { reply("The updater's executable path is unknown"); return }
-        let args = [exe, "--install", copy.path, signature, String(pid), relaunch ? "1" : "0"]
+        let testRun = isTestService && path(of: logFD).hasPrefix("/private/tmp/")
+        let args = [exe, "--install", copy.path, signature, String(pid), relaunch ? (testRun ? "2" : "1") : "0"]
         var argv: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) }
         argv.append(nil)
         defer { argv.forEach { free($0) } }
@@ -293,7 +290,8 @@ final class Listener: NSObject, NSXPCListenerDelegate {
 let argv = CommandLine.arguments
 if argv.count == 6, argv[1] == "--install" {
     let log = Log(handle: FileHandle.standardError, echo: false)
-    exit(install(zip: argv[2], signature: argv[3], pid: Int32(argv[4]) ?? 0, relaunch: argv[5] == "1", log: log))
+    dryReopen = isTestService && argv[5] == "2"
+    exit(install(zip: argv[2], signature: argv[3], pid: Int32(argv[4]) ?? 0, relaunch: argv[5] != "0", log: log))
 }
 let delegate = Listener()
 let listener = NSXPCListener.service()
