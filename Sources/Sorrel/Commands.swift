@@ -67,6 +67,8 @@ final class Keybindings {
         ("cmd+shift+n", "private.new"),
         ("cmd+p", "tab.print"),
         ("alt+cmd+l", "downloads.show"),
+        ("cmd+y", "history.show"),
+        ("cmd+shift+delete", "data.clearRecent"),
         ("cmd+,", "settings.open"),
         ("cmd+k cmd+r", "config.reload"),
         ("cmd+k cmd+t", "theme.edit"),

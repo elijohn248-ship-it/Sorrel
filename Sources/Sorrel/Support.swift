@@ -112,6 +112,10 @@ struct Settings: Codable {
     var extensionApproved: [String: [String]] = [:]
     /// Unpinned tabs untouched for this many hours are archived. 0 = never.
     var archiveAfterHours = 24.0
+    /// Pages not visited for this many days are dropped from history, as in Safari. 0 = keep them until cleared.
+    var removeHistoryAfterDays = 0.0
+    /// Empty WebKit's cache of images and files each time Sorrel quits. Cookies and logins are kept.
+    var emptyCacheOnQuit = false
     var fallbackBrowser = "Helium"
     var externalLinksOpenInMiniWindow = true
     /// Clicking a link that leads to another site opens it as a preview over the page, from any tab.
@@ -153,6 +157,8 @@ struct Settings: Codable {
         blockCookieNotices = try c.decodeIfPresent(Bool.self, forKey: .blockCookieNotices) ?? d.blockCookieNotices
         blockingDisabledSites = try c.decodeIfPresent([String].self, forKey: .blockingDisabledSites) ?? d.blockingDisabledSites
         archiveAfterHours = try c.decodeIfPresent(Double.self, forKey: .archiveAfterHours) ?? d.archiveAfterHours
+        removeHistoryAfterDays = try c.decodeIfPresent(Double.self, forKey: .removeHistoryAfterDays) ?? d.removeHistoryAfterDays
+        emptyCacheOnQuit = try c.decodeIfPresent(Bool.self, forKey: .emptyCacheOnQuit) ?? d.emptyCacheOnQuit
         extensionStates = try c.decodeIfPresent([String: Bool].self, forKey: .extensionStates) ?? d.extensionStates
         sleepTabsAfterMinutes = try c.decodeIfPresent(Double.self, forKey: .sleepTabsAfterMinutes) ?? d.sleepTabsAfterMinutes
         searchSuggestions = try c.decodeIfPresent(Bool.self, forKey: .searchSuggestions) ?? d.searchSuggestions

@@ -13,7 +13,7 @@ private final class Trampoline: NSObject {
 }
 
 final class SettingsWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate,
-                                      NSTextFieldDelegate, NSSearchFieldDelegate, NSWindowDelegate {
+                                      NSTextFieldDelegate, NSSearchFieldDelegate, NSWindowDelegate, NSTabViewDelegate {
     static let shared = SettingsWindowController()
 
     private var trampolines: [Trampoline] = []
@@ -28,6 +28,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private let defaultBrowserStatus = NSTextField(labelWithString: "")
     private let updateStatus = NSTextField(wrappingLabelWithString: "")
     private var updateButton: NSButton?
+
+    // Memory & Storage
+    private let memoryStatus = NSTextField(labelWithString: "")
+    private let historyUsage = NSTextField(labelWithString: "")
+    private let cacheUsage = NSTextField(labelWithString: "")
+    private let siteUsage = NSTextField(labelWithString: "")
 
     // Shortcuts
     private let table = NSTableView()
@@ -68,8 +74,14 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    func show(tabNamed name: String) {
+        let i = tabs.indexOfTabViewItem(withIdentifier: name)
+        show(tab: i == NSNotFound ? nil : i)
+    }
+
     func show(tab: Int? = nil) {
         if let tab, tab < tabs.numberOfTabViewItems { tabs.selectTabViewItem(at: tab) }
+        refreshStorage()
         Extensions.shared.discover()
         refreshStatus()
         reloadShortcuts()
@@ -215,8 +227,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             tabs.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
             tabs.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
         ])
+        tabs.delegate = self
         addTab("General", generalTab())
         addTab("Privacy", privacyTab())
+        addTab("Memory & Storage", storageTab())
         addTab("Extensions", extensionsTab())
         addTab("Tabs", tabsTab())
         addTab("Sidebar", sidebarTab())
@@ -327,10 +341,93 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 note("Plain http:// sites are opened with encryption when they support it. If one doesn’t, Sorrel warns you before showing it."),
             ])),
             ("Stored data:", column([
-                button("Clear History…") { Commands.shared.run("history.clear") },
-                button("Clear Cookies and Website Data…") { Commands.shared.run("data.clear") },
+                button("Clear Browsing Data…") { Commands.shared.run("data.clearRecent") },
+                note("History, cookies and cache, by time range. Sizes, per-site data and automatic clearing are in Memory & Storage."),
             ])),
         ])
+    }
+
+    // MARK: Memory & Storage
+
+    private func storageTab() -> NSView {
+        let s = Settings.current
+        memoryStatus.maximumNumberOfLines = 2
+        for l in [memoryStatus, historyUsage, cacheUsage, siteUsage] {
+            l.textColor = .secondaryLabelColor
+            l.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        }
+        func line(_ value: NSTextField, _ title: String, _ run: @escaping () -> Void) -> NSStackView {
+            let b = button(title, run)
+            b.controlSize = .small
+            let row = NSStackView(views: [value, b])
+            row.spacing = 10
+            return row
+        }
+        let free = button("Free Up Memory") { [weak self] in
+            self?.memoryStatus.stringValue = "Putting tabs to sleep…"
+            Cleanup.freeMemory { slept, freed in
+                AppDelegate.shared.main.showToast(Cleanup.freedMessage(slept: slept, freed: freed))
+                self?.refreshStorage()
+            }
+        }
+        let days: [Double] = [0, 1, 7, 14, 30, 365]
+        let keep = popup(["Never (only when I clear it)", "After one day", "After one week", "After two weeks",
+                          "After one month", "After one year"],
+                         selected: days.firstIndex(of: s.removeHistoryAfterDays) ?? 0) { [weak self] i in
+            self?.mutate { $0.removeHistoryAfterDays = days[i] }
+            Cleanup.applyAutomaticRules()
+            self?.refreshStorage()
+        }
+        return form([
+            ("Memory:", column([
+                memoryStatus,
+                free,
+                note("Puts every tab you can’t see to sleep now and empties WebKit’s in-memory caches. Tabs playing sound or in a call are left alone; each wakes where you left it. Tabs also sleep on their own (Tabs ▸ Sleep unused tabs)."),
+            ])),
+            ("History:", line(historyUsage, "Show History") {
+                SettingsWindowController.shared.window?.close()
+                Commands.shared.run("history.show")
+            }),
+            ("Cache:", line(cacheUsage, "Empty Cache") { [weak self] in
+                self?.cacheUsage.stringValue = "Emptying…"
+                Commands.shared.run("cache.empty")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self?.refreshStorage() }
+            }),
+            ("Cookies and site data:", line(siteUsage, "Manage…") { Commands.shared.run("data.manage") }),
+            ("", button("Clear Browsing Data…") { Commands.shared.run("data.clearRecent") }),
+            ("Remove history:", keep),
+            ("When quitting:", column([
+                checkbox("Empty the cache when Sorrel quits", s.emptyCacheOnQuit) { [weak self] on in
+                    self?.mutate { $0.emptyCacheOnQuit = on }
+                },
+                note("Frees disk space each time; pages load a little slower the first time after. Cookies and logins are kept."),
+            ])),
+        ])
+    }
+
+    /// Fills in the live numbers on Memory & Storage.
+    func refreshStorage() {
+        let (awake, asleep) = Store.shared.tabCounts
+        var mem = "\(awake) tab\(awake == 1 ? "" : "s") awake · \(asleep) asleep"
+        if let m = Cleanup.memoryInUse() {
+            mem += "\nThis Mac: \(Cleanup.memory(m.used)) of \(Cleanup.memory(m.total)) in use"
+        }
+        memoryStatus.stringValue = mem
+        Cleanup.measure { [weak self] u in
+            guard let self else { return }
+            self.historyUsage.stringValue = "\(u.historyPages.formatted()) page\(u.historyPages == 1 ? "" : "s") · \(Cleanup.bytes(u.historyBytes))"
+            self.cacheUsage.stringValue = Cleanup.bytes(u.cacheBytes + u.iconBytes)
+            self.siteUsage.stringValue = "\(u.sites) site\(u.sites == 1 ? "" : "s") · \(Cleanup.bytes(u.siteDataBytes))"
+        }
+    }
+
+    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        if (tabViewItem?.identifier as? String) == "Memory & Storage" { refreshStorage() }
+    }
+
+    /// Test hook: the Memory & Storage numbers as text.
+    var debugStorage: String {
+        [memoryStatus, historyUsage, cacheUsage, siteUsage].map(\.stringValue).joined(separator: " | ")
     }
 
     private func tabsTab() -> NSView {

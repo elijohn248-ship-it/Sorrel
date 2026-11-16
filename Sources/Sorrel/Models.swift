@@ -523,22 +523,53 @@ final class Store {
     func sleepIdleTabs(olderThanMinutes minutes: Double) -> Int {
         guard minutes > 0 else { return 0 }
         let cutoff = Date().addingTimeInterval(-minutes * 60)
-        let visible = selected.map { sel in split(containing: sel)?.children ?? [sel] } ?? []
+        return sleepTabs(allTabs.map { $0.item }.filter { $0.lastActive < cutoff })
+    }
+
+    /// Puts tabs to sleep now, whatever their age (Free Up Memory, "Put Other Tabs to Sleep"). The tabs on
+    /// screen and those `canSleep` protects are skipped. nil = every tab. Returns how many went to sleep.
+    @discardableResult
+    func sleepTabs(_ candidates: [Item]? = nil) -> Int {
+        let visible = visibleTabs
         var count = 0
-        for (item, _) in allTabs {
-            guard let page = item.page, !visible.contains(where: { $0 === item }), item.lastActive < cutoff else { continue }
-            let wv = page.webView
-            // Never interrupt a call, something playing, a page mid-load, or an extension's own page.
-            if wv.isLoading || wv.cameraCaptureState != .none || wv.microphoneCaptureState != .none { continue }
-            if wv.responds(to: Selector(("_isPlayingAudio"))), (wv.value(forKey: "_isPlayingAudio") as? Bool) == true { continue }
-            if let u = wv.url, !(u.scheme ?? "").hasPrefix("http") { continue }
-            item.savedState = wv.interactionState
-            page.teardown()
-            item.page = nil
-            post(.sorrelItem, item)
+        let pool = candidates ?? allTabs.map { $0.item }
+        for item in pool where !visible.contains(where: { $0 === item }) && canSleep(item) {
+            sleep(item)
             count += 1
         }
         return count
+    }
+
+    /// The tab on screen, or every pane of the split view on screen.
+    var visibleTabs: [Item] { selected.map { sel in split(containing: sel)?.children ?? [sel] } ?? [] }
+
+    /// Whether a loaded tab can be unloaded without interrupting something: never a call, something playing,
+    /// a page mid-load, or an extension's own page.
+    func canSleep(_ item: Item) -> Bool {
+        guard let wv = item.page?.webView else { return false }
+        if wv.isLoading || wv.cameraCaptureState != .none || wv.microphoneCaptureState != .none { return false }
+        if wv.responds(to: Selector(("_isPlayingAudio"))), (wv.value(forKey: "_isPlayingAudio") as? Bool) == true { return false }
+        if let u = wv.url, !(u.scheme ?? "").hasPrefix("http") { return false }
+        return true
+    }
+
+    /// Unloads one tab, keeping its back/forward history and scroll position for when it wakes.
+    private func sleep(_ item: Item) {
+        guard let page = item.page else { return }
+        item.savedState = page.webView.interactionState
+        page.teardown()
+        item.page = nil
+        post(.sorrelItem, item)
+    }
+
+    /// Every tab in a space, in the sidebar's order (pinned, then unpinned), splits opened up.
+    func tabs(inSpace space: Space) -> [Item] { tabs(in: space.pinned) + tabs(in: space.today) }
+
+    /// How many tabs are loaded and how many are asleep, across every space and the favorites.
+    var tabCounts: (awake: Int, asleep: Int) {
+        let all = allTabs.map { $0.item }
+        let awake = all.filter { $0.page != nil }.count
+        return (awake, all.count - awake)
     }
 
     // MARK: Archive
@@ -600,6 +631,20 @@ final class Store {
     func clearArchive() {
         archive = []
         saveArchive()
+    }
+
+    /// Forgets archived tabs put away at or after `date` (Clear Browsing Data with a time range).
+    func clearArchive(since date: Date) {
+        let before = archive.count
+        archive.removeAll { $0.date >= date }
+        if archive.count != before { saveArchive() }
+    }
+
+    /// Forgets archived tabs from one website (Forget This Site).
+    func clearArchive(site: String) {
+        let before = archive.count
+        archive.removeAll { Site.key(URL(string: $0.url)?.host) == site }
+        if archive.count != before { saveArchive() }
     }
 
     // MARK: Moving

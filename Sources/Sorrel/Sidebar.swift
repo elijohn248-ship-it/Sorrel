@@ -1525,6 +1525,20 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             }
         }
         m.addItem(.separator())
+        // Zen's unload: an unpinned tab can sleep too (it stays in the sidebar), as long as it isn't on screen.
+        if !(fav || pinned), item.page != nil, !store.visibleTabs.contains(where: { $0 === item }) {
+            let sleep = ActionMenuItem("Put Tab to Sleep") { [weak self] in self?.store.sleepTabs([item]) }
+            sleep.isEnabled = store.canSleep(item)
+            m.addItem(sleep)
+        }
+        let others = store.tabs(inSpace: store.space(containing: item) ?? store.currentSpace).filter { $0 !== item }
+        let otherSleep = ActionMenuItem("Put Other Tabs to Sleep") { [weak self] in
+            guard let self else { return }
+            let n = self.store.sleepTabs(others)
+            self.controller?.showToast(n == 0 ? "The other tabs are already asleep" : "\(n) tab\(n == 1 ? "" : "s") asleep")
+        }
+        otherSleep.isEnabled = others.contains { $0.page != nil }
+        m.addItem(otherSleep)
         m.addItem(ActionMenuItem((fav || pinned) ? "Put Tab to Sleep" : "Close Tab") { [weak self] in
             self?.store.close(item)
         })
@@ -1616,6 +1630,13 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         m.addItem(ActionMenuItem("Keep Separate Logins", checked: space.profileID != nil) { [weak self] in
             self?.store.setSeparateLogins(space.profileID == nil, for: space)
         })
+        let sleep = ActionMenuItem("Put Tabs in This Space to Sleep") { [weak self] in
+            guard let self else { return }
+            let n = self.store.sleepTabs(self.store.tabs(inSpace: space))
+            self.controller?.showToast(n == 0 ? "No tabs here to put to sleep" : "\(n) tab\(n == 1 ? "" : "s") asleep")
+        }
+        sleep.isEnabled = store.tabs(inSpace: space).contains { $0.page != nil }
+        m.addItem(sleep)
         m.addItem(.separator())
         let del = ActionMenuItem("Delete Space…") { [weak self] in self?.confirmDelete(space) }
         del.isEnabled = store.spaces.count > 1

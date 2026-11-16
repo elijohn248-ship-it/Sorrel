@@ -50,9 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Put away long-unused tabs shortly after launch, then keep checking.
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.archiveStaleTabs() }
+        Cleanup.applyAutomaticRules()
         archiveTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             self?.archiveStaleTabs()
             Store.shared.sleepIdleTabs(olderThanMinutes: Settings.current.sleepTabsAfterMinutes)
+            Cleanup.applyAutomaticRules()
         }
         if !pendingURLs.isEmpty {
             open(pendingURLs)
@@ -73,10 +75,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Settings ▸ Memory & Storage ▸ "Empty the cache when Sorrel quits" (Cleanup.swift), then the update.
+        if Settings.current.emptyCacheOnQuit, !cacheEmptiedForQuit {
+            cacheEmptiedForQuit = true
+            Cleanup.emptyCacheBeforeQuitting { [weak self] in
+                // Carry on with the rest of quitting; a pending update answers for itself once handed over.
+                guard let self, self.applicationShouldTerminate(NSApp) == .terminateNow else { return }
+                NSApp.reply(toApplicationShouldTerminate: true)
+            }
+            return .terminateLater
+        }
         // A downloaded, verified update is handed to the updater service on the way out (Updater.swift).
         if Updater.shared.installOnQuit(then: { NSApp.reply(toApplicationShouldTerminate: true) }) { return .terminateLater }
         return .terminateNow
     }
+    private var cacheEmptiedForQuit = false
 
     func applicationWillTerminate(_ notification: Notification) {
         store.saveNow()
@@ -323,6 +336,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.showMainWindow()
             self.main.showImporter()
         }
+        c.register("history.show", "Show History") { [unowned self] in
+            self.showMainWindow()
+            self.main.peekSidebar()
+            self.main.sidebar.openLibrary(.history)
+            self.main.sidebar.library.focusSearch()
+        }
+        // Clearing and freeing up (Cleanup.swift, ClearDataPanel.swift, Settings ▸ Memory & Storage).
+        c.register("data.clearRecent", "Clear Browsing Data…") { ClearDataPanel.present() }
+        c.register("data.manage", "Manage Website Data…") { WebsiteDataPanel.present() }
+        c.register("site.forget", "Forget This Site…") { [unowned self] in
+            guard let site = Site.key(self.activeWebView?.url?.host) else { self.main.showToast("Open a website first"); return }
+            LibraryView.confirmForget(site: site)
+        }
+        c.register("cache.empty", "Empty Cache") { [unowned self] in
+            Cleanup.measure { before in
+                Cleanup.clear(.cache, since: .distantPast) {
+                    Cleanup.measure { after in
+                        let freed = (before.cacheBytes + before.iconBytes) - (after.cacheBytes + after.iconBytes)
+                        self.main.showToast(freed > 0 ? "Cache emptied · \(Cleanup.bytes(freed)) freed" : "Cache emptied")
+                    }
+                }
+            }
+        }
+        c.register("tabs.sleepSpace", "Put Tabs in This Space to Sleep") { [unowned self] in
+            let n = self.store.sleepTabs(self.store.tabs(inSpace: self.store.currentSpace))
+            self.main.showToast(n == 0 ? "No other tabs in this space to put to sleep" : "\(n) tab\(n == 1 ? "" : "s") asleep")
+        }
+        c.register("settings.storage", "Memory and Storage Settings…") { SettingsWindowController.shared.show(tabNamed: "Memory & Storage") }
         c.register("library.archive", "Show Archived Tabs") { [unowned self] in
             self.main.peekSidebar()
             self.main.sidebar.openLibrary(.archive)
@@ -336,7 +377,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.toggleBlockingForSite()
             }
         }
-        c.register("extensions.manage", "Manage Extensions…") { SettingsWindowController.shared.show(tab: 2) }
+        c.register("extensions.manage", "Manage Extensions…") { SettingsWindowController.shared.show(tabNamed: "Extensions") }
         c.register("extensions.menu", "Show Extensions") { [unowned self] in
             self.showMainWindow()
             if self.main.mode == .hidden { self.main.toggleSidebar() }
@@ -346,9 +387,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.showToast("Updating filter lists…")
             Blocker.shared.update { ok in self.main.showToast(ok ? "Filter lists updated" : "Couldn’t update the filter lists") }
         }
-        c.register("tabs.sleepNow", "Put Background Tabs to Sleep Now") { [unowned self] in
-            let n = self.store.sleepIdleTabs(olderThanMinutes: 0.01)
-            self.main.showToast(n == 0 ? "No background tabs to put to sleep" : "\(n) tab\(n == 1 ? "" : "s") asleep · memory freed")
+        // Zen's "unload all tabs": every tab you can't see sleeps now, and WebKit's in-memory caches are emptied.
+        c.register("tabs.sleepNow", "Free Up Memory (Put Background Tabs to Sleep)") { [unowned self] in
+            Cleanup.freeMemory { slept, freed in self.main.showToast(Cleanup.freedMessage(slept: slept, freed: freed)) }
         }
         c.register("blocking.updateExtension", "Check for uBlock Origin Lite Update") { [unowned self] in
             self.main.showToast("Checking for a uBlock Origin Lite update…")
@@ -365,7 +406,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let n = self.store.archiveStaleTabs(olderThanHours: hours)
             self.main.showToast(n == 0 ? "No unused tabs to archive" : "Archived \(n) tab\(n == 1 ? "" : "s")")
         }
-        c.register("data.clear", "Clear Cookies and Website Data…") { [unowned self] in self.clearWebsiteData() }
+        c.register("data.clear", "Clear Cookies and Website Data…") { ClearDataPanel.present(kinds: [.siteData, .cache], range: .all) }
         c.register("config.reload", "Reload Settings, Shortcuts and Bangs") { [unowned self] in
             Settings.current = Settings.load()
             Keybindings.shared.reload()
@@ -374,30 +415,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.root.trackWhenInactive = Settings.current.sidebarHoverWhenInactive
             self.main.showToast("Settings reloaded")
         }
-        c.register("history.clear", "Clear Browsing History…") { [unowned self] in
-            self.confirm("Clear your browsing history?",
-                         "Sorrel forgets every page you have visited and the downloads list. Open tabs, cookies, logins and downloaded files are not affected.",
-                         button: "Clear History") {
-                History.shared.clear()
-                Engine.shared.clearFinishedDownloads()
-                self.store.clearArchive()
-                self.main.showToast("History cleared")
-            }
-        }
-    }
-
-    private func confirm(_ title: String, _ detail: String, button: String, then run: @escaping () -> Void) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = title
-        alert.informativeText = detail
-        alert.addButton(withTitle: button)
-        alert.addButton(withTitle: "Cancel")
-        if let w = NSApp.keyWindow ?? main.window {
-            alert.beginSheetModal(for: w) { if $0 == .alertFirstButtonReturn { run() } }
-        } else if alert.runModal() == .alertFirstButtonReturn {
-            run()
-        }
+        c.register("history.clear", "Clear Browsing History…") { ClearDataPanel.present(kinds: [.history], range: .all) }
     }
 
     private func printPage() {
@@ -423,23 +441,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         main.showToast(wasOff ? "Ad blocking is on for \(site)" : "Ad blocking is off for \(site)")
     }
 
-    private func clearWebsiteData() {
-        confirm("Clear all cookies and website data?",
-                "You will be signed out of every website in every space, and saved site data is erased. History is not affected.",
-                button: "Clear Data") { [unowned self] in
-            var stores: [WKWebsiteDataStore] = [Engine.store(for: nil)]
-            for space in self.store.spaces {
-                if let id = space.profileID { stores.append(Engine.store(for: id)) }
-            }
-            let group = DispatchGroup()
-            for s in stores {
-                group.enter()
-                s.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { group.leave() }
-            }
-            group.notify(queue: .main) { self.main.showToast("Cookies and website data cleared") }
-        }
-    }
-
     // MARK: Archived tabs menu
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -448,6 +449,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("nav.back"))
             menu.addItem(item("nav.forward"))
             menu.addItem(item("tab.reopen"))
+            menu.addItem(item("history.show"))
             menu.addItem(.separator())
             let recent = History.shared.recent(limit: 18)
             if recent.isEmpty {
@@ -468,7 +470,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menu.addItem(entry)
             }
             menu.addItem(.separator())
-            menu.addItem(item("history.clear"))
+            menu.addItem(item("data.clearRecent"))
+            menu.addItem(item("site.forget"))
             return
         }
         guard menu === archivedMenu else { return }
@@ -609,7 +612,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 archived.submenu = archivedMenu
                 return archived
             }(),
-            item("library.archive"), item("archive.now"), item("tabs.sleepNow"),
+            item("library.archive"), item("archive.now"),
+            .separator(),
+            item("tabs.sleepNow"), item("tabs.sleepSpace"),
         ])
         _ = add("Spaces", [item("space.next"), item("space.previous"), .separator(), item("space.new")])
         // History fills itself in each time it is opened.
@@ -1124,6 +1129,115 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 30) { report("popup page after 30s") }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
+            }
+        }
+        if env["SORREL_CLEANTEST"] != nil {
+            // Clearing and freeing up (Cleanup.swift, ClearDataPanel.swift, Library ▸ History, Settings ▸ Memory &
+            // Storage). Seeds stand-in history at known ages, opens three real pages, then walks every path and logs
+            // `clean:` lines. Site data is the test build's in-memory store. SORREL_CLEANSHOTS=<dir> writes pictures.
+            let shots = env["SORREL_CLEANSHOTS"].map { URL(fileURLWithPath: $0) }
+            func shoot(_ view: NSView?, _ name: String) {
+                guard let shots, let view, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                // Onto the window's own background colour, so light-on-dark text shows in the picture.
+                let out = NSImage(size: view.bounds.size)
+                out.lockFocus()
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    NSColor.windowBackgroundColor.setFill()
+                    NSRect(origin: .zero, size: view.bounds.size).fill()
+                }
+                rep.draw(in: NSRect(origin: .zero, size: view.bounds.size), from: .zero, operation: .sourceOver,
+                         fraction: 1, respectFlipped: false, hints: nil)
+                out.unlockFocus()
+                if let tiff = out.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? png.write(to: shots.appendingPathComponent(name))
+                }
+            }
+            func js(_ wv: WKWebView?, _ code: String, _ done: @escaping (String) -> Void) {
+                wv?.evaluateJavaScript(code) { r, e in done("\(r ?? e?.localizedDescription ?? "nil")") }
+            }
+            func step(_ at: Double, _ run: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + at, execute: run) }
+            let now = Date()
+            History.shared.merge([
+                .init(url: "https://example.com/recent", title: "Example recent", visits: 3, last: now.addingTimeInterval(-600)),
+                .init(url: "https://www.example.com/older", title: "Example two days", visits: 1, last: now.addingTimeInterval(-2 * 86400)),
+                .init(url: "https://b.test/old", title: "B forty days", visits: 1, last: now.addingTimeInterval(-40 * 86400)),
+                .init(url: "https://c.test/today", title: "C today", visits: 1, last: now.addingTimeInterval(-1800)),
+            ])
+            log("clean: seeded history=\(History.shared.count)")
+            let a = self.store.newTab(url: "https://example.com/")
+            let b = self.store.newTab(url: "https://example.org/", select: false)
+            let c = self.store.newTab(url: "https://www.iana.org/help/example-domains", select: false)
+            for t in [b, c] { _ = Engine.shared.ensurePage(for: t) }
+            step(7) {
+                log("clean: mac memory=\(Cleanup.memoryInUse().map { "\(Cleanup.memory($0.used)) of \(Cleanup.memory($0.total))" } ?? "nil") awake=\(self.store.tabCounts.awake)")
+                js(a.page?.webView, "document.cookie = 'cleantest=1; max-age=3600'; localStorage.setItem('k','v'); document.cookie") { log("clean: cookie set: \($0)") }
+            }
+            step(9) {
+                Cleanup.fetchSites { sites in log("clean: sites=\(sites.map { "\($0.name) [\($0.summary)]" })") }
+                Cleanup.freeMemory { slept, freed in
+                    log("clean: freeMemory slept=\(slept) freed=\(freed.map { Cleanup.bytes(Int64($0)) } ?? "nil") toast='\(Cleanup.freedMessage(slept: slept, freed: freed))' awake=\(self.store.tabCounts.awake) asleep=\(self.store.tabCounts.asleep) selectedStillLoaded=\(a.page != nil) bAsleep=\(b.page == nil)")
+                }
+            }
+            step(12) {
+                ClearDataPanel.present(kinds: [.history], range: .day)
+            }
+            step(13.5) {
+                log("clean: panel \(ClearDataPanel.debugState ?? "not open")")
+                shoot(NSApp.windows.first { $0.title == "Clear Browsing Data" }?.contentView, "clear-panel.png")
+                ClearDataPanel.debugClear(range: .day, kinds: [.history])
+            }
+            step(14.5) {
+                log("clean: after clearing last 24 hours: history=\(History.shared.list(limit: 10).map(\.title)) panelOpen=\(ClearDataPanel.debugState != nil)")
+                self.main.sidebar.openLibrary(.history)
+                log("clean: library history=\(self.main.sidebar.library.debugLines)")
+                self.main.sidebar.library.debugSearch("forty")
+                log("clean: library search 'forty'=\(self.main.sidebar.library.debugLines)")
+                self.main.sidebar.library.debugSearch("")
+                shoot(self.main.sidebar.library, "library-history.png")
+                self.main.sidebar.library.debugRemoveFirstPage()
+                log("clean: after × on first page: history=\(History.shared.list(limit: 10).map(\.title))")
+                History.shared.merge([.init(url: "https://example.com/again", title: "Example again", visits: 1, last: Date())])
+                Settings.current.removeHistoryAfterDays = 30
+                Cleanup.applyAutomaticRules()
+                Settings.current.removeHistoryAfterDays = 0
+                log("clean: after remove-older-than-30-days: history=\(History.shared.list(limit: 10).map(\.title))")
+                Cleanup.forget(site: "example.com") {
+                    Cleanup.fetchSites { sites in
+                        log("clean: after forgetting example.com: history=\(History.shared.list(limit: 10).map(\.title)) sites=\(sites.map(\.name))")
+                    }
+                }
+            }
+            step(17) {
+                let settings = SettingsWindowController.shared
+                settings.refreshStorage()
+                step(1.5) {
+                    log("clean: storage tab: \(settings.debugStorage)")
+                    if let w = settings.window {
+                        let i = (w.contentView?.subviews.first as? NSTabView).map { $0.indexOfTabViewItem(withIdentifier: "Memory & Storage") } ?? NSNotFound
+                        if i != NSNotFound, let tv = w.contentView?.subviews.first as? NSTabView { tv.selectTabViewItem(at: i) }
+                        w.contentView?.layoutSubtreeIfNeeded()
+                        shoot(w.contentView, "settings-storage.png")
+                    }
+                }
+            }
+            step(19) {
+                js(a.page?.webView, "document.cookie = 'again=1; max-age=3600'; document.cookie") { log("clean: cookie set again: \($0)") }
+            }
+            step(20) {
+                WebsiteDataPanel.present()
+                step(1.5) {
+                    log("clean: website data panel=\(WebsiteDataPanel.debugSites ?? ["not open"])")
+                    shoot(NSApp.windows.first { $0.title == "Manage Website Data" }?.contentView, "website-data.png")
+                    NSApp.windows.first { $0.title == "Manage Website Data" }.map { $0.sheetParent?.endSheet($0) }
+                    Cleanup.clear([.siteData, .cache], since: .distantPast) {
+                        Cleanup.fetchSites { sites in
+                            log("clean: after clearing all site data: sites=\(sites.count)")
+                            Settings.current.emptyCacheOnQuit = true
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
             }
         }
         if env["SORREL_GEOTEST"] != nil {

@@ -26,6 +26,35 @@ final class FaviconStore {
         return nil
     }
 
+    /// Drops the icons held in memory; they come back from disk as rows need them (Free Up Memory).
+    func trimMemory() {
+        memory = [:]
+        missing = []
+    }
+
+    /// Deletes saved icons fetched at or after `date` (Clear Browsing Data ▸ cached files). They are fetched
+    /// again the next time their site loads.
+    func forget(since date: Date) {
+        let fm = FileManager.default
+        let files = (try? fm.contentsOfDirectory(at: Paths.favicons, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for f in files {
+            let mod = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            if mod >= date { try? fm.removeItem(at: f) }
+        }
+        trimMemory()
+    }
+
+    /// Deletes the saved icons of every host on a website (Forget This Site).
+    func forget(site: String) {
+        let fm = FileManager.default
+        for f in (try? fm.contentsOfDirectory(at: Paths.favicons, includingPropertiesForKeys: nil)) ?? [] {
+            let host = f.deletingPathExtension().lastPathComponent
+            if Site.key(host) == site { try? fm.removeItem(at: f) }
+        }
+        memory = memory.filter { Site.key($0.key) != site }
+        missing = missing.filter { Site.key($0) != site }
+    }
+
     func image(for item: Item) -> NSImage? {
         if let u = item.url, u.hasPrefix("sorrel://") { return symbol("sparkles", size: 14) }
         return item.page?.favicon ?? image(forHost: item.host)
@@ -78,6 +107,11 @@ final class FaviconStore {
 
 // MARK: - History
 
+extension Notification.Name {
+    /// Pages were removed from history (not posted for each visit).
+    static let sorrelHistory = Notification.Name("sorrelHistory")
+}
+
 final class History {
     static let shared = History()
 
@@ -126,6 +160,70 @@ final class History {
     func clear() {
         entries = [:]
         saveNow()
+        changed()
+    }
+
+    /// How many pages are remembered, in all or since a date.
+    var count: Int { entries.count }
+    func count(since date: Date) -> Int { entries.values.reduce(0) { $0 + ($1.last >= date ? 1 : 0) } }
+
+    /// Forgets the pages last visited at or after `date` (Clear Browsing Data with a time range). Returns how many.
+    @discardableResult
+    func remove(since date: Date) -> Int {
+        let before = entries.count
+        entries = entries.filter { $0.value.last < date }
+        return finishRemoving(before)
+    }
+
+    /// Forgets the pages last visited before `date` (Settings ▸ Memory & Storage ▸ Remove history after…).
+    @discardableResult
+    func remove(olderThan date: Date) -> Int {
+        let before = entries.count
+        entries = entries.filter { $0.value.last >= date }
+        return finishRemoving(before)
+    }
+
+    /// Forgets one page (Library ▸ History, ×).
+    func remove(url: String) {
+        let before = entries.count
+        entries[url] = nil
+        finishRemoving(before)
+    }
+
+    /// Forgets every page on a website: the host's registrable part, so "bbc.co.uk" covers www.bbc.co.uk too.
+    @discardableResult
+    func remove(site: String) -> Int {
+        let before = entries.count
+        entries = entries.filter { Site.key(URL(string: $0.key)?.host) != site }
+        return finishRemoving(before)
+    }
+
+    @discardableResult
+    private func finishRemoving(_ before: Int) -> Int {
+        let removed = before - entries.count
+        if removed > 0 {
+            saveNow()
+            changed()
+        }
+        return removed
+    }
+
+    private func changed() { NotificationCenter.default.post(name: .sorrelHistory, object: nil) }
+
+    /// Every page, newest first (Library ▸ History). A query narrows it to pages whose address or title holds
+    /// every word.
+    func list(matching query: String = "", limit: Int) -> [Entry] {
+        let words = query.lowercased().split(separator: " ").map(String.init)
+        let pool = words.isEmpty ? Array(entries.values) : entries.values.filter { e in
+            let u = e.url.lowercased(), t = e.title.lowercased()
+            return words.allSatisfy { u.contains($0) || t.contains($0) }
+        }
+        return Array(pool.sorted { $0.last > $1.last }.prefix(limit))
+    }
+
+    /// The on-disk size of history.json.
+    var fileSize: Int64 {
+        ((try? Paths.history.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize).map(Int64.init) ?? 0
     }
 
     /// Browser import: folds in another browser's history. A page already here keeps the larger visit count and
@@ -201,6 +299,17 @@ final class ZoomStore {
     func set(_ level: Double, forHost host: String?) {
         guard let host else { return }
         if abs(level - 1) < 0.01 { levels[host] = nil } else { levels[host] = level }
+        save()
+    }
+
+    /// Forgets the zoom of every host on a website (Forget This Site).
+    func forget(site: String) {
+        let before = levels.count
+        levels = levels.filter { Site.key($0.key) != site }
+        if levels.count != before { save() }
+    }
+
+    private func save() {
         if let data = try? JSONEncoder().encode(levels) { try? data.write(to: Paths.zoom, options: .atomic) }
     }
 }

@@ -1,8 +1,8 @@
 import AppKit
 
 // The Library, as in Arc: it takes over the sidebar (below the window controls) when the Library button at the
-// bottom left is clicked. Two sections, Downloads and Archive, each a list grouped by Today / Yesterday /
-// Previous 7 Days / Earlier.
+// bottom left is clicked. Three sections, Downloads, History (searchable) and Archive, each a list grouped by
+// Today / Yesterday / Previous 7 Days / Earlier.
 
 extension Notification.Name {
     /// The archived-tabs list changed (Store.saveArchive).
@@ -10,7 +10,7 @@ extension Notification.Name {
 }
 
 final class LibraryView: NSView {
-    enum Section: Int { case downloads, archive }
+    enum Section: Int { case downloads, history, archive }
 
     var onClose: (() -> Void)?
     private(set) var section: Section = .downloads
@@ -19,6 +19,8 @@ final class LibraryView: NSView {
     private let scroll = NSScrollView()
     private let stack = NSStackView()
     private let empty = NSTextField(labelWithString: "")
+    /// History only: narrows the list as you type.
+    private let search = NSSearchField()
     private var clearButton: NSButton!
     private var folderButton: IconButton!
     /// Rows already built, so progress updates and reloads keep their thumbnails and hover state.
@@ -35,6 +37,7 @@ final class LibraryView: NSView {
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(changed), name: .sorrelDownloads, object: nil)
         nc.addObserver(self, selector: #selector(changed), name: .sorrelArchive, object: nil)
+        nc.addObserver(self, selector: #selector(changed), name: .sorrelHistory, object: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -47,7 +50,8 @@ final class LibraryView: NSView {
         let tabBar = NSView()
         tabBar.wantsLayer = true
         tabBar.layer?.cornerRadius = 8
-        tabs = [LibraryTab(title: "Downloads", symbol: "arrow.down.circle"), LibraryTab(title: "Archive", symbol: "archivebox")]
+        tabs = [LibraryTab(title: "Downloads", symbol: "arrow.down.circle"), LibraryTab(title: "History", symbol: "clock"),
+                LibraryTab(title: "Archive", symbol: "archivebox")]
         for (i, tab) in tabs.enumerated() {
             tab.onClick = { [weak self] in self?.show(Section(rawValue: i)!) }
             tab.translatesAutoresizingMaskIntoConstraints = false
@@ -59,6 +63,13 @@ final class LibraryView: NSView {
         clearButton = NSButton(title: "Clear", target: self, action: #selector(clear))
         clearButton.isBordered = false
         folderButton = IconButton(symbol: "folder", size: 12, tooltip: "Open Downloads Folder") { Commands.shared.run("downloads.show") }
+        search.placeholderString = "Search history"
+        search.controlSize = .small
+        search.font = .systemFont(ofSize: 11.5)
+        search.sendsSearchStringImmediately = true
+        search.target = self
+        search.action = #selector(searchChanged)
+        search.isHidden = true
 
         let document = FlippedContainer()
         document.translatesAutoresizingMaskIntoConstraints = false
@@ -82,7 +93,9 @@ final class LibraryView: NSView {
         // Clear and the folder button sit at the right edge; a hidden one takes no room.
         let actions = NSStackView(views: [clearButton, folderButton])
         actions.spacing = 2
-        for v in [title, close, tabBar, actions, scroll, empty] as [NSView] {
+        // The first group's header tucks under the buttons; History's search field needs the room.
+        scrollTop = scroll.topAnchor.constraint(equalTo: actions.bottomAnchor, constant: -10)
+        for v in [title, close, tabBar, actions, search, scroll, empty] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -99,9 +112,7 @@ final class LibraryView: NSView {
             tabBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             tabBar.heightAnchor.constraint(equalToConstant: 28),
             tabs[0].leadingAnchor.constraint(equalTo: tabBar.leadingAnchor, constant: 2),
-            tabs[1].trailingAnchor.constraint(equalTo: tabBar.trailingAnchor, constant: -2),
-            tabs[0].trailingAnchor.constraint(equalTo: tabs[1].leadingAnchor, constant: -2),
-            tabs[0].widthAnchor.constraint(equalTo: tabs[1].widthAnchor),
+            tabs[tabs.count - 1].trailingAnchor.constraint(equalTo: tabBar.trailingAnchor, constant: -2),
 
             actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             actions.topAnchor.constraint(equalTo: tabBar.bottomAnchor, constant: 6),
@@ -109,7 +120,11 @@ final class LibraryView: NSView {
             folderButton.widthAnchor.constraint(equalToConstant: 22),
             folderButton.heightAnchor.constraint(equalToConstant: 22),
 
-            scroll.topAnchor.constraint(equalTo: actions.bottomAnchor, constant: -10),
+            search.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            search.trailingAnchor.constraint(equalTo: actions.leadingAnchor, constant: -6),
+            search.centerYAnchor.constraint(equalTo: actions.centerYAnchor, constant: 2),
+
+            scrollTop,
             scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -125,14 +140,19 @@ final class LibraryView: NSView {
             empty.centerXAnchor.constraint(equalTo: centerXAnchor),
             empty.topAnchor.constraint(equalTo: tabBar.bottomAnchor, constant: 60),
         ])
-        for tab in tabs {
+        for (i, tab) in tabs.enumerated() {
             tab.topAnchor.constraint(equalTo: tabBar.topAnchor, constant: 2).isActive = true
             tab.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor, constant: -2).isActive = true
+            if i > 0 {
+                tab.leadingAnchor.constraint(equalTo: tabs[i - 1].trailingAnchor, constant: 2).isActive = true
+                tab.widthAnchor.constraint(equalTo: tabs[0].widthAnchor).isActive = true
+            }
         }
         applyColors()
     }
 
     private var tabBar: NSView?
+    private var scrollTop: NSLayoutConstraint!
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -143,7 +163,13 @@ final class LibraryView: NSView {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             tabBar?.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.06).cgColor
         }
-        clearButton.attributedTitle = NSAttributedString(string: "Clear", attributes: [
+        setClearTitle(clearTitle)
+    }
+
+    private var clearTitle = "Clear"
+    private func setClearTitle(_ text: String) {
+        clearTitle = text
+        clearButton.attributedTitle = NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: 11.5), .foregroundColor: NSColor.secondaryLabelColor])
     }
 
@@ -154,6 +180,9 @@ final class LibraryView: NSView {
         let changed = new != section
         section = new
         for (i, tab) in tabs.enumerated() { tab.isSelected = i == new.rawValue }
+        search.isHidden = new != .history
+        scrollTop.constant = new == .history ? 0 : -10
+        setClearTitle(new == .history ? "Clear…" : "Clear")
         reload()
         if changed { stack.layer?.popIn(scale: 1, rise: 0, duration: 0.18) }
         if changed { scroll.contentView.scroll(to: .zero) }
@@ -179,8 +208,17 @@ final class LibraryView: NSView {
     @objc private func clear() {
         switch section {
         case .downloads: Engine.shared.clearFinishedDownloads()
+        case .history: ClearDataPanel.present(kinds: [.history])
         case .archive: store.clearArchive()
         }
+    }
+
+    @objc private func searchChanged() { reload() }
+
+    /// Focuses the History search field (⌘Y, then type).
+    func focusSearch() {
+        guard section == .history else { return }
+        window?.makeFirstResponder(search)
     }
 
     // MARK: Building the list
@@ -196,7 +234,60 @@ final class LibraryView: NSView {
     func reload() {
         switch section {
         case .downloads: reloadDownloads()
+        case .history: reloadHistory()
         case .archive: reloadArchive()
+        }
+    }
+
+    private func reloadHistory() {
+        let query = search.stringValue.trimmingCharacters(in: .whitespaces)
+        let entries = History.shared.list(matching: query, limit: query.isEmpty ? 300 : 200)
+        folderButton.isHidden = true
+        clearButton.isHidden = History.shared.count == 0
+        clearButton.toolTip = "Clear browsing data: choose a time range and what to clear"
+        empty.stringValue = query.isEmpty ? "No history yet" : "No pages match"
+        empty.isHidden = !entries.isEmpty
+
+        let groups = grouped(entries) { $0.last }
+        let stamp = Int(Date().timeIntervalSince1970 / 60)
+        let newShape = "h|\(stamp)|\(query)|" + groups.map { g in g.title + ":" + g.items.map { "\($0.url)@\($0.last.timeIntervalSince1970)" }.joined(separator: ",") }.joined(separator: ";")
+        guard newShape != shape else { return }
+        shape = newShape
+        clearStack()
+        for g in groups {
+            add(LibraryHeader(g.title))
+            for e in g.items {
+                let row = ArchiveRow(url: e.url, title: e.title, prefix: e.visits > 1 ? "\(e.visits) visits" : nil, date: e.last,
+                                     openTitle: "Open in New Tab", removeTitle: "Remove from History")
+                row.kind = "page"
+                row.onOpen = { [weak self] in
+                    self?.store.newTab(url: e.url, title: e.title)
+                    self?.onClose?()
+                }
+                row.onRemove = { History.shared.remove(url: e.url) }
+                if let site = Site.key(URL(string: e.url)?.host) {
+                    row.extraMenuItems = [ActionMenuItem("Forget \(site)…") { LibraryView.confirmForget(site: site) }]
+                }
+                add(row)
+            }
+        }
+    }
+
+    /// Firefox's "Forget About This Site", asked first.
+    static func confirmForget(site: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Forget \(site)?"
+        alert.informativeText = "Sorrel removes its history, archived tabs, cookies, site data, cached files and zoom level, in every space. You will be signed out of it. Open tabs stay open."
+        alert.addButton(withTitle: "Forget")
+        alert.addButton(withTitle: "Cancel")
+        let forget = {
+            Cleanup.forget(site: site) { AppDelegate.shared.main.showToast("Sorrel forgot \(site)") }
+        }
+        if let w = AppDelegate.shared.main.window, w.isVisible {
+            alert.beginSheetModal(for: w) { if $0 == .alertFirstButtonReturn { forget() } }
+        } else if alert.runModal() == .alertFirstButtonReturn {
+            forget()
         }
     }
 
@@ -278,6 +369,17 @@ final class LibraryView: NSView {
         v.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -8).isActive = true
     }
 
+    /// Test hook: types into the History search field.
+    func debugSearch(_ text: String) {
+        search.stringValue = text
+        reload()
+    }
+
+    /// Test hook: presses × on the first page in History.
+    func debugRemoveFirstPage() {
+        (stack.arrangedSubviews.first { ($0 as? ArchiveRow)?.kind == "page" } as? ArchiveRow)?.onRemove?()
+    }
+
     /// Test hook: clicks the first archived tab in the list.
     func debugOpenFirstArchived() {
         (stack.arrangedSubviews.first { $0 is ArchiveRow } as? ArchiveRow)?.onOpen?()
@@ -288,7 +390,7 @@ final class LibraryView: NSView {
         stack.arrangedSubviews.map { v in
             if let h = v as? LibraryHeader { return "## " + h.stringValue }
             if let r = v as? DownloadRow { return "dl " + r.debugDescription_ }
-            if let r = v as? ArchiveRow { return "tab " + r.debugText }
+            if let r = v as? ArchiveRow { return r.kind + " " + r.debugText }
             return "?"
         }
     }
@@ -296,7 +398,7 @@ final class LibraryView: NSView {
 
 // MARK: - Pieces
 
-/// One of the two section buttons (Downloads / Archive) in the Library's capsule switch.
+/// One of the section buttons (Downloads / History / Archive) in the Library's capsule switch.
 private final class LibraryTab: NSView {
     var onClick: (() -> Void)?
     private let label = NSTextField(labelWithString: "")
@@ -340,6 +442,8 @@ private final class LibraryTab: NSView {
     override func layout() {
         super.layout()
         Motion.layer(0) { fill.frame = bounds }
+        // In a narrow sidebar the words matter more than the icons.
+        icon.isHidden = bounds.width < label.intrinsicContentSize.width + 26
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -383,10 +487,17 @@ private final class LibraryHeader: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// An archived tab: favicon, title, site and when it was put away. Click reopens it; × forgets it.
+/// A page in the Library: an archived tab or a history entry. Favicon, title, site and when; click opens it,
+/// × forgets it.
 final class ArchiveRow: NSView {
     var onOpen: (() -> Void)?
     var onRemove: (() -> Void)?
+    /// More right-click items (History: Forget This Site).
+    var extraMenuItems: [NSMenuItem] = []
+    /// "tab" (Archive) or "page" (History), for test output.
+    var kind = "tab"
+    private let openTitle: String
+    private let removeTitle: String
     private let icon = NSImageView()
     private let title = NSTextField(labelWithString: "")
     private let detail = NSTextField(labelWithString: "")
@@ -398,7 +509,14 @@ final class ArchiveRow: NSView {
         return f
     }()
 
-    init(entry: ArchivedTab, space: Space?) {
+    convenience init(entry: ArchivedTab, space: Space?) {
+        self.init(url: entry.url, title: entry.title, prefix: space.map { $0.icon }, date: entry.date,
+                  openTitle: "Reopen Tab", removeTitle: "Remove from Archive")
+    }
+
+    init(url: String, title pageTitle: String, prefix: String?, date: Date, openTitle: String, removeTitle: String) {
+        self.openTitle = openTitle
+        self.removeTitle = removeTitle
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -406,23 +524,23 @@ final class ArchiveRow: NSView {
         highlight.opacity = 0
         layer?.addSublayer(highlight)
 
-        let host = URL(string: entry.url)?.host
+        let host = URL(string: url)?.host
         icon.image = FaviconStore.shared.image(forHost: host) ?? symbol("globe", size: 13)
         icon.contentTintColor = .secondaryLabelColor
         icon.imageScaling = .scaleProportionallyUpOrDown
-        title.stringValue = entry.title.isEmpty ? entry.url : entry.title
+        title.stringValue = pageTitle.isEmpty ? url : pageTitle
         title.font = .systemFont(ofSize: 12.5)
         title.lineBreakMode = .byTruncatingTail
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let when = Date().timeIntervalSince(entry.date) < 60 ? "Just now" : Self.ago.localizedString(for: entry.date, relativeTo: Date())
-        detail.stringValue = [space.map { $0.icon }, host?.replacingOccurrences(of: "www.", with: ""), when]
+        let when = Date().timeIntervalSince(date) < 60 ? "Just now" : Self.ago.localizedString(for: date, relativeTo: Date())
+        detail.stringValue = [prefix, Site.display(host), when]
             .compactMap { $0 }.joined(separator: " · ")
         detail.font = .systemFont(ofSize: 11)
         detail.textColor = .secondaryLabelColor
         detail.lineBreakMode = .byTruncatingTail
         detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        toolTip = entry.url
-        remove = IconButton(symbol: "xmark", size: 10, tooltip: "Remove from Archive") { [weak self] in self?.onRemove?() }
+        toolTip = url
+        remove = IconButton(symbol: "xmark", size: 10, tooltip: removeTitle) { [weak self] in self?.onRemove?() }
         remove.isHidden = true
 
         for v in [icon, title, detail, remove!] as [NSView] {
@@ -488,14 +606,15 @@ final class ArchiveRow: NSView {
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let m = NSMenu()
-        m.addItem(ActionMenuItem("Reopen Tab") { [weak self] in self?.onOpen?() })
+        m.addItem(ActionMenuItem(openTitle) { [weak self] in self?.onOpen?() })
         m.addItem(ActionMenuItem("Copy Link") { [weak self] in
             guard let link = self?.toolTip else { return }
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(link, forType: .string)
         })
         m.addItem(.separator())
-        m.addItem(ActionMenuItem("Remove from Archive") { [weak self] in self?.onRemove?() })
+        m.addItem(ActionMenuItem(removeTitle) { [weak self] in self?.onRemove?() })
+        for item in extraMenuItems { m.addItem(item) }
         return m
     }
 
