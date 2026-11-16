@@ -84,6 +84,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     private(set) var placement: Placement = .centered
     private var centeredConstraints: [NSLayoutConstraint] = []
     private var anchoredConstraints: [NSLayoutConstraint] = []
+    private var centeredTop: NSLayoutConstraint!
     private var anchoredLeading: NSLayoutConstraint!
     private var anchoredTop: NSLayoutConstraint!
     private var anchoredWidth: NSLayoutConstraint!
@@ -188,14 +189,13 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         let preferredWidth = panel.widthAnchor.constraint(equalToConstant: 660)
         preferredWidth.priority = .defaultHigh
 
-        // The bar itself sits in the exact middle of the window, whatever its current height.
-        let centered = panel.centerYAnchor.constraint(equalTo: centerYAnchor)
-        centered.priority = .defaultHigh
+        // The bar's top edge is fixed (see positionCentered) so the text field never moves while
+        // suggestions fill in below it; the list grows downward only.
+        centeredTop = panel.topAnchor.constraint(equalTo: topAnchor, constant: 24)
 
         centeredConstraints = [
             panel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            centered,
-            panel.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 24),
+            centeredTop,
             preferredWidth,
             panel.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -60),
         ]
@@ -235,7 +235,19 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     override func layout() {
         super.layout()
         shadowHost.layer?.shadowPath = CGPath(roundedRect: shadowHost.bounds, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        positionCentered()
         positionOnAnchor()
+    }
+
+    /// Places the centered bar so its empty field row sits in the middle of the window, moved up only
+    /// as far as needed for a full list to fit. It depends on the window's height alone, never on how
+    /// many results are showing, so the line being typed on stays still.
+    private func positionCentered() {
+        guard placement == .centered else { return }
+        let empty = fieldTop.constant + field.intrinsicContentSize.height + scrollTop.constant + 6
+        let full = empty + CGFloat(maxRows) * rowHeight
+        let top = max(24, min((bounds.height - empty) / 2, bounds.height - 24 - full))
+        if abs(centeredTop.constant - top) > 0.5 { centeredTop.constant = top }
     }
 
     /// Keeps the in-place editor exactly on the address box, even if the sidebar is still sliding in.
@@ -272,6 +284,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
             fieldTrailing.constant = -18
             scrollTop.constant = 13
             shadowHost.layer?.shadowRadius = 30
+            positionCentered()
             NSLayoutConstraint.activate(centeredConstraints)
         case .anchored:
             radius = 9
@@ -554,7 +567,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         let height = CGFloat(min(results.count, maxRows)) * rowHeight
         if height != tableHeight.constant {
             if animateResize {
-                // Glide to the new size so the bar stays centered without jumping while typing.
+                // Glide to the new size; the bar's top stays put, so only the list below the field moves.
                 Motion.run(0.2, Motion.settle) {
                     tableHeight.constant = height
                     layoutSubtreeIfNeeded()
