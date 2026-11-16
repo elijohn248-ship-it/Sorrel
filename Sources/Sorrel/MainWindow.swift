@@ -745,6 +745,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         card.setTheme(isDark: theme.isDark(systemIsDark: systemIsDark()))
     }
 
+    /// During a space swipe: the window (and floating sidebar) show `f` of the way from `a`'s colours to `b`'s.
+    func blendTheme(_ a: Theme, _ b: Theme, _ f: CGFloat) {
+        background.blend(a, b, f)
+        sidebar.floatingBackground.blend(a, b, f)
+    }
+
     func showToast(_ text: String) {
         toast.stringValue = text
         toastTimer?.invalidate()

@@ -1141,6 +1141,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_SWIPETEST"] != nil {
+            // Space swipe: two-finger swipes and click-and-hold scrubs on the space icons (SpaceSwipe.swift).
+            let sidebar = self.main.sidebar
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { sidebar.debugSwipeTest(shots: env["SORREL_SWIPESHOTS"], log: log) }
+        }
         if env["SORREL_GEOTEST"] != nil {
             // Website location. Checks what a background test can: Sorrel answers WebKit's location questions,
             // and a page that asks while hidden gets nothing (WebKit holds the question until the page shows; test
