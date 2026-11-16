@@ -18,7 +18,7 @@ Sorrel runs in the macOS **App Sandbox** (`Resources/Sorrel.entitlements`, ad-ho
 - **Child processes inherit the sandbox but not access to picked files**: `ditto` unpacks a private copy of a picked zip (Extensions.add). `screencapture` from inside the app no longer works.
 - **Ad-hoc signing is fine**: a rebuilt app (new code hash) keeps opening its container without prompts (tested 2026-11-14). No certificate needed.
 - **Layout inside the container differs from outside** (found by experiment): WebKit keeps `Library/WebKit/WebsiteData`, `WebExtensions`, `ContentRuleLists` *without* the bundle-id folder, and the cookie jar is `Library/Cookies/Cookies.binarycookies`, not `HTTPStorages/<id>.binarycookies`.
-- **The move (`Migration.swift`, first thing in `main.swift`).** On the first sandboxed launch (no `SORREL_HOME`; container has no `Application Support/Sorrel`; the real one exists) Sorrel COPIES, never moves: each item of `~/Library/WebKit/app.sorrel.browser/` -> `WebKit/<item>`, `HTTPStorages/app.sorrel.browser.binarycookies` -> `Cookies/Cookies.binarycookies`, `HTTPStorages/app.sorrel.browser/`, then `Application Support/Sorrel` (last; it marks the move done), via `.migrating` temp names; anything already in the way is set aside as `*.before-migration-<time>`. Then it merges the old preferences plist and writes `moved-into-sandbox.txt`. It refuses while an older Sorrel is running (offers to quit it), and on failure quits without keeping a partial copy, so the next launch retries. **The originals in `~/Library` stay as the owner's backup** and are what an unsandboxed build would still open. Verified end to end with the test build (cookie + open tab carried over); the owner's real move is theirs to run. `SORREL_MIGRATE_TEST=<from Library>:<to Library>` runs just the copy between stand-in folders.
+- **The move (`Migration.swift`, first thing in `main.swift`).** On the first sandboxed launch (no `SORREL_HOME`; container has no `Application Support/Sorrel`; the real one exists) Sorrel COPIES, never moves: each item of `~/Library/WebKit/app.sorrel.browser/` -> `WebKit/<item>`, `HTTPStorages/app.sorrel.browser.binarycookies` -> `Cookies/Cookies.binarycookies`, `HTTPStorages/app.sorrel.browser/`, then `Application Support/Sorrel` (last; it marks the move done), via `.migrating` temp names; anything already in the way is set aside as `*.before-migration-<time>`. Then it merges the old preferences plist and writes `moved-into-sandbox.txt`. It refuses while an older Sorrel is running (offers to quit it), and on failure quits without keeping a partial copy, so the next launch retries. **The originals in `~/Library` stay as the owner's backup** and are what an unsandboxed build would still open. Verified end to end with the test build (cookie + open tab carried over). **The owner's real move ran on 2026-11-15** (`moved-into-sandbox.txt` in the container's profile), so the container is now the live profile. `SORREL_MIGRATE_TEST=<from Library>:<to Library>` runs just the copy between stand-in folders.
 - **Window snapshots can't see page content under the sandbox**: `SORREL_SNAPSHOT` (cacheDisplay) shows the web area blank; the page is fine. Use `SORREL_WEBSNAPSHOT=<png>` for WebKit's own picture of the selected page.
 
 ## Non-negotiables
@@ -38,7 +38,8 @@ The owner runs several Claude sessions at the same time. **Sessions must not sha
 - Each task gets its own git worktree and branch: `cd ~/sorrel && git worktree add ../sorrel-<task> -b <task>` (or Claude Code's worktree option). Edit, build and test only there; each worktree has its own `.build/` and `build/`, and its first build takes a few minutes.
 - Start every session with `git worktree list` and `git status` to see what's in flight.
 - Before reporting a task done: commit on its branch, merge `main` into it, rebuild, and rerun the tests that cover what changed. Resolve conflicts in the worktree, never in `~/sorrel`.
-- **The owner decides what merges.** Agents don't merge into `main` or push unless asked. When asked: `cd ~/sorrel && git merge <task> && ./build.sh`, then `git worktree remove ../sorrel-<task> && git branch -d <task>`, and tell the owner to quit and reopen Sorrel.
+- **The owner decides what merges.** Agents don't merge into `main` or push unless asked. `origin` (`github.com/elijohn248-ship-it/sorrel`) is **public**: anything pushed, this file included, is visible to everyone, so never commit keys, tokens or the owner's personal data (secrets live in `~/.config/sorrel`, outside the repo).
+- Merged so far (2026-11-14/15): `sandbox`, `fluid-animations`, extensions work, `updater`. The `sandbox` worktree (`~/sorrel-sandbox`) is merged and can be removed when the owner says. When asked: `cd ~/sorrel && git merge <task> && ./build.sh`, then `git worktree remove ../sorrel-<task> && git branch -d <task>`, and tell the owner to quit and reopen Sorrel.
 - Collision hotspots, so keep diffs there small and local: `App.swift` (every test hook; add a new hook as its own `if env[...]` block, don't reshuffle others), `Web.swift`, `SettingsWindow.swift`, `Support.swift` (each new setting needs a field AND a decoder line), and this file (edit only the section you're changing).
 - Tests from different worktrees can run at the same time: each uses its own scratch `SORREL_HOME` and in-memory site data. Each test launch still opens a background window, so keep runs batched.
 
@@ -121,9 +122,9 @@ User data (per profile folder, inside the container's `Library/Application Suppo
 
 ## Updates
 
-Sorrel updates itself from the owner's GitHub releases, free and without Apple: **`UpdateConfig.repository`** (`Sources/SorrelUpdateCore/UpdateCore.swift`, currently `elijohn248-ship-it/sorrel`; the repository did not exist yet on 2026-11-15, and `tools/release.sh publish` needs `origin` to point at it) and the feed `https://github.com/<repo>/releases/latest/download/updates.json`, which GitHub redirects to the newest published release's asset. Built 2026-11-15 on the `updater` branch.
+Sorrel updates itself from the owner's GitHub releases, free and without Apple: **`UpdateConfig.repository`** (`Sources/SorrelUpdateCore/UpdateCore.swift`, currently `elijohn248-ship-it/sorrel`, which is `origin`) and the feed `https://github.com/<repo>/releases/latest/download/updates.json`, which GitHub redirects to the newest published release's asset. Built 2026-11-15 and merged into `main`; `main` was first pushed to that repository on 2026-11-15. **No release has been published yet**: the app is still 0.1.0 (build 1), so the first `tools/release.sh` should be 0.2.0 or similar.
 
-- **Releasing:** `tools/release.sh 0.2.0` bumps `CFBundleShortVersionString` to 0.2.0 and `CFBundleVersion` by one (the build number is the only thing compared, so it must only ever go up), builds, zips `build/Sorrel.app` (`ditto --keepParent`), signs the zip, writes `dist/` (zip, `updates.json`, `notes.md`, `release.env`), commits "Sorrel 0.2.0 (build N)" and tags `v0.2.0`. Nothing leaves the Mac until **`tools/release.sh publish`**: push, GitHub release with both assets (via `gh`, or `GITHUB_TOKEN` / `~/.config/sorrel/github-token` through the REST API; neither `gh` nor Homebrew was installed on 2026-11-15), then it polls the feed. Cutting is an agent's job when asked; **publishing is the owner's go-ahead** (it reaches every installed copy).
+- **Releasing:** `tools/release.sh 0.2.0` bumps `CFBundleShortVersionString` to 0.2.0 and `CFBundleVersion` by one (the build number is the only thing compared, so it must only ever go up), builds, zips `build/Sorrel.app` (`ditto --keepParent`), signs the zip, writes `dist/` (zip, `updates.json`, `notes.md`, `release.env`), commits "Sorrel 0.2.0 (build N)" and tags `v0.2.0`. Nothing leaves the Mac until **`tools/release.sh publish`**: push, GitHub release with both assets (via `gh`, or `GITHUB_TOKEN` / `~/.config/sorrel/github-token` through the REST API; neither `gh` nor Homebrew is installed, and the token file exists, so the REST path is the one in use), then it polls the feed. Cutting is an agent's job when asked; **publishing is the owner's go-ahead** (it reaches every installed copy).
 - **Signing key:** Ed25519 via CryptoKit, `tools/update-sign.swift`. The private key is `~/.config/sorrel/update-signing-key` (mode 600, never in git); its public half is `UpdateConfig.publicKey`. **If the private key is lost, no installed copy can ever accept another update** (they'd all need a fresh download): the owner should keep a copy in their password manager. `release.sh` refuses to cut with a key that doesn't match the built-in public key.
 - **In the app (`Updater.swift`):** 30 s after launch and every 30 min it checks whether 6 h have passed (`Updates/last-check`), gated by the `checkForUpdates` setting (Settings ▸ General ▸ Updates, with version, Check Now / Relaunch to Update, status); Sorrel ▸ Check for Updates… (`updates.check`) checks at once. A newer `build` is downloaded to `Updates/Sorrel-<build>.zip` (ephemeral session, no identifying request), checked against size, sha256 and the Ed25519 signature; a failed check deletes it and says so. A verified zip is "ready": toast + the menu item becomes "Relaunch to Update to X…", and **it installs when Sorrel quits** (`applicationShouldTerminate` returns `terminateLater` until the service has it) or at once from the menu / the Settings button. The next launch toasts "Sorrel updated to X" (`Updates/installing` marker). The feed and zip requests are the only network traffic; nothing about the person or Mac is sent.
 - **Installing (`SorrelUpdater.xpc`, unsandboxed on purpose):** the sandboxed app can't write to /Applications, and children inherit the sandbox, so the swap is done by an XPC service launchd starts for the app (`Contents/XPCServices/SorrelUpdater.xpc`, bundle id = app id + `.updater`, built from `Sources/SorrelUpdater`, ad-hoc + hardened runtime, **no entitlements**). It re-verifies the zip's signature against the built-in key and that the target bundle's id equals its own minus `.updater` (so a compromised main process can only ever ask it to install an owner-signed Sorrel over Sorrel), then `posix_spawn`s itself as a detached installer (`POSIX_SPAWN_SETSID`, because launchd ends the service with the app) which waits for the app's pid to exit, `ditto -x -k`s the zip beside the app (or inside the bundle, swapping `Contents`, if the folder isn't writable), refuses a bundle with another id or a build that isn't newer, runs `codesign --verify --deep --strict`, strips `com.apple.quarantine` from every file (otherwise Gatekeeper would refuse the ad-hoc app), swaps with two renames, and `open`s the app if asked. Everything is logged to `Updates/update.log`. Verified 2026-11-15 with `tools/update-test.sh` both under /private/tmp and in /Applications (no App Management prompt appeared for this admin account).
@@ -139,7 +140,7 @@ Measure with `footprint -p <pid>`, not resident size: WebKit leaves 1 GB+ of rec
 There is no test target. Tests are the app itself, driven by environment variables read in `App.swift` (`runDebugHooks`). Pattern:
 
 ```
-S=/some/scratch; rm -rf $S/p1 && mkdir -p $S/p1
+S=$(mktemp -d /private/tmp/sorrel-test.XXXXXX); mkdir $S/p1
 SORREL_HOME=$S/p1 SORREL_SNAPSHOT=$S/shot.png SORREL_DELAY=8 SORREL_OPEN=https://example.com build/SorrelTest.app/Contents/MacOS/Sorrel 2>&1 | grep -E '^(selected|hover|peek|ext|ui|diag|autofill):?'
 ```
 
@@ -149,14 +150,55 @@ To test an extension the owner has added, copy it from the real profile's `Exten
 
 Known limits of what tests can show: real mouse feel, drag and drop, and anything behind the owner's sign-ins. Ask the owner for those.
 
+## Polish phase: rules and workflow
+
+Sorrel is basically built. The job now is fixing bugs and hardening it into a complete, private, secure browser. Prefer small, verified changes over rewrites.
+
+### Hard rules
+1. **Never weaken a security or privacy setting to fix a bug.** If a site breaks because of blocking, the sandbox, or a permission prompt, add a narrow per-site exception or ask me. Why: a privacy browser that leaks once isn't private.
+2. **No new outbound network calls** beyond what exists (page loads, filter-list updates, the updater). No analytics, crash reporting, or telemetry, ever. Why: privacy is the product.
+3. **No new entitlements or temporary exceptions.** Resources/Sorrel.entitlements should only shrink. Ask before touching it.
+4. **No page-to-app JavaScript bridge.** There are no WKScriptMessageHandlers today; keep it that way unless I approve one. Scripts the app injects never paste page-controlled strings into JavaScript source; pass values as arguments (callAsyncJavaScript arguments:) instead.
+5. **Every bug fix gets verified** (see Bug workflow), and the build must pass before you say you're done.
+6. **Don't add warnings.** The release build has 9 known warnings (self-capture in closures). Keep it at 9 or fewer.
+7. **Don't hand-edit vendor/.** It's third-party code (uBlock Origin Lite, Kagi bangs); update it by replacing it from upstream.
+8. **Don't run ./build.sh in ~/sorrel without asking.** Its first step deletes build/Sorrel.app, the copy the owner runs, which is usually open. In a task worktree it's fine: that's how build/SorrelTest.app gets rebuilt for tests. Use `swift build` to check that things compile.
+
+### Security invariants (re-check whenever you touch related code)
+- Private windows always use a non-persistent WKWebsiteDataStore (Web.swift: makeConfiguration, store(for:)), never the default store. Private downloads, history, and session restore leave nothing on disk after the window closes.
+- Never auto-grant a permission. Camera/mic in private windows ask every time (Web.swift ~656-668).
+- The `sorrel-insecure:` link works only from Sorrel's own warning page. A web page must not be able to link to it to skip the warning.
+- ChromeCompat's chrome.runtime page bridge goes only to the sites a Chrome-store extension lists under `externally_connectable` (Extensions.swift: `companionSites`; today just Proton Pass's `account.proton.me` and `pass.proton.me`). Don't widen that, and ask before an extension whose list uses wildcard hosts gets it.
+- openInOtherApp always asks before launching another app. File uploads reach only files the user picked.
+- The URL bar always shows the real origin of the page; lookalike international domains display as punycode.
+- Content blocking stays on by default. A broken site gets a per-site toggle, never a global off switch.
+- The updater installs only updates whose signature verifies. Never weaken that check. SorrelUpdater is deliberately signed without the app's entitlements; keep it that way.
+
+### Commands
+- Fast compile check: `swift build` (debug). Release compile: `swift build -c release`.
+- Package: `./build.sh` (ask first in ~/sorrel, rule 8). Updater test: `tools/update-test.sh`.
+- Only Command Line Tools are installed, not Xcode: don't use xcodebuild.
+- Manual tests: run build/SorrelTest.app with the env-var hooks in the Testing section. Use a fresh folder per run (`mktemp -d /private/tmp/sorrel-test.XXXXXX`; the sandboxed test build can only write under /private/tmp) rather than deleting old ones.
+
+### Bug workflow
+1. Take the bug from BUGS.md (create it if missing: repro steps, expected, actual).
+2. Reproduce it first, using the SorrelTest.app hooks (e.g. SORREL_SNAPSHOT) or a written repro. Say so if you can't.
+3. Fix the root cause with the smallest change that works.
+4. Verify: the build passes, the repro now behaves correctly, and nearby features still work.
+5. Mark it fixed in BUGS.md with a one-line cause, and put anything unfinished in PROGRESS.md.
+One bug per session where possible.
+
+### Hooks (.claude/)
+- A Stop hook compiles the project when Swift files have changed. If it reports errors, fix them.
+- A security hook flags risky patterns in your edits. When it fires, check the change against the invariants above, and list every flagged item in your final summary so I can review it.
+
 ## Known gaps and decisions
 
 - Proton Pass (Chrome version, added by the owner) signs in and autofills. Its item-list site logos stay blank (`api-proxy/core/v4/images/logo`: Chrome serves them via a service-worker fetch handler WebKit lacks). Telling it that it is a pop-up (correcting `tabs.getCurrent`) blanked the signed-in list and was reverted; it renders its full-tab layout inside the 600×430 pop-up, which the owner accepted. The Safari version of Proton Pass cannot work (needs its companion app over native messaging).
 - uBOL reports `Promise is not a constructor … ProceduralFiltererAPI` on some sites: its own Safari limitation for a few advanced cosmetic filters; network blocking is unaffected.
 - One main window only. Not built yet: second window, passkeys, site location/notification permissions, phone sync (owner said later; plan is PWA + Cloudflare free tier, like `~/stint`).
 - Not installed to /Applications and not the default browser; that is the owner's call (`./build.sh install`, then Settings ▸ General ▸ Make Sorrel the Default Browser). The updater works wherever the app sits, as long as it isn't translocated.
-- No GitHub repository yet, so no release has been published: the updater is built and tested but installed copies will report "Couldn't check for updates" until `tools/release.sh publish` has run once (see Updates).
-
+- The GitHub repository exists (public, `main` pushed 2026-11-15) but no release has been published: the updater is built and tested, yet installed copies will report "Couldn't check for updates" until `tools/release.sh publish` has run once (see Updates).
 ## Working with the owner
 
 Medical student, daily Safari user, former heavy Arc user. Wants Arc's feel (Spaces, hover sidebar, Peek, mini window) with Helium's privacy. Prefers plain, short explanations of what changed and what was verified versus not. Keep test output short and batched. Commit locally when asked; don't push or deploy anything without a go-ahead.
