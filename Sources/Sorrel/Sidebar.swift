@@ -775,22 +775,18 @@ private final class SpaceButton: NSButton {
     override func mouseUp(with e: NSEvent) { strip?.mouseUp(with: e) }
 }
 
-/// The scrolling window onto the space icons when there are more than fit. Sideways scrolls move the row only
-/// while it overflows; otherwise they pass on to the sidebar, where they switch spaces. A wheel mouse's up/down
-/// scrolls the row sideways.
+/// The scrolling window onto the space icons when there are more than fit. Every scroll over the icons is the
+/// row's own (the owner asked that it never switch spaces, even when they all fit): two fingers either way, or a
+/// wheel mouse, slide the row; up/down counts as sideways, and the momentum glide carries on. Switching by
+/// swiping is for the rest of the sidebar.
 private final class SpaceRowScroll: NSScrollView {
     var overflows: Bool { (documentView?.frame.width ?? 0) > contentView.bounds.width + 0.5 }
 
     override func scrollWheel(with e: NSEvent) {
-        guard overflows else {
-            nextResponder?.scrollWheel(with: e)
-            return
-        }
-        if !e.hasPreciseScrollingDeltas, e.scrollingDeltaX == 0, e.scrollingDeltaY != 0 {
-            scrollRow(by: -e.scrollingDeltaY * 8)
-            return
-        }
-        super.scrollWheel(with: e)
+        let dx = e.scrollingDeltaX, dy = e.scrollingDeltaY
+        var d = abs(dy) > abs(dx) ? dy : dx
+        if !e.hasPreciseScrollingDeltas { d *= 8 }   // a wheel's deltas are in lines
+        if d != 0, overflows { scrollRow(by: -d) }
     }
 
     /// Moves the row by `dx` points (positive = towards later spaces), staying within its ends.
@@ -2341,6 +2337,12 @@ extension SidebarView {
             cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
             if let e = NSEvent(cgEvent: cg) { row.scrollWheel(with: e) }
         }
+        func scrollV(dy: Double, phase: Int64) {
+            guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: Int32(dy), wheel2: 0, wheel3: 0) else { return }
+            cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+            if let e = NSEvent(cgEvent: cg) { row.scrollWheel(with: e) }
+        }
         func mouse(_ type: NSEvent.EventType, _ p: NSPoint) {
             guard let w = window, let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [],
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber, context: nil,
@@ -2373,7 +2375,7 @@ extension SidebarView {
         then(0) { scroll(dx: -20, phase: 1) }
         for _ in 0..<7 { then(0.016) { scroll(dx: -20, phase: 2) } }
         then(0.016) { scroll(dx: 0, phase: 4) }
-        then(0.9) { state("after a swipe over a row that fits (expect space=1)") }
+        then(0.9) { state("after a swipe over a row that fits (expect space=0: the row never switches spaces)") }
         then(0) {
             let icons = ["🌿", "🌊", "🔥", "📚", "🎵", "🧪", "🏃", "🍳", "✈️", "🎨", "💼", "🧠"]
             for (k, ic) in icons.enumerated() { store.addSpace(name: "Space \(k + 3)", icon: ic) }
@@ -2386,6 +2388,11 @@ extension SidebarView {
         for _ in 0..<5 { then(0.016) { scroll(dx: -30, phase: 2) } }
         then(0.016) { scroll(dx: 0, phase: 4) }
         then(0.8) { state("scrolled the row (expect scrollX>0, space=0, active=false)"); shot("row-scrolled.png") }
+        // Two fingers up/down over the row slide it too (fingers up = towards later spaces), still no switch.
+        then(0) { scrollV(dy: -30, phase: 1) }
+        for _ in 0..<2 { then(0.016) { scrollV(dy: -30, phase: 2) } }
+        then(0.016) { scrollV(dy: 0, phase: 4) }
+        then(0.5) { state("scrolled up/down over the row (expect scrollX grown by ~90, space=0, active=false)") }
         // An icon that was off to the right can now be clicked.
         var target = -1
         then(0) {
