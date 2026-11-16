@@ -16,7 +16,7 @@ final class ActionMenuItem: NSMenuItem {
     @objc private func fire() { handler?() }
 }
 
-private final class Marker: NSObject {
+final class Marker: NSObject {
     enum Kind { case separator, newTab }
     let kind: Kind
     init(_ kind: Kind) { self.kind = kind }
@@ -24,7 +24,7 @@ private final class Marker: NSObject {
 
 // MARK: - Outline pieces
 
-private final class SidebarOutline: NSOutlineView {
+final class SidebarOutline: NSOutlineView {
     // Rows span the full width; indentation is drawn by the cells themselves.
     override func frameOfCell(atColumn column: Int, row: Int) -> NSRect {
         var r = super.frameOfCell(atColumn: column, row: row)
@@ -38,35 +38,16 @@ private final class SidebarOutline: NSOutlineView {
 }
 
 private final class SidebarScroll: NSScrollView {
-    /// +1 = next space, -1 = previous space.
-    var onSwipe: ((Int) -> Void)?
-    private var accumulated: CGFloat = 0
-    private var fired = false
-    private var horizontal: Bool?
+    /// Offered every scroll first; true = it was a sideways space swipe and has been handled.
+    var onScroll: ((NSEvent) -> Bool)?
 
     override func scrollWheel(with e: NSEvent) {
-        if e.phase == .began {
-            accumulated = 0
-            fired = false
-            horizontal = nil
-        }
-        if !e.phase.isEmpty, horizontal == nil, e.scrollingDeltaX != 0 || e.scrollingDeltaY != 0 {
-            horizontal = abs(e.scrollingDeltaX) > abs(e.scrollingDeltaY) * 1.5
-        }
-        if horizontal == true {
-            accumulated += e.scrollingDeltaX
-            if !fired, abs(accumulated) > 50 {
-                fired = true
-                onSwipe?(accumulated < 0 ? 1 : -1)
-            }
-            if e.phase == .ended || e.phase == .cancelled { horizontal = nil }
-            return
-        }
+        if onScroll?(e) == true { return }
         super.scrollWheel(with: e)
     }
 }
 
-private final class SidebarRowView: NSTableRowView {
+final class SidebarRowView: NSTableRowView {
     var isActive = false { didSet { if oldValue != isActive { updateHighlight(animated: true) } } }
     var highlightable = true { didSet { if oldValue != highlightable { updateHighlight(animated: false) } } }
     private(set) var isHovered = false
@@ -117,9 +98,14 @@ private final class SidebarRowView: NSTableRowView {
         shownColor = color
     }
 
+    /// Off for the still pictures of other spaces that slide in during a space swipe.
+    var tracksHover = true
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let area { removeTrackingArea(area) }
+        area = nil
+        guard tracksHover else { return }
         let a = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
         addTrackingArea(a)
         area = a
@@ -263,7 +249,7 @@ final class TabActionButton: NSButton {
     override var mouseDownCanMoveWindow: Bool { false }
 }
 
-private final class ItemCell: NSTableCellView, NSTextFieldDelegate {
+final class ItemCell: NSTableCellView, NSTextFieldDelegate {
     let icon = NSImageView()
     let label = NSTextField(labelWithString: "")
     let spinner = NSProgressIndicator()
@@ -369,7 +355,7 @@ private final class ItemCell: NSTableCellView, NSTextFieldDelegate {
     }
 }
 
-private final class SeparatorCell: NSTableCellView {
+final class SeparatorCell: NSTableCellView {
     let clear = NSButton(title: "Clear", target: nil, action: nil)
     var onClear: (() -> Void)?
 
@@ -402,7 +388,7 @@ private final class SeparatorCell: NSTableCellView {
     @objc private func fire() { onClear?() }
 }
 
-private final class NewTabCell: NSTableCellView {
+final class NewTabCell: NSTableCellView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         let icon = NSImageView(image: symbol("plus", size: 12) ?? NSImage())
@@ -747,16 +733,46 @@ private final class FavoritesGrid: NSView {
 
 // MARK: - Space switcher
 
+/// The row of space icons. Pressing anywhere on it and dragging sideways scrubs through the spaces, the
+/// sidebar sliding along under the cursor; a plain click still picks the space under it. The buttons hand
+/// their mouse events to the strip (so their tooltips and right-click menus keep working).
+private final class SpaceStrip: NSStackView {
+    var onPress: ((NSEvent) -> Void)?
+    var onDrag: ((NSEvent) -> Void)?
+    var onRelease: ((NSEvent) -> Void)?
+    override func mouseDown(with e: NSEvent) { onPress?(e) }
+    override func mouseDragged(with e: NSEvent) { onDrag?(e) }
+    override func mouseUp(with e: NSEvent) { onRelease?(e) }
+    override var mouseDownCanMoveWindow: Bool { false }
+}
+
 private final class SpaceButton: NSButton {
     var space: Space?
     var menuProvider: ((Space) -> NSMenu)?
     override func menu(for event: NSEvent) -> NSMenu? { space.flatMap { menuProvider?($0) } }
     override var mouseDownCanMoveWindow: Bool { false }
+    private var strip: SpaceStrip? { superview as? SpaceStrip }
+    override func mouseDown(with e: NSEvent) {
+        if e.modifierFlags.contains(.control), let m = menu(for: e) {
+            NSMenu.popUpContextMenu(m, with: e, for: self)
+            return
+        }
+        strip?.mouseDown(with: e)
+    }
+    override func mouseDragged(with e: NSEvent) { strip?.mouseDragged(with: e) }
+    override func mouseUp(with e: NSEvent) { strip?.mouseUp(with: e) }
 }
 
 private final class SpaceBar: NSView {
-    private let stack = NSStackView()
+    private let stack = SpaceStrip()
     var onSelect: ((Space) -> Void)?
+    /// Click-and-hold scrubbing: began, moved to a position (in spaces, may run past either end), let go.
+    var onScrubBegin: (() -> Void)?
+    var onScrub: ((CGFloat) -> Void)?
+    var onScrubEnd: ((CGFloat) -> Void)?
+    private var pressX: CGFloat = 0
+    private var pressed: SpaceButton?
+    private(set) var isScrubbing = false
     var menuProvider: ((Space) -> NSMenu)?
     var onAdd: ((NSView) -> Void)?
     var onExtensions: ((NSView) -> Void)?
@@ -770,6 +786,9 @@ private final class SpaceBar: NSView {
         stack.orientation = .horizontal
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.onPress = { [weak self] in self?.press($0) }
+        stack.onDrag = { [weak self] in self?.drag($0) }
+        stack.onRelease = { [weak self] in self?.release($0) }
         addSubview(stack)
         addButton = IconButton(symbol: "plus", size: 12, tooltip: "New space or folder") { [weak self] in
             if let self { self.onAdd?(self.addButton) }
@@ -843,6 +862,73 @@ private final class SpaceBar: NSView {
     @objc private func pick(_ sender: SpaceButton) {
         if let sp = sender.space { onSelect?(sp) }
     }
+
+    /// Lights the icons for a position between spaces (during a swipe or scrub): each icon is as lit as it is
+    /// close to `position`, so the tint slides from one to the next instead of jumping.
+    func show(position p: CGFloat) {
+        Motion.layer(0) {
+            for (i, b) in buttons.enumerated() {
+                let lit = max(0, 1 - abs(CGFloat(i) - p))
+                b.layer?.removeAllAnimations()
+                b.alphaValue = 0.45 + 0.55 * lit
+                b.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1 * lit).cgColor
+            }
+        }
+    }
+
+    /// Where `x` (window coordinates) falls along the icons, in spaces: 0 at the first icon's centre, 1 at the
+    /// second's, and running on past either end at the same spacing.
+    func position(atWindowX x: CGFloat) -> CGFloat {
+        let local = stack.convert(NSPoint(x: x, y: 0), from: nil).x
+        let centres = buttons.map { $0.frame.midX }
+        guard let first = centres.first else { return 0 }
+        guard centres.count > 1 else { return (local - first) / 32 }
+        if local <= first { return (local - first) / (centres[1] - first) }
+        for i in 1..<centres.count where local <= centres[i] {
+            return CGFloat(i - 1) + (local - centres[i - 1]) / (centres[i] - centres[i - 1])
+        }
+        let n = centres.count
+        return CGFloat(n - 1) + (local - centres[n - 1]) / (centres[n - 1] - centres[n - 2])
+    }
+
+    private func button(at e: NSEvent) -> SpaceButton? {
+        buttons.first { $0.bounds.contains($0.convert(e.locationInWindow, from: nil)) }
+    }
+
+    private func press(_ e: NSEvent) {
+        pressX = e.locationInWindow.x
+        pressed = button(at: e)
+        isScrubbing = false
+        pressed?.layer?.press()
+    }
+
+    private func drag(_ e: NSEvent) {
+        if !isScrubbing {
+            // A few points of sideways travel turn the press into a scrub; less is still a click.
+            guard abs(e.locationInWindow.x - pressX) > 4, buttons.count > 0 else { return }
+            isScrubbing = true
+            onScrubBegin?()
+        }
+        onScrub?(position(atWindowX: e.locationInWindow.x))
+    }
+
+    private func release(_ e: NSEvent) {
+        if isScrubbing {
+            isScrubbing = false
+            onScrubEnd?(position(atWindowX: e.locationInWindow.x))
+        } else if let b = pressed, b === button(at: e), let sp = b.space {
+            onSelect?(sp)
+        }
+        pressed = nil
+    }
+
+    /// For the swipe test: the window point at the centre of icon `i`, nudged by `dx`.
+    func debugPoint(icon i: Int, dx: CGFloat = 0) -> NSPoint {
+        guard buttons.indices.contains(i) else { return .zero }
+        let b = buttons[i]
+        return b.convert(NSPoint(x: b.bounds.midX + dx, y: b.bounds.midY), to: nil)
+    }
+    var debugStrip: NSView { stack }
 }
 
 private final class ResizeHandle: NSView {
@@ -864,7 +950,12 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private var topRowHeight: NSLayoutConstraint!
     private let pill = URLPill()
     private let favorites = FavoritesGrid()
+    /// Clips the space page while it slides sideways during a swipe or scrub.
+    private let spaceClip = NSView()
     private let spaceContainer = NSView()
+    private var spaceOffset: NSLayoutConstraint!
+    private var pager: SpacePager!
+    private var swipe: SpaceSwipeTracker!
     private let spaceIcon = NSButton(title: "", target: nil, action: nil)
     private let spaceName = NSTextField(labelWithString: "")
     private let outline = SidebarOutline()
@@ -895,6 +986,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     /// True while something in the sidebar needs it to stay on screen.
     var wantsToStayOpen: Bool {
         editingCount > 0 || (themePopover?.isShown ?? false) || (previewPopover?.isShown ?? false)
+            || pager.isActive || spaceBar.isScrubbing
     }
 
     override init(frame: NSRect) {
@@ -916,6 +1008,13 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     override var mouseDownCanMoveWindow: Bool { true }
 
+    /// Sideways two-finger swipes anywhere over the sidebar slide between spaces; the tab list's scroll view
+    /// offers them here first too (`SidebarScroll.onScroll`).
+    override func scrollWheel(with e: NSEvent) {
+        if swipe.handle(e) { return }
+        super.scrollWheel(with: e)
+    }
+
     // MARK: Building
 
     private func build() {
@@ -925,10 +1024,15 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         floatingBackground.layer?.borderWidth = 0.5
         floatingBackground.layer?.borderColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
-        for v in [floatingBackground, topRow, pill, favorites, spaceContainer, library, downloadsStrip, spaceBar, handle] as [NSView] {
+        for v in [floatingBackground, topRow, pill, favorites, spaceClip, library, downloadsStrip, spaceBar, handle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
+        spaceClip.wantsLayer = true
+        spaceClip.clipsToBounds = true
+        spaceContainer.translatesAutoresizingMaskIntoConstraints = false
+        spaceClip.addSubview(spaceContainer)
+        spaceOffset = spaceContainer.leadingAnchor.constraint(equalTo: spaceClip.leadingAnchor)
         library.isHidden = true
         library.onClose = { [weak self] in self?.closeLibrary() }
 
@@ -993,7 +1097,13 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         scroll.scrollerStyle = .overlay
         scroll.autohidesScrollers = true
         scroll.automaticallyAdjustsContentInsets = false
-        scroll.onSwipe = { [weak self] dir in self?.store.switchSpace(offset: dir) }
+        pager = SpacePager(clip: spaceClip, page: spaceContainer, offset: spaceOffset)
+        pager.onPosition = { [weak self] p in self?.spaceBar.show(position: p) }
+        pager.onTheme = { [weak self] a, b, f in self?.controller?.blendTheme(a, b, f) }
+        pager.onDone = { [weak self] in self?.controller?.applyTheme(animated: false) }
+        swipe = SpaceSwipeTracker(pager: pager)
+        swipe.canStart = { [weak self] in self?.library.isHidden ?? false }
+        scroll.onScroll = { [weak self] e in self?.swipe.handle(e) ?? false }
 
         pill.onClick = { Commands.shared.run("tab.editURL") }
         pill.onCopy = { Commands.shared.run("tab.copyURL") }
@@ -1006,6 +1116,12 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             self.store.move(item, to: .favorites)
         }
         spaceBar.onSelect = { [weak self] in self?.store.switchSpace(to: $0) }
+        spaceBar.onScrubBegin = { [weak self] in self?.pager.grab() }
+        spaceBar.onScrub = { [weak self] p in self?.pager.follow(p) }
+        spaceBar.onScrubEnd = { [weak self] p in
+            guard let self else { return }
+            self.pager.release(to: Int(max(0, p).rounded()), velocity: nil)
+        }
         spaceBar.menuProvider = { [weak self] in self?.menu(for: $0) ?? NSMenu() }
         spaceBar.onAdd = { [weak self] anchor in self?.showAddMenu(from: anchor) }
         spaceBar.onExtensions = { [weak self] anchor in self?.showExtensionsMenu(from: anchor) }
@@ -1038,10 +1154,14 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             favorites.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             favorites.heightConstraint,
 
-            spaceContainer.topAnchor.constraint(equalTo: favorites.bottomAnchor, constant: 8),
-            spaceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
-            spaceContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            spaceContainer.bottomAnchor.constraint(equalTo: downloadsStrip.topAnchor, constant: -4),
+            spaceClip.topAnchor.constraint(equalTo: favorites.bottomAnchor, constant: 8),
+            spaceClip.leadingAnchor.constraint(equalTo: leadingAnchor),
+            spaceClip.trailingAnchor.constraint(equalTo: trailingAnchor),
+            spaceClip.bottomAnchor.constraint(equalTo: downloadsStrip.topAnchor, constant: -4),
+            spaceContainer.topAnchor.constraint(equalTo: spaceClip.topAnchor),
+            spaceContainer.bottomAnchor.constraint(equalTo: spaceClip.bottomAnchor),
+            spaceContainer.widthAnchor.constraint(equalTo: spaceClip.widthAnchor),
+            spaceOffset,
 
             library.topAnchor.constraint(equalTo: topRow.bottomAnchor, constant: 2),
             library.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -1127,7 +1247,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     func reloadAll(animated: Bool) {
         let sp = store.currentSpace
-        if animated, shownSpaceID != nil, shownSpaceID != sp.id, let layer = spaceContainer.layer {
+        // A swipe or scrub already slid the new space in by hand: no second slide on top.
+        if animated, !pager.isActive, shownSpaceID != nil, shownSpaceID != sp.id, let layer = spaceContainer.layer {
             let t = CATransition()
             t.type = .push
             t.subtype = store.lastSwitchDirection > 0 ? .fromRight : .fromLeft
@@ -1911,5 +2032,102 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             store.move(dragged, to: .today(sp), index: max(0, index - p - 2))
         }
         return true
+    }
+}
+
+// MARK: - Space swipe test (SORREL_SWIPETEST)
+
+extension SidebarView {
+    /// Drives two-finger swipes (synthetic trackpad events) and click-and-hold scrubs on the space icons through
+    /// the real handlers, logging `swipe:` lines. With `shots` set, writes swipe-mid.png and scrub-mid.png there.
+    func debugSwipeTest(shots: String?, log: @escaping (String) -> Void) {
+        let store = Store.shared
+        let icons = ["🌿", "🌊", "🔥"]
+        while store.spaces.count < 3 { store.addSpace(name: "Space \(store.spaces.count + 1)", icon: icons[store.spaces.count % 3]) }
+        store.switchSpace(to: store.spaces[0])
+        swipe.debugInverted = true   // synthetic events: deltaX > 0 means the fingers moved right
+        func idx() -> Int { store.spaces.firstIndex { $0 === store.currentSpace } ?? -1 }
+        func state(_ label: String) {
+            log("swipe: \(label): space=\(idx()) active=\(pager.isActive) pos=\(String(format: "%.2f", pager.position)) [\(pager.debugLayout)]")
+        }
+        func scroll(dx: Double, dy: Double = 0, phase: Int64, momentum: Int64 = 0) -> Bool {
+            guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+                                   wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0) else { return false }
+            cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+            cg.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
+            guard let e = NSEvent(cgEvent: cg) else { return false }
+            return swipe.handle(e)
+        }
+        func mouse(_ type: NSEvent.EventType, _ p: NSPoint) {
+            guard let w = window, let e = NSEvent.mouseEvent(with: type, location: p, modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber, context: nil,
+                eventNumber: 0, clickCount: 1, pressure: 1) else { return }
+            let strip = spaceBar.debugStrip
+            switch type {
+            case .leftMouseDown: strip.mouseDown(with: e)
+            case .leftMouseDragged: strip.mouseDragged(with: e)
+            default: strip.mouseUp(with: e)
+            }
+        }
+        func shot(_ name: String) {
+            guard let shots, let view = window?.contentView,
+                  let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shots).appendingPathComponent(name))
+        }
+        // Steps run one after another, each `gap` seconds after the previous.
+        var steps: [(gap: TimeInterval, run: () -> Void)] = []
+        func then(_ gap: TimeInterval, _ run: @escaping () -> Void) { steps.append((gap, run)) }
+        func next() {
+            guard !steps.isEmpty else { return }
+            let s = steps.removeFirst()
+            DispatchQueue.main.asyncAfter(deadline: .now() + s.gap) { s.run(); next() }
+        }
+        let w = pager.pageWidth
+
+        then(0.3) { log("swipe: \(store.spaces.count) spaces, page width \(Int(w))"); state("start") }
+        // A: a quick swipe to the left (fingers move left): the next space slides in from the right, lands.
+        then(0) { log("swipe: A handled=\(scroll(dx: -20, phase: 1))") }
+        for _ in 0..<4 { then(0.016) { _ = scroll(dx: -20, phase: 2) } }
+        then(0.016) { state("A mid (expect pos ~\(String(format: "%.2f", 100 / w)), live page left, Space 2 to its right)"); shot("swipe-mid.png") }
+        for _ in 0..<3 { then(0.016) { _ = scroll(dx: -20, phase: 2) } }
+        then(0.016) { _ = scroll(dx: 0, phase: 4) }
+        then(0.01) { log("swipe: A momentum after a swipe swallowed=\(scroll(dx: -8, phase: 0, momentum: 2))"); _ = scroll(dx: 0, phase: 0, momentum: 3) }
+        then(0.9) { state("A after flick (expect space=1, inactive)") }
+        // B: a slow, short drag that pauses before letting go: springs back.
+        then(0) { _ = scroll(dx: -10, phase: 1) }
+        then(0.12) { _ = scroll(dx: -10, phase: 2) }
+        then(0.12) { _ = scroll(dx: -10, phase: 2); state("B dragged") }
+        then(0.25) { _ = scroll(dx: 0, phase: 4) }
+        then(0.9) { state("B after slow let-go (expect space=1)") }
+        // C: an ordinary vertical scroll is not a swipe.
+        then(0) { log("swipe: C vertical handled=\(scroll(dx: 0, dy: -20, phase: 1)) \(scroll(dx: 2, dy: -20, phase: 2)) \(scroll(dx: 0, dy: 0, phase: 4)) (expect false false false)") }
+        // D: a long fast swipe to the right from space 1: past space 0 and stretching beyond it, lands on 0.
+        then(0.2) { _ = scroll(dx: 40, phase: 1) }
+        let dSteps = Int((2.5 * w) / 40)
+        for _ in 0..<dSteps { then(0.016) { _ = scroll(dx: 40, phase: 2) } }
+        then(0.016) { state("D stretched past the first space (expect pos between -0.5 and 0)") }
+        then(0.016) { _ = scroll(dx: 0, phase: 4) }
+        then(0.9) { state("D after let-go (expect space=0)") }
+        // E: click and hold the first icon, drag across to the third.
+        then(0) { mouse(.leftMouseDown, self.spaceBar.debugPoint(icon: 0)) }
+        for k in 1...8 { then(0.03) { mouse(.leftMouseDragged, self.spaceBar.debugPoint(icon: 0, dx: CGFloat(k) * 4)) } }
+        then(0.3) { state("E holding over icon 1 (expect pos ~1)") }
+        then(0) { mouse(.leftMouseDragged, self.spaceBar.debugPoint(icon: 1, dx: 16)) }
+        then(0.4) { state("E halfway to icon 2 (expect pos ~1.5, two pages showing)"); shot("scrub-mid.png") }
+        then(0) { mouse(.leftMouseDragged, self.spaceBar.debugPoint(icon: 2)) }
+        then(0.05) { mouse(.leftMouseUp, self.spaceBar.debugPoint(icon: 2)) }
+        then(0.9) { state("E after release (expect space=2, inactive)") }
+        // F: a plain click on the first icon still just switches.
+        then(0) { mouse(.leftMouseDown, self.spaceBar.debugPoint(icon: 0)) }
+        then(0.05) { mouse(.leftMouseUp, self.spaceBar.debugPoint(icon: 0)); state("F after click (expect space=0, never active)") }
+        // G: scrubbing past the first icon stretches, then returns.
+        then(0.5) { mouse(.leftMouseDown, self.spaceBar.debugPoint(icon: 0)) }
+        for k in 1...5 { then(0.03) { mouse(.leftMouseDragged, self.spaceBar.debugPoint(icon: 0, dx: CGFloat(k) * -20)) } }
+        then(0.4) { state("G pulled past the first icon (expect pos between -0.5 and 0)") }
+        then(0) { mouse(.leftMouseUp, self.spaceBar.debugPoint(icon: 0, dx: -100)) }
+        then(0.9) { state("G after release (expect space=0, inactive)") }
+        next()
     }
 }
