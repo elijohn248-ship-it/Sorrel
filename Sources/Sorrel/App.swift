@@ -319,6 +319,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.peekSidebar()
             self.main.sidebar.openLibrary(.downloads)
         }
+        c.register("import.browser", "Import from Another Browser…") { [unowned self] in
+            self.showMainWindow()
+            self.main.showImporter()
+        }
         c.register("library.archive", "Show Archived Tabs") { [unowned self] in
             self.main.peekSidebar()
             self.main.sidebar.openLibrary(.archive)
@@ -563,6 +567,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("mini.expand"), item("tab.openInFallback"),
             .separator(),
             item("library.downloads"), item("downloads.show"), item("tab.print"),
+            .separator(),
+            item("import.browser"),
         ])
         _ = add("Edit", [
             std("Undo", "undo:", "z"),
@@ -1166,6 +1172,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         log("sec: download \(d.file.lastPathComponent) state=\(d.state) quarantine=\(q.map { "\($0[kLSQuarantineAgentNameKey as String] ?? "?") type=\($0[kLSQuarantineTypeKey as String] ?? "?")" } ?? "MISSING")")
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+                }
+            }
+        }
+        if let spec = env["SORREL_IMPORTDRY"] {
+            // Browser import, readers only: "<source id>:<folder or file>[;…]". Logs counts, never titles or addresses.
+            for part in spec.split(separator: ";") {
+                let bits = part.split(separator: ":", maxSplits: 1).map(String.init)
+                guard bits.count == 2, let s = (BrowserSource.all + [.bookmarksFile]).first(where: { $0.id == bits[0] }) else { continue }
+                do {
+                    let f = try ImportReader.read(s, at: URL(fileURLWithPath: bits[1]))
+                    let folders = (f.spaces.flatMap(\.pinned) + f.bookmarks).reduce(0) { $0 + $1.folderCount }
+                    let splits = f.spaces.flatMap(\.pinned).filter { if case .split = $0 { return true }; return false }.count
+                    log("import-dry: \(s.id) spaces=\(f.spaces.count) pinned=\(f.spaces.reduce(0) { $0 + $1.pinnedTabs }) today=\(f.spaces.reduce(0) { $0 + $1.todayTabs }) folders=\(folders) splits=\(splits) favorites=\(f.favorites.count) bookmarks=\(f.bookmarkCount) history=\(f.history.count) themed=\(f.spaces.filter { $0.theme != nil }.count) newest=\(f.history.first.map { ISO8601DateFormatter().string(from: $0.last) } ?? "-") problems=\(f.problems)")
+                } catch {
+                    log("import-dry: \(s.id) error: \(error.localizedDescription)")
+                }
+            }
+            log("import-dry: offered=\(BrowserSource.offered().map(\.id)) arcDataVisible=\(BrowserSource.all[0].dataURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false)")
+        }
+        if let spec = env["SORREL_IMPORTTEST"], let dir = env["SORREL_IMPORTSHOTS"] {
+            // Browser import end to end: "<source id>:<folder or file>". Opens the card, hands the folder over as if
+            // from the Open panel, imports everything found, then (SORREL_IMPORTTEST_TWICE) imports it again to
+            // show nothing doubles. Writes pick.png, access.png, choose.png, done.png into SORREL_IMPORTSHOTS.
+            let bits = spec.split(separator: ":", maxSplits: 1).map(String.init)
+            guard bits.count == 2, let s = (BrowserSource.all + [.bookmarksFile]).first(where: { $0.id == bits[0] }) else { log("import: bad spec"); return }
+            func shot(_ name: String) {
+                guard let view = self.main.window?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let image = NSImage(size: view.bounds.size)
+                image.lockFocus()
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    NSColor.windowBackgroundColor.setFill()
+                    NSRect(origin: .zero, size: view.bounds.size).fill()
+                }
+                rep.draw(in: NSRect(origin: .zero, size: view.bounds.size))
+                image.unlockFocus()
+                if let tiff = image.tiffRepresentation, let data = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? data.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+                }
+            }
+            func state(_ label: String) {
+                for line in self.main.importer?.debugLines ?? ["(closed)"] { log("import: [\(label)] \(line)") }
+            }
+            let before = (self.store.spaces.count, self.store.favorites.count)
+            Commands.shared.run("import.browser")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                state("pick"); shot("pick.png")
+                self.main.importer?.debugRead(s, url: URL(fileURLWithPath: bits[1]))
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    shot("access.png")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                        state("choose"); shot("choose.png")
+                        self.main.importer?.runImport()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                            state("done"); shot("done.png")
+                            log("import: spaces \(before.0)->\(self.store.spaces.count) favorites \(before.1)->\(self.store.favorites.count)")
+                            for sp in self.store.spaces {
+                                let tabs = self.store.tabs(in: sp.pinned)
+                                let folders = sp.pinned.filter(\.isFolder).count
+                                let splits = sp.pinned.filter(\.isSplit).count
+                                log("import:   space \(sp.icon) pinned=\(tabs.count) folders=\(folders) splits=\(splits) today=\(sp.today.count) separateLogins=\(sp.profileID != nil) colors=\(sp.theme.colors)")
+                            }
+                            if env["SORREL_IMPORTTEST_TWICE"] != nil, let importer = self.main.importer {
+                                importer.runImport()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { state("again") }
+                            }
+                        }
+                    }
                 }
             }
         }

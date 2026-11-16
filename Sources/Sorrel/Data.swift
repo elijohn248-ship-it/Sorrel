@@ -128,6 +128,26 @@ final class History {
         saveNow()
     }
 
+    /// Browser import: folds in another browser's history. A page already here keeps the larger visit count and
+    /// the later date. Returns how many pages were new.
+    @discardableResult
+    func merge(_ imported: [Entry]) -> Int {
+        var added = 0
+        for e in imported {
+            if var old = entries[e.url] {
+                old.visits = max(old.visits, e.visits)
+                if e.last > old.last { old.last = e.last }
+                if old.title.isEmpty { old.title = e.title }
+                entries[e.url] = old
+            } else {
+                entries[e.url] = e
+                added += 1
+            }
+        }
+        saveNow()
+        return added
+    }
+
     /// The pages visited most recently, newest first.
     func recent(limit: Int) -> [Entry] {
         Array(entries.values.sorted { $0.last > $1.last }.prefix(limit))
