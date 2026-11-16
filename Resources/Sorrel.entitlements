@@ -17,6 +17,12 @@
     <true/>
     <key>com.apple.security.device.audio-input</key>
     <true/>
+    <!--
+      Websites that ask for your location (e.g. class attendance check-ins). Sorrel asks the person every time
+      and says no unless they choose Allow (Engine.askForLocation); macOS also asks once for Sorrel itself.
+    -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
     <!-- Downloads are saved to ~/Downloads. -->
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>

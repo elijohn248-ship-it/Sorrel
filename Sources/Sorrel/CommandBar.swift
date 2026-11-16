@@ -58,6 +58,9 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     enum Mode { case newTab, editCurrent, newSplit }
 
     struct Result {
+        /// What the row *is* (the search row, a URL, a tab, a command), so a row that only changes its
+        /// text while typing is updated in place instead of being swapped for a new one.
+        var key: String
         let icon: NSImage?
         let title: String
         let subtitle: String
@@ -77,6 +80,13 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     private var mode: Mode = .newTab
     private var rowHeight: CGFloat = 40
     private let maxRows = 8
+
+    // The list's height follows its rows on a spring, one frame at a time, so every part of the bar
+    // (blur, tint, border, shadow) moves together and a new keystroke mid-way just retargets it.
+    private var listTarget: CGFloat = 0
+    private var listVelocity: CGFloat = 0
+    private var listLink: CADisplayLink?
+    private var listLastTick: CFTimeInterval = 0
 
     /// Centered = the floating bar in the middle of the window (new tab).
     /// Anchored = editing in place, on top of the sidebar's address box.
@@ -318,6 +328,9 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         isHidden = false
         layoutSubtreeIfNeeded()
         apply(anchor == nil ? .centered : .anchored, anchor: anchor)
+        // Suggestions from the last time the bar was open don't carry over.
+        suggestions = []
+        suggestionsFor = ""
         if mode == .editCurrent, let u = Store.shared.selected?.url, !u.hasPrefix("sorrel://") {
             field.stringValue = u
         } else {
@@ -326,7 +339,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         (window as? SorrelWindow)?.focusHolder = field
         takeFocus()
         if mode == .newSplit { field.placeholderString = "Open beside this tab: search, address, or a tab" }
-        refresh(animateResize: false)
+        refresh(animated: false)
         if arriving {
             layoutSubtreeIfNeeded()
             if placement == .centered {
@@ -378,6 +391,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         Motion.run(placement == .centered ? 0.13 : 0.08, Motion.leave, { animator().alphaValue = 0 }) { [weak self] in
             guard let self, self.isDismissing else { return }
             self.isDismissing = false
+            self.stopListAnimation()
             self.isHidden = true
             self.alphaValue = 1
             for v in [self.panel, self.shadowHost] as [NSView] { v.layer?.clearPopOut() }
@@ -392,17 +406,25 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     /// Test hook: what the bar is currently offering.
     var debugResultTitles: [String] { results.map { $0.subtitle.isEmpty ? $0.title : "\($0.title) [\($0.subtitle)]" } }
 
+    /// Test hook: stands in for the search engine (no network); answers 0.15 s after the usual pause.
+    var debugSuggest: ((String) -> [String])?
+    /// Test hook: how many times the whole list was thrown away and rebuilt.
+    private(set) var debugFullReloads = 0
+    var debugPanelHeight: CGFloat { panel.frame.height }
+    var debugFieldFrame: NSRect { field.convert(field.bounds, to: nil) }
+    var debugShadowHeight: CGFloat { shadowHost.layer?.shadowPath?.boundingBox.height ?? 0 }
+
     /// Test hook: replace the text in a bar that is already open.
     func debugSetText(_ text: String) {
         field.stringValue = text
-        refresh(animateResize: false)
+        refresh()
     }
 
     /// Test hook: open the bar with text already typed.
     func debugType(_ text: String) {
         present(.newTab)
         field.stringValue = text
-        refresh(animateResize: false)
+        refresh(animated: false)
     }
 
     // MARK: Results
@@ -439,7 +461,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
             let recent = store.cycleOrder.filter { $0 !== store.selected }
                 .sorted { $0.lastActive > $1.lastActive }.prefix(6)
             for t in recent {
-                out.append(Result(icon: FaviconStore.shared.image(for: t) ?? symbol("globe"),
+                out.append(Result(key: "tab:\(t.id)", icon: FaviconStore.shared.image(for: t) ?? symbol("globe"),
                                   title: t.displayTitle, subtitle: t.host ?? "",
                                   hint: self.mode == .newSplit ? "Open Beside" : "Switch to Tab") { [weak self] in
                     self?.pick(t)
@@ -449,34 +471,32 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         }
 
         let engine = Settings.current.searchEngineName
-        let search = Result(icon: symbol("magnifyingglass"), title: q, subtitle: "Search \(engine)", hint: "") { [weak self] in
+        let search = Result(key: "search", icon: symbol("magnifyingglass"), title: q, subtitle: "Search \(engine)", hint: "") { [weak self] in
             self?.go(Resolver.searchURL(q))
         }
         var seen: Set<String> = []
 
         if let m = Bangs.shared.resolve(q) {
             let title = m.query.isEmpty ? "Open \(m.bang.name)" : "Search \(m.bang.name) for “\(m.query)”"
-            out.append(Result(icon: symbol("bolt.fill"), title: title, subtitle: m.url.host ?? "",
+            out.append(Result(key: "bang", icon: symbol("bolt.fill"), title: title, subtitle: m.url.host ?? "",
                               hint: "!\(m.bang.trigger)") { [weak self] in self?.go(m.url) })
         } else if let u = Resolver.url(fromTyped: q) {
-            out.append(Result(icon: symbol("globe"), title: q, subtitle: "Open address", hint: "") { [weak self] in self?.go(u) })
+            out.append(Result(key: "address", icon: symbol("globe"), title: q, subtitle: "Open address", hint: "") { [weak self] in self?.go(u) })
             seen.insert(u.absoluteString)
             out.append(search)
         } else {
             if let top = History.shared.topHostMatch(q), let u = URL(string: top.url) {
-                out.append(Result(icon: FaviconStore.shared.image(forHost: u.host) ?? symbol("globe"),
+                out.append(Result(key: "url:\(top.url)", icon: FaviconStore.shared.image(forHost: u.host) ?? symbol("globe"),
                                   title: top.title.nonEmpty ?? top.url, subtitle: u.host ?? "", hint: "") { [weak self] in
                     self?.go(u)
                 })
                 seen.insert(top.url)
             }
             out.append(search)
-            if suggestionsFor == q {
-                for s in suggestions.prefix(4) where s.lowercased() != q.lowercased() {
-                    out.append(Result(icon: symbol("magnifyingglass"), title: s, subtitle: "Suggestion", hint: "") { [weak self] in
+            for s in shownSuggestions(for: q).prefix(4) where s.lowercased() != q.lowercased() {
+                    out.append(Result(key: "suggest:\(s.lowercased())", icon: symbol("magnifyingglass"), title: s, subtitle: "Suggestion", hint: "") { [weak self] in
                         self?.go(Resolver.searchURL(s))
                     })
-                }
             }
         }
 
@@ -490,7 +510,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         for (item, space) in store.allTabs.filter({ matches([$0.item.displayTitle, $0.item.url ?? ""]) }).prefix(4) {
             if item === store.selected { continue }
             let place = space.map { "\($0.icon) \($0.name)" } ?? "Favorites"
-            out.append(Result(icon: FaviconStore.shared.image(for: item) ?? symbol("globe"),
+            out.append(Result(key: "tab:\(item.id)", icon: FaviconStore.shared.image(for: item) ?? symbol("globe"),
                               title: item.displayTitle, subtitle: place,
                               hint: mode == .newSplit ? "Open Beside" : "Switch to Tab") { [weak self] in
                 self?.pick(item)
@@ -500,7 +520,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
 
         for e in History.shared.search(q, limit: 6) where !seen.contains(e.url) {
             guard let u = URL(string: e.url) else { continue }
-            out.append(Result(icon: FaviconStore.shared.image(forHost: u.host) ?? symbol("clock"),
+            out.append(Result(key: "url:\(e.url)", icon: FaviconStore.shared.image(forHost: u.host) ?? symbol("clock"),
                               title: e.title.nonEmpty ?? e.url, subtitle: u.host ?? "", hint: "") { [weak self] in
                 self?.go(u)
             })
@@ -508,22 +528,43 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         }
 
         for c in Commands.shared.all.filter({ matches([$0.title]) }).prefix(4) {
-            out.append(Result(icon: symbol("command"), title: c.title, subtitle: "Command",
+            out.append(Result(key: "cmd:\(c.id)", icon: symbol("command"), title: c.title, subtitle: "Command",
                               hint: Keybindings.shared.display(for: c.id) ?? "") {
                 Commands.shared.run(c.id)
             })
         }
+        // Keys must be unique for rows to be matched up between keystrokes.
+        var used: Set<String> = []
+        for i in out.indices {
+            var k = out[i].key, n = 1
+            while used.contains(k) { n += 1; k = "\(out[i].key)#\(n)" }
+            used.insert(k)
+            out[i].key = k
+        }
         return Array(out.prefix(11))
+    }
+
+    /// The engine's suggestions for `q`. While the answer for the newest letter is on its way, the
+    /// previous ones that still fit what is typed stay up, so the rows don't blink out and back in.
+    private func shownSuggestions(for q: String) -> [String] {
+        if suggestionsFor == q { return suggestions }
+        guard q.count >= 2, !suggestionsFor.isEmpty else { return [] }
+        let lower = q.lowercased()
+        return suggestions.filter { $0.lowercased().hasPrefix(lower) }
     }
 
     /// Asks the search engine for suggestions, a moment after typing pauses.
     private func requestSuggestions(for raw: String) {
         suggestTask?.cancel()
         let q = raw.trimmingCharacters(in: .whitespaces)
-        guard Settings.current.searchSuggestions, q.count >= 2, !isHidden,
+        guard Settings.current.searchSuggestions || debugSuggest != nil, q.count >= 2, !isHidden,
               Bangs.shared.resolve(q) == nil, Resolver.url(fromTyped: q) == nil else { return }
         suggestDelay.schedule { [weak self] in
             guard let self, !self.isHidden else { return }
+            if let fake = self.debugSuggest {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.deliverSuggestions(fake(q), for: q) }
+                return
+            }
             var allowed = CharacterSet.alphanumerics
             allowed.insert(charactersIn: "-._~")
             let encoded = q.addingPercentEncoding(withAllowedCharacters: allowed) ?? q
@@ -543,44 +584,118 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
                 // Every supported engine answers with ["query", ["suggestion", ...]].
                 guard let data, let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
                       json.count > 1, let list = json[1] as? [String] else { return }
-                DispatchQueue.main.async {
-                    guard let self, !self.isHidden,
-                          self.field.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }
-                    self.suggestions = list
-                    self.suggestionsFor = q
-                    let selected = self.table.selectedRow
-                    self.refresh(fetch: false)
-                    if selected > 0, selected < self.results.count {
-                        self.table.selectRowIndexes([selected], byExtendingSelection: false)
-                    }
-                }
+                DispatchQueue.main.async { self?.deliverSuggestions(list, for: q) }
             }
             self.suggestTask = task
             task.resume()
         }
     }
 
-    private func refresh(animateResize: Bool = true, fetch: Bool = true) {
-        if fetch { requestSuggestions(for: field.stringValue) }
-        results = compute(field.stringValue)
-        table.reloadData()
-        let height = CGFloat(min(results.count, maxRows)) * rowHeight
-        if height != tableHeight.constant {
-            if animateResize {
-                // Glide to the new size; the bar's top stays put, so only the list below the field moves.
-                Motion.run(0.2, Motion.settle) {
-                    tableHeight.constant = height
-                    layoutSubtreeIfNeeded()
-                }
-            } else {
-                tableHeight.constant = height
-                layoutSubtreeIfNeeded()
-            }
+    private func deliverSuggestions(_ list: [String], for q: String) {
+        guard !isHidden, field.stringValue.trimmingCharacters(in: .whitespaces) == q else { return }
+        suggestions = list
+        suggestionsFor = q
+        // If the person had arrowed down to a row, stay on that row as suggestions settle in around it.
+        let sel = table.selectedRow
+        let keep = sel > 0 && sel < results.count ? results[sel].key : nil
+        refresh(fetch: false)
+        if let keep, let i = results.firstIndex(where: { $0.key == keep }) {
+            table.selectRowIndexes([i], byExtendingSelection: false)
         }
+    }
+
+    /// `animated` off (opening the bar) shows the list at once; while typing, rows that stay are
+    /// updated in place, new ones fade in, gone ones fade out, and the list's height glides.
+    private func refresh(animated: Bool = true, fetch: Bool = true) {
+        if fetch { requestSuggestions(for: field.stringValue) }
+        let new = compute(field.stringValue)
+        let moving = animated && !Motion.reduced && window != nil && !isDismissing
+        if moving {
+            let diff = new.map(\.key).difference(from: results.map(\.key))
+            results = new
+            var removed: [Int] = [], inserted: [Int] = []
+            for change in diff {
+                switch change {
+                case .remove(let offset, _, _): removed.append(offset)
+                case .insert(let offset, _, _): inserted.append(offset)
+                }
+            }
+            // Removals go bottom-up against the old list, then insertions top-down against the new one.
+            removed.sort(by: >)
+            inserted.sort()
+            if !removed.isEmpty || !inserted.isEmpty {
+                table.beginUpdates()
+                for i in removed { table.removeRows(at: [i], withAnimation: .effectFade) }
+                for i in inserted { table.insertRows(at: [i], withAnimation: .effectFade) }
+                table.endUpdates()
+            }
+            // Rows that stayed keep their views; just bring their text and icon up to date.
+            let fresh = Set(inserted)
+            for row in results.indices where !fresh.contains(row) {
+                if let cell = table.view(atColumn: 0, row: row, makeIfNecessary: false) as? ResultCell {
+                    configure(cell, with: results[row])
+                }
+            }
+        } else {
+            results = new
+            debugFullReloads += 1
+            table.reloadData()
+        }
+        setListHeight(CGFloat(min(results.count, maxRows)) * rowHeight, animated: moving)
         if !results.isEmpty {
             table.selectRowIndexes([0], byExtendingSelection: false)
             table.scrollRowToVisible(0)
         }
+    }
+
+    /// Moves the list toward `height`: at once, or on a critically damped spring driven by the display,
+    /// re-laying out the bar each frame. Only the list below the field changes; the bar's top is fixed.
+    private func setListHeight(_ height: CGFloat, animated: Bool) {
+        listTarget = height
+        guard animated else {
+            stopListAnimation()
+            if tableHeight.constant != height {
+                tableHeight.constant = height
+                layoutSubtreeIfNeeded()
+            }
+            return
+        }
+        if abs(tableHeight.constant - height) < 0.5, abs(listVelocity) < 1 { return }
+        if listLink == nil {
+            let link = displayLink(target: self, selector: #selector(stepListHeight(_:)))
+            link.add(to: .main, forMode: .common)
+            listLink = link
+            listLastTick = 0
+        }
+    }
+
+    @objc private func stepListHeight(_ link: CADisplayLink) {
+        let now = link.timestamp
+        let dt = listLastTick == 0 ? 1.0 / 60 : min(1.0 / 30, max(0, now - listLastTick))
+        listLastTick = now
+        // Critically damped: no bounce, and about a quarter of a second to settle.
+        let omega: CGFloat = 2 * .pi / 0.28
+        var x = tableHeight.constant, v = listVelocity
+        let steps = 4, h = CGFloat(dt) / CGFloat(steps)
+        for _ in 0..<steps {
+            let a = -omega * omega * (x - listTarget) - 2 * omega * v
+            v += a * h
+            x += v * h
+        }
+        if abs(x - listTarget) < 0.3, abs(v) < 6 {
+            x = listTarget
+            stopListAnimation()
+        } else {
+            listVelocity = v
+        }
+        tableHeight.constant = x
+        layoutSubtreeIfNeeded()
+    }
+
+    private func stopListAnimation() {
+        listLink?.invalidate()
+        listLink = nil
+        listVelocity = 0
     }
 
     private func runSelected() {
@@ -639,11 +754,14 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
             c.identifier = id
             return c
         }()
-        let r = results[row]
-        cell.icon.image = r.icon
-        cell.title.stringValue = r.title
-        cell.subtitle.stringValue = r.subtitle
-        cell.hint.stringValue = r.hint
+        configure(cell, with: results[row])
         return cell
+    }
+
+    private func configure(_ cell: ResultCell, with r: Result) {
+        if cell.icon.image !== r.icon { cell.icon.image = r.icon }
+        if cell.title.stringValue != r.title { cell.title.stringValue = r.title }
+        if cell.subtitle.stringValue != r.subtitle { cell.subtitle.stringValue = r.subtitle }
+        if cell.hint.stringValue != r.hint { cell.hint.stringValue = r.hint }
     }
 }

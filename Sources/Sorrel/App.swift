@@ -646,6 +646,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let u = env["SORREL_MINI"], let url = URL(string: u) { MiniWindowController.present(url: url) }
             if let s = env["SORREL_SIDEBAR"] { self.main.debugSetSidebar(s) }
             if let text = env["SORREL_COMMAND"] { self.main.commandBar.debugType(text) }
+            if let text = env["SORREL_TYPETEST"] {
+                // Types into the ⌘T bar one letter at a time with stand-in suggestions (no network) and
+                // watches for flicker: the field moving, rows vanishing then returning, the height
+                // reversing, the shadow out of step with the panel, whole-list rebuilds.
+                let bar = self.main.commandBar
+                let gap = Double(env["SORREL_TYPEGAP"] ?? "") ?? 0.45
+                // Like a real engine: completions of what is typed, from a fixed list.
+                let words = ["nephrology", "nephron", "nephritis", "nephrotic syndrome", "nephrolithiasis",
+                             "nephrectomy", "nephrogenic diabetes insipidus", "nephrologist", "neph meaning", "network"]
+                bar.debugSuggest = { q in words.filter { $0.hasPrefix(q.lowercased()) } }
+                bar.debugType("")
+                let field0 = bar.debugFieldFrame
+                var samples: [CGFloat] = [], fieldMoves = 0, shadowOff = 0, reversals = 0, lastDir: CGFloat = 0
+                var lastRows: [String] = [], gone: Set<String> = [], blinks: Set<String> = []
+                let sampler = Timer(timeInterval: 1.0 / 120, repeats: true) { _ in
+                    let h = bar.debugPanelHeight
+                    if let prev = samples.last, abs(h - prev) > 0.25 {
+                        let dir: CGFloat = h > prev ? 1 : -1
+                        if lastDir != 0, dir != lastDir { reversals += 1 }
+                        lastDir = dir
+                    }
+                    samples.append(h)
+                    if abs(bar.debugFieldFrame.minY - field0.minY) > 0.5 {
+                        if fieldMoves == 0 { log("typing: field moved \(field0) -> \(bar.debugFieldFrame) with \(bar.debugResultTitles.count) rows") }
+                        fieldMoves += 1
+                    }
+                    if abs(bar.debugShadowHeight - h) > 1 { shadowOff += 1 }
+                    let rows = bar.debugResultTitles
+                    for r in lastRows where !rows.contains(r) { gone.insert(r) }
+                    for r in rows where gone.contains(r) { blinks.insert(r); gone.remove(r) }
+                    lastRows = rows
+                }
+                RunLoop.main.add(sampler, forMode: .common)
+                let letters = Array(text)
+                for (i, _) in letters.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 + gap * Double(i)) {
+                        bar.debugSetText(String(letters[0...i]))
+                        log("typing: \"\(String(letters[0...i]))\" now=\(bar.debugResultTitles.count) rows")
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 + gap * Double(letters.count) + 0.6) {
+                    sampler.invalidate()
+                    log("typing: final rows=\(bar.debugResultTitles)")
+                    log("typing: fieldMoves=\(fieldMoves) heightReversals=\(reversals) shadowOutOfStep=\(shadowOff)/\(samples.count) blinkedRows=\(blinks.count) fullReloads=\(bar.debugFullReloads)")
+                    if !blinks.isEmpty { log("typing: blinked \(blinks.sorted().prefix(6))") }
+                    var runs: [String] = []
+                    for h in samples where runs.last != String(format: "%.0f", h) { runs.append(String(format: "%.0f", h)) }
+                    log("typing: heights \(runs.joined(separator: " "))")
+                }
+            }
             if env["SORREL_THEME"] != nil { self.main.sidebar.showThemeEditor() }
             if let mode = env["SORREL_EMOJITEST"] {
                 self.main.sidebar.showThemeEditor()
@@ -1074,6 +1124,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 30) { report("popup page after 30s") }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
+            }
+        }
+        if env["SORREL_GEOTEST"] != nil {
+            // Website location. Checks what a background test can: Sorrel answers WebKit's location questions,
+            // and a page that asks while hidden gets nothing (WebKit holds the question until the page shows; test
+            // windows always count as hidden, so the prompt itself has to be tried by hand). Never answers yes:
+            // that would make macOS show its own location prompt on the owner's screen.
+            for name in ["_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:",
+                         "_webView:requestGeolocationPermissionForFrame:decisionHandler:"] {
+                log("geo: answers \(name)=\(Engine.shared.responds(to: NSSelectorFromString(name)))")
+            }
+            let tab = self.store.newTab(url: "about:blank")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                Engine.shared.ensurePage(for: tab).webView.loadHTMLString("""
+                    <script>
+                    document.title = 'waiting';
+                    navigator.geolocation.getCurrentPosition(
+                      p => document.title = 'GOT POSITION',
+                      e => document.title = 'error ' + e.code);
+                    </script>
+                    """, baseURL: URL(string: "https://example.org/")!)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                tab.page?.webView.evaluateJavaScript("document.visibilityState + ' page, result: ' + document.title") { r, e in
+                    log("geo: \(r ?? e?.localizedDescription ?? "nil"); prompt=\(Engine.shared.lastLocationPrompt ?? "none")")
+                    NSApp.terminate(nil)
+                }
             }
         }
         if env["SORREL_SECTEST2"] != nil {
