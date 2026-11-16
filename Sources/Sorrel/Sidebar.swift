@@ -435,7 +435,10 @@ private final class ExtensionIconButton: NSButton {
     let entry: ExtensionEntry
     var entryID: String { entry.id }
     var onClick: (() -> Void)?
+    /// The pointer reached the icon: a click is likely, so the extension's background is woken now.
+    var onHover: (() -> Void)?
     var menuProvider: (() -> NSMenu)?
+    private var hoverArea: NSTrackingArea?
     private var badge = ""
     private var dimmed = false
 
@@ -485,6 +488,14 @@ private final class ExtensionIconButton: NSButton {
     }
 
     @objc private func fire() { onClick?() }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(a)
+        hoverArea = a
+    }
+    override func mouseEntered(with event: NSEvent) { onHover?() }
     override func menu(for event: NSEvent) -> NSMenu? { menuProvider?() }
     override var mouseDownCanMoveWindow: Bool { false }
 }
@@ -554,6 +565,7 @@ private final class URLPill: NSView {
         extensionButtons = entries.prefix(Self.maxExtensionIcons).map { entry in
             let b = ExtensionIconButton(entry: entry)
             b.onClick = { Extensions.shared.performAction(entry) }
+            b.onHover = { Extensions.shared.prewarm(entry) }
             b.menuProvider = { menuFor(entry) }
             extensionStack.addArrangedSubview(b)
             return b

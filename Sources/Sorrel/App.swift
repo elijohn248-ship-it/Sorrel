@@ -887,7 +887,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                             // SORREL_UI_PREOPEN=<url>: open a web page first (its content scripts reach the idle background).
                             if let pre = env["SORREL_UI_PREOPEN"] { self.store.newTab(url: pre) }
                             // SORREL_UI_CLICKDELAY=<s>: wait before clicking the icon (lets PREOPEN's page wake the background alone).
+                            // SORREL_UI_HOVER=<ms>: the pointer reaches the icon that long before the click (pre-wake).
+                            let hoverLead = (Double(env["SORREL_UI_HOVER"] ?? "") ?? 0) / 1000
                             DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_CLICKDELAY"] ?? "") ?? 0)) {
+                                if hoverLead > 0 { Extensions.shared.prewarm(ubol) }
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["SORREL_UI_CLICKDELAY"] ?? "") ?? 0) + hoverLead) {
                                 let tabAtClick = self.store.selected?.extensionTab
                                 bringAppForward()
                                 Extensions.shared.performAction(ubol)
