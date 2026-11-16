@@ -1120,6 +1120,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_GEOTEST"] != nil {
+            // Website location. Checks what a background test can: Sorrel answers WebKit's location questions,
+            // and a page that asks while hidden gets nothing (WebKit holds the question until the page shows; test
+            // windows always count as hidden, so the prompt itself has to be tried by hand). Never answers yes:
+            // that would make macOS show its own location prompt on the owner's screen.
+            for name in ["_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:",
+                         "_webView:requestGeolocationPermissionForFrame:decisionHandler:"] {
+                log("geo: answers \(name)=\(Engine.shared.responds(to: NSSelectorFromString(name)))")
+            }
+            let tab = self.store.newTab(url: "about:blank")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                Engine.shared.ensurePage(for: tab).webView.loadHTMLString("""
+                    <script>
+                    document.title = 'waiting';
+                    navigator.geolocation.getCurrentPosition(
+                      p => document.title = 'GOT POSITION',
+                      e => document.title = 'error ' + e.code);
+                    </script>
+                    """, baseURL: URL(string: "https://example.org/")!)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                tab.page?.webView.evaluateJavaScript("document.visibilityState + ' page, result: ' + document.title") { r, e in
+                    log("geo: \(r ?? e?.localizedDescription ?? "nil"); prompt=\(Engine.shared.lastLocationPrompt ?? "none")")
+                    NSApp.terminate(nil)
+                }
+            }
+        }
         if env["SORREL_SECTEST2"] != nil {
             // Security audit fixes (2026-11-15): a leftover "Continue" offer, dialogs from hidden tabs, sorrel:// names
             // that climb out of the app, and downloads a page starts without a click. Set SORREL_DOWNLOADS to a scratch
