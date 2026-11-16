@@ -319,6 +319,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.main.peekSidebar()
             self.main.sidebar.openLibrary(.downloads)
         }
+        c.register("import.browser", "Import from Another Browser…") { [unowned self] in
+            self.showMainWindow()
+            self.main.showImporter()
+        }
         c.register("library.archive", "Show Archived Tabs") { [unowned self] in
             self.main.peekSidebar()
             self.main.sidebar.openLibrary(.archive)
@@ -563,6 +567,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("mini.expand"), item("tab.openInFallback"),
             .separator(),
             item("library.downloads"), item("downloads.show"), item("tab.print"),
+            .separator(),
+            item("import.browser"),
         ])
         _ = add("Edit", [
             std("Undo", "undo:", "z"),
@@ -640,6 +646,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let u = env["SORREL_MINI"], let url = URL(string: u) { MiniWindowController.present(url: url) }
             if let s = env["SORREL_SIDEBAR"] { self.main.debugSetSidebar(s) }
             if let text = env["SORREL_COMMAND"] { self.main.commandBar.debugType(text) }
+            if let text = env["SORREL_TYPETEST"] {
+                // Types into the ⌘T bar one letter at a time with stand-in suggestions (no network) and
+                // watches for flicker: the field moving, rows vanishing then returning, the height
+                // reversing, the shadow out of step with the panel, whole-list rebuilds.
+                let bar = self.main.commandBar
+                let gap = Double(env["SORREL_TYPEGAP"] ?? "") ?? 0.45
+                // Like a real engine: completions of what is typed, from a fixed list.
+                let words = ["nephrology", "nephron", "nephritis", "nephrotic syndrome", "nephrolithiasis",
+                             "nephrectomy", "nephrogenic diabetes insipidus", "nephrologist", "neph meaning", "network"]
+                bar.debugSuggest = { q in words.filter { $0.hasPrefix(q.lowercased()) } }
+                bar.debugType("")
+                let field0 = bar.debugFieldFrame
+                var samples: [CGFloat] = [], fieldMoves = 0, shadowOff = 0, reversals = 0, lastDir: CGFloat = 0
+                var lastRows: [String] = [], gone: Set<String> = [], blinks: Set<String> = []
+                let sampler = Timer(timeInterval: 1.0 / 120, repeats: true) { _ in
+                    let h = bar.debugPanelHeight
+                    if let prev = samples.last, abs(h - prev) > 0.25 {
+                        let dir: CGFloat = h > prev ? 1 : -1
+                        if lastDir != 0, dir != lastDir { reversals += 1 }
+                        lastDir = dir
+                    }
+                    samples.append(h)
+                    if abs(bar.debugFieldFrame.minY - field0.minY) > 0.5 {
+                        if fieldMoves == 0 { log("typing: field moved \(field0) -> \(bar.debugFieldFrame) with \(bar.debugResultTitles.count) rows") }
+                        fieldMoves += 1
+                    }
+                    if abs(bar.debugShadowHeight - h) > 1 { shadowOff += 1 }
+                    let rows = bar.debugResultTitles
+                    for r in lastRows where !rows.contains(r) { gone.insert(r) }
+                    for r in rows where gone.contains(r) { blinks.insert(r); gone.remove(r) }
+                    lastRows = rows
+                }
+                RunLoop.main.add(sampler, forMode: .common)
+                let letters = Array(text)
+                for (i, _) in letters.enumerated() {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 + gap * Double(i)) {
+                        bar.debugSetText(String(letters[0...i]))
+                        log("typing: \"\(String(letters[0...i]))\" now=\(bar.debugResultTitles.count) rows")
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 + gap * Double(letters.count) + 0.6) {
+                    sampler.invalidate()
+                    log("typing: final rows=\(bar.debugResultTitles)")
+                    log("typing: fieldMoves=\(fieldMoves) heightReversals=\(reversals) shadowOutOfStep=\(shadowOff)/\(samples.count) blinkedRows=\(blinks.count) fullReloads=\(bar.debugFullReloads)")
+                    if !blinks.isEmpty { log("typing: blinked \(blinks.sorted().prefix(6))") }
+                    var runs: [String] = []
+                    for h in samples where runs.last != String(format: "%.0f", h) { runs.append(String(format: "%.0f", h)) }
+                    log("typing: heights \(runs.joined(separator: " "))")
+                }
+            }
             if env["SORREL_THEME"] != nil { self.main.sidebar.showThemeEditor() }
             if let mode = env["SORREL_EMOJITEST"] {
                 self.main.sidebar.showThemeEditor()
@@ -1085,6 +1141,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_GEOTEST"] != nil {
+            // Website location. Checks what a background test can: Sorrel answers WebKit's location questions,
+            // and a page that asks while hidden gets nothing (WebKit holds the question until the page shows; test
+            // windows always count as hidden, so the prompt itself has to be tried by hand). Never answers yes:
+            // that would make macOS show its own location prompt on the owner's screen.
+            for name in ["_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:",
+                         "_webView:requestGeolocationPermissionForFrame:decisionHandler:"] {
+                log("geo: answers \(name)=\(Engine.shared.responds(to: NSSelectorFromString(name)))")
+            }
+            let tab = self.store.newTab(url: "about:blank")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                Engine.shared.ensurePage(for: tab).webView.loadHTMLString("""
+                    <script>
+                    document.title = 'waiting';
+                    navigator.geolocation.getCurrentPosition(
+                      p => document.title = 'GOT POSITION',
+                      e => document.title = 'error ' + e.code);
+                    </script>
+                    """, baseURL: URL(string: "https://example.org/")!)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                tab.page?.webView.evaluateJavaScript("document.visibilityState + ' page, result: ' + document.title") { r, e in
+                    log("geo: \(r ?? e?.localizedDescription ?? "nil"); prompt=\(Engine.shared.lastLocationPrompt ?? "none")")
+                    NSApp.terminate(nil)
+                }
+            }
+        }
         if env["SORREL_SECTEST2"] != nil {
             // Security audit fixes (2026-11-15): a leftover "Continue" offer, dialogs from hidden tabs, sorrel:// names
             // that climb out of the app, and downloads a page starts without a click. Set SORREL_DOWNLOADS to a scratch
@@ -1181,6 +1264,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         log("sec: download \(d.file.lastPathComponent) state=\(d.state) quarantine=\(q.map { "\($0[kLSQuarantineAgentNameKey as String] ?? "?") type=\($0[kLSQuarantineTypeKey as String] ?? "?")" } ?? "MISSING")")
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+                }
+            }
+        }
+        if let spec = env["SORREL_IMPORTDRY"] {
+            // Browser import, readers only: "<source id>:<folder or file>[;…]". Logs counts, never titles or addresses.
+            for part in spec.split(separator: ";") {
+                let bits = part.split(separator: ":", maxSplits: 1).map(String.init)
+                guard bits.count == 2, let s = (BrowserSource.all + [.bookmarksFile]).first(where: { $0.id == bits[0] }) else { continue }
+                do {
+                    let f = try ImportReader.read(s, at: URL(fileURLWithPath: bits[1]))
+                    let folders = (f.spaces.flatMap(\.pinned) + f.bookmarks).reduce(0) { $0 + $1.folderCount }
+                    let splits = f.spaces.flatMap(\.pinned).filter { if case .split = $0 { return true }; return false }.count
+                    log("import-dry: \(s.id) spaces=\(f.spaces.count) pinned=\(f.spaces.reduce(0) { $0 + $1.pinnedTabs }) today=\(f.spaces.reduce(0) { $0 + $1.todayTabs }) folders=\(folders) splits=\(splits) favorites=\(f.favorites.count) bookmarks=\(f.bookmarkCount) history=\(f.history.count) themed=\(f.spaces.filter { $0.theme != nil }.count) newest=\(f.history.first.map { ISO8601DateFormatter().string(from: $0.last) } ?? "-") problems=\(f.problems)")
+                } catch {
+                    log("import-dry: \(s.id) error: \(error.localizedDescription)")
+                }
+            }
+            log("import-dry: offered=\(BrowserSource.offered().map(\.id)) arcDataVisible=\(BrowserSource.all[0].dataURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false)")
+        }
+        if let spec = env["SORREL_IMPORTTEST"], let dir = env["SORREL_IMPORTSHOTS"] {
+            // Browser import end to end: "<source id>:<folder or file>". Opens the card, hands the folder over as if
+            // from the Open panel, imports everything found, then (SORREL_IMPORTTEST_TWICE) imports it again to
+            // show nothing doubles. Writes pick.png, access.png, choose.png, done.png into SORREL_IMPORTSHOTS.
+            let bits = spec.split(separator: ":", maxSplits: 1).map(String.init)
+            guard bits.count == 2, let s = (BrowserSource.all + [.bookmarksFile]).first(where: { $0.id == bits[0] }) else { log("import: bad spec"); return }
+            func shot(_ name: String) {
+                guard let view = self.main.window?.contentView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let image = NSImage(size: view.bounds.size)
+                image.lockFocus()
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    NSColor.windowBackgroundColor.setFill()
+                    NSRect(origin: .zero, size: view.bounds.size).fill()
+                }
+                rep.draw(in: NSRect(origin: .zero, size: view.bounds.size))
+                image.unlockFocus()
+                if let tiff = image.tiffRepresentation, let data = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? data.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+                }
+            }
+            func state(_ label: String) {
+                for line in self.main.importer?.debugLines ?? ["(closed)"] { log("import: [\(label)] \(line)") }
+            }
+            let before = (self.store.spaces.count, self.store.favorites.count)
+            Commands.shared.run("import.browser")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                state("pick"); shot("pick.png")
+                self.main.importer?.debugRead(s, url: URL(fileURLWithPath: bits[1]))
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    shot("access.png")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+                        state("choose"); shot("choose.png")
+                        self.main.importer?.runImport()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                            state("done"); shot("done.png")
+                            log("import: spaces \(before.0)->\(self.store.spaces.count) favorites \(before.1)->\(self.store.favorites.count)")
+                            for sp in self.store.spaces {
+                                let tabs = self.store.tabs(in: sp.pinned)
+                                let folders = sp.pinned.filter(\.isFolder).count
+                                let splits = sp.pinned.filter(\.isSplit).count
+                                log("import:   space \(sp.icon) pinned=\(tabs.count) folders=\(folders) splits=\(splits) today=\(sp.today.count) separateLogins=\(sp.profileID != nil) colors=\(sp.theme.colors)")
+                            }
+                            if env["SORREL_IMPORTTEST_TWICE"] != nil, let importer = self.main.importer {
+                                importer.runImport()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { state("again") }
+                            }
+                        }
+                    }
                 }
             }
         }

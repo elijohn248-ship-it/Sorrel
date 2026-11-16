@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import CoreLocation
 
 final class SorrelWebView: WKWebView {
     weak var page: Page?
@@ -807,6 +808,67 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             let granted = response == .alertFirstButtonReturn
             if !isPrivate { self?.mediaGrants[key] = granted }
             decisionHandler(granted ? .grant : .deny)
+        }
+    }
+
+    // MARK: Location
+
+    // WebKit asks through its private UI-delegate methods (the ones Safari implements). Without them every page
+    // was silently refused. Off unless the person says yes: a hidden tab, a closed window or no answer all mean no.
+    // Nothing is remembered: WebKit keeps a yes only for the page that asked, so a reload or the next visit asks
+    // again. Same behaviour in private windows.
+    @objc(_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:)
+    func locationRequest(_ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+                         decisionHandler: @escaping (Bool) -> Void) {
+        askForLocation(webView, asker: origin.host, decisionHandler)
+    }
+
+    /// Older WebKit spelling of the same question; WebKit uses the one above when both exist.
+    @objc(_webView:requestGeolocationPermissionForFrame:decisionHandler:)
+    func locationRequest(_ webView: WKWebView, frame: WKFrameInfo, decisionHandler: @escaping (Bool) -> Void) {
+        askForLocation(webView, asker: frame.securityOrigin.host, decisionHandler)
+    }
+
+    /// Web view -> answers waiting on the location question showing in it (a page can ask again before answering).
+    private var locationAsks: [ObjectIdentifier: [(Bool) -> Void]] = [:]
+    /// Test runs: the last location question and what to answer it (never shows a sheet).
+    private(set) var lastLocationPrompt: String?
+    var debugLocationAnswer: Bool?
+
+    private func askForLocation(_ webView: WKWebView, asker: String, _ decisionHandler: @escaping (Bool) -> Void) {
+        let id = ObjectIdentifier(webView)
+        if locationAsks[id] != nil { locationAsks[id]?.append(decisionHandler); return }
+        guard webView.window != nil else { decisionHandler(false); return }   // hidden tabs can't ask
+        let site = asker.isEmpty ? "This page" : asker
+        let top = webView.url?.host ?? asker
+        let message = "Allow \(site) to use your location?"
+        if isQuietTest {
+            lastLocationPrompt = message
+            decisionHandler(debugLocationAnswer ?? false)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.informativeText = (top == asker || top.isEmpty ? "" : "It is part of \(top). ")
+            + "It can use your location until you leave or reload the page. Sorrel will ask again next time."
+        alert.addButton(withTitle: "Don’t Allow")   // first button = Return key: the safe answer
+        alert.addButton(withTitle: "Allow")
+        locationAsks[id] = [decisionHandler]
+        sheet(alert, for: webView) { [weak self] response in
+            let granted = response == .alertSecondButtonReturn
+            let waiting = self?.locationAsks.removeValue(forKey: id) ?? [decisionHandler]
+            waiting.forEach { $0(granted) }
+            if granted { self?.warnIfMacLocationOff() }
+        }
+    }
+
+    /// A yes in Sorrel does nothing if macOS itself keeps Location Services from Sorrel; say where to change it.
+    private func warnIfMacLocationOff() {
+        switch CLLocationManager().authorizationStatus {
+        case .denied, .restricted:
+            onToast?("Location is off for Sorrel in System Settings ▸ Privacy & Security ▸ Location Services")
+        default:
+            break
         }
     }
 

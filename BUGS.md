@@ -33,6 +33,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 - **Actual:** header, search and "All (353)" showed; the list and details were blank. (Earlier on 2026-11-15/16 the background crashed instead: `runtime.onUpdateAvailable` undefined; the wake-up and guard fixes on `proton-popup`/`proton-guard` stopped that.)
 - **Cause:** `applyDeclaredSize` gave the page only `min-width/min-height`. Proton sizes `html`/`body`/`.app-root` with `height: 100%`, which resolves against the real height (small while WebKit measures the pop-up), so the app area shrank to its header (600x115 of 600x430) and the list panes got 0 height. Found with temporary on-device layout diagnostics (removed). Fix: real `width/height` on html and body. Owner confirmed it works. Also on the branch: pop-ups never count as hidden (`keepPopupAwake`; suspected first, not the cause, kept because covered pop-ups and test windows now draw) and the pop-up speed work in CLAUDE.md.
 
+### Command bar flickers while typing (fixed 2026-11-16, branch `command-bar-fluid`)
+- **Repro:** ⌘T (or ⌘L), with search suggestions on, type a word at a normal pace.
+- **Expected:** rows that still fit stay put, new ones fill in smoothly below, the bar glides to its new size.
+- **Actual:** after every letter the suggestion rows vanished and came back ~0.2 s later, so the list collapsed and regrew (`SORREL_TYPETEST=nephro`: 8 shrink-then-grow reversals in 6 letters, list rebuilt 12 times); the shadow snapped to the end size while the panel was still resizing.
+- **Cause:** suggestions were shown only for the exact text they were fetched for, and every keystroke ran `reloadData`. Now the previous suggestions that still fit stay up until the new answer arrives, rows are matched by a key and updated in place (new ones fade in, gone ones fade out), and the list height follows a display-synced spring that re-lays out the whole bar each frame (`CommandBar.setListHeight`). After: the list holds its rows while typing, 2 rebuilds (opening only), field never moves.
+
 
 ### Centered command bar moves while typing (fixed 2026-11-15, branch `command-bar`)
 - **Repro:** ⌘T, type something that fills several suggestion rows.

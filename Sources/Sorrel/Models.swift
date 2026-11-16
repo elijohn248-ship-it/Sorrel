@@ -967,6 +967,17 @@ final class Store {
         scheduleSave()
     }
 
+    /// Browser import (Importer.swift): adds the new spaces and favorites in one step. Existing spaces have
+    /// already had their imported tabs appended; this re-links parents and tells the sidebar once.
+    func absorbImport(spaces: [Space], favorites: [Item]) {
+        state.spaces.append(contentsOf: spaces)
+        state.favorites.append(contentsOf: favorites)
+        rebuildParents()
+        post(.sorrelSpace)
+        post(.sorrelStructure)
+        saveNow()
+    }
+
     /// Gives a space its own cookies and logins, or returns it to the shared set.
     func setSeparateLogins(_ separate: Bool, for space: Space) {
         space.profileID = separate ? (space.profileID ?? UUID()) : nil

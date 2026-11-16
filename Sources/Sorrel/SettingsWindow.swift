@@ -273,6 +273,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 self?.mutate { $0.externalLinksOpenInMiniWindow = on }
             }),
             ("Default browser:", column([makeDefault, defaultBrowserStatus])),
+            ("Import:", column([
+                button("Import from Another Browser…") { Commands.shared.run("import.browser") },
+                note("Arc spaces, pinned tabs and favorites; bookmarks and history from Chrome, Helium, Safari, Firefox, Zen and others."),
+            ])),
             ("Updates:", column([
                 versionLine,
                 checkbox("Check for updates automatically", s.checkForUpdates) { [weak self] on in

@@ -444,6 +444,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let sidebar = SidebarView()
     let commandBar = CommandBar()
     private(set) var peek: PeekOverlay?
+    /// The Import from Another Browser card while it is open (showImporter).
+    fileprivate(set) var importer: ImportOverlay?
     private let toast = NSTextField(labelWithString: "")
     private let toastBox = NSView()
 
@@ -903,6 +905,26 @@ extension MainWindowController {
                                       windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
             focusPane(for: e)
         }
+    }
+
+    /// Import from Another Browser (ImportView.swift): a card over everything but the command bar.
+    func showImporter() {
+        if !commandBar.isHidden { commandBar.dismiss() }
+        if let importer { window?.makeFirstResponder(importer); return }
+        let o = ImportOverlay()
+        o.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(o, positioned: .below, relativeTo: commandBar)
+        NSLayoutConstraint.activate([
+            o.topAnchor.constraint(equalTo: root.topAnchor), o.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            o.leadingAnchor.constraint(equalTo: root.leadingAnchor), o.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+        ])
+        o.onClosed = { [weak self] in
+            self?.importer = nil
+            if let wv = self?.currentWebView { self?.window?.makeFirstResponder(wv) }
+        }
+        importer = o
+        root.layoutSubtreeIfNeeded()
+        o.present()
     }
 
     /// A hidden sidebar slides out (as on hover) so something in it can be shown, like the Library.
