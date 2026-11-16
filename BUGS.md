@@ -35,6 +35,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### Command bar flickers while typing (fixed 2026-11-16, branch `command-bar-fluid`)
+- **Repro:** ⌘T (or ⌘L), with search suggestions on, type a word at a normal pace.
+- **Expected:** rows that still fit stay put, new ones fill in smoothly below, the bar glides to its new size.
+- **Actual:** after every letter the suggestion rows vanished and came back ~0.2 s later, so the list collapsed and regrew (`SORREL_TYPETEST=nephro`: 8 shrink-then-grow reversals in 6 letters, list rebuilt 12 times); the shadow snapped to the end size while the panel was still resizing.
+- **Cause:** suggestions were shown only for the exact text they were fetched for, and every keystroke ran `reloadData`. Now the previous suggestions that still fit stay up until the new answer arrives, rows are matched by a key and updated in place (new ones fade in, gone ones fade out), and the list height follows a display-synced spring that re-lays out the whole bar each frame (`CommandBar.setListHeight`). After: the list holds its rows while typing, 2 rebuilds (opening only), field never moves.
+
 ### Centered command bar moves while typing (fixed 2026-11-15, branch `command-bar`)
 - **Repro:** ⌘T, type something that fills several suggestion rows.
 - **Expected:** the line you type on stays where it opened; the list grows below it.
