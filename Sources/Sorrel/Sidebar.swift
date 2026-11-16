@@ -1142,6 +1142,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     /// Arc's Library, over the sidebar's contents (Library.swift), and the in-progress downloads strip.
     private(set) lazy var library = LibraryView(store: store)
     private let downloadsStrip = DownloadsStrip()
+    /// Arc's "update ready" card, just above the space icons (UpdateCard.swift).
+    let updateCard = UpdateCard()
+    private lazy var updateCardBottom = updateCard.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -2)
 
     /// The Library button, where a starting download's icon flies to (DownloadFlight).
     var downloadsAnchor: DownloadsButton { spaceBar.downloadsButton }
@@ -1172,6 +1175,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         nc.addObserver(self, selector: #selector(extensionActionChanged(_:)), name: .sorrelExtensionAction, object: nil)
         nc.addObserver(self, selector: #selector(extensionTabChanged), name: .sorrelSelection, object: nil)
         reloadAll(animated: false)
+        updateCard.isOnScreen = { [weak self] in self?.controller.map { $0.mode != .hidden } ?? true }
+        // Hidden, the card takes no room: the strip sits 2 pt above the space bar as before.
+        updateCard.onShownChange = { [weak self] on in self?.updateCardBottom.constant = on ? -6 : -2 }
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -1193,7 +1199,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         floatingBackground.layer?.borderWidth = 0.5
         floatingBackground.layer?.borderColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
-        for v in [floatingBackground, topRow, pill, favorites, spaceClip, library, downloadsStrip, spaceBar, handle] as [NSView] {
+        for v in [floatingBackground, topRow, pill, favorites, spaceClip, library, downloadsStrip, updateCard, spaceBar, handle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -1341,7 +1347,11 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
             downloadsStrip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
             downloadsStrip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            downloadsStrip.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -2),
+            downloadsStrip.bottomAnchor.constraint(equalTo: updateCard.topAnchor),
+
+            updateCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            updateCard.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            updateCardBottom,
 
             spaceIcon.topAnchor.constraint(equalTo: spaceContainer.topAnchor, constant: 2),
             spaceIcon.leadingAnchor.constraint(equalTo: spaceContainer.leadingAnchor, constant: 14),
@@ -2006,6 +2016,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         library.show(section)
         guard !isLibraryOpen else { return }
         downloadsStrip.isSuppressed = true
+        updateCard.isSuppressed = true
         for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: false, duration: 0.16) }
         library.fade(in: true, duration: 0.2)
         library.layer?.popIn(scale: 0.98, rise: 6, fade: false, duration: 0.28)
@@ -2016,6 +2027,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         guard isLibraryOpen else { return }
         library.didDisappear()
         downloadsStrip.isSuppressed = false
+        updateCard.isSuppressed = false
         library.fade(in: false, duration: 0.14)
         for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: true, duration: 0.2) }
     }

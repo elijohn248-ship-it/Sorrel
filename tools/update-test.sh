@@ -15,6 +15,10 @@
 #   6. version: the swapped app runs and reports the new build
 #   7. badlog:  the updater service must refuse every log path that isn't the app's own update.log
 #   8. swapzip: the zip is overwritten right after the handoff; the service must still install the bytes it checked
+#   9. card:    the "update ready" card at the bottom of the sidebar: ready -> Update and Restart -> "Updated";
+#               then a broken update (signed, but its app fails codesign) -> "Update didn't install" with the reason,
+#               never "ready" again -> Try Again fails too -> "couldn't install" (gave up), and install on quit stops
+#               trying. Pictures of each card go to $T/cards.
 # Each app launch is a quiet background test run (SORREL_SNAPSHOT), so nothing takes focus.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -35,13 +39,15 @@ BASE=$($PB -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")
 SHORT=$($PB -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
 echo "installed copy: $APP (version $SHORT, build $BASE)"
 
-fake_release() {   # $1 = build number; writes feed/Sorrel-<build>.zip and prints the manifest fields
+fake_release() {   # $1 = build number, $2 = "broken" for an app that fails codesign --verify; writes feed/Sorrel-<build>.zip
   local B=$1 DIR="$T/new-$1"
   rm -rf "$DIR"; mkdir -p "$DIR"
   cp -R build/SorrelTest.app "$DIR/SorrelTest.app"
   $PB -c "Set :CFBundleVersion $B" -c "Set :CFBundleShortVersionString $SHORT-test$B" "$DIR/SorrelTest.app/Contents/Info.plist"
   codesign --force --options runtime --sign - "$DIR/SorrelTest.app/Contents/XPCServices/SorrelUpdater.xpc" >/dev/null
   codesign --force --options runtime --entitlements .build/test-bundle/Sorrel.entitlements --sign - "$DIR/SorrelTest.app" >/dev/null
+  # Broken: a sealed resource changed after signing. The archive's own signature is still valid.
+  if [ "${2:-}" = broken ]; then echo "tampered" >> "$DIR/SorrelTest.app/Contents/Resources/welcome.html"; fi
   local ZIP="$T/feed/Sorrel-$B.zip"
   ditto -c -k --keepParent "$DIR/SorrelTest.app" "$ZIP"
   local SIG SHA SIZE
@@ -59,6 +65,8 @@ EOF
 fake_release $((BASE + 1))
 fake_release $((BASE + 2))
 fake_release $((BASE + 3))
+fake_release $((BASE + 4))
+fake_release $((BASE + 5)) broken
 
 run() {   # $1 = SORREL_UPDATETEST mode, $2 = feed file
   rm -rf "$T/home/Updates"   # a fresh download each time
@@ -92,6 +100,36 @@ for _ in $(seq 1 40); do [ "$($PB -c "Print :CFBundleVersion" "$APP/Contents/Inf
 sleep 1; run containerlog "$T/feed/updates-$((BASE + 3)).json" | grep containerlog: | sed 's/^updater: containerlog: /  log: /'
 echo "== version after swapzip"; run version "$T/feed/updates-$((BASE + 3)).json"
 echo "   private copies left: $(ls "$HOME/Library/Caches/app.sorrel.browser.test.updater" 2>/dev/null | wc -l | tr -d ' ') (in ~/Library/Caches/app.sorrel.browser.test.updater)"
+
+echo "== card (the sidebar's update card)"
+mkdir -p "$T/cards"
+rm -rf "$T/home/Updates"
+card() {   # $1 = mode, $2 = feed file, $3 = picture name; keeps Updates/ (marker, failure count, log) between runs
+  SORREL_HOME="$T/home" SORREL_SNAPSHOT="$T/shot.png" SORREL_DELAY=60 SORREL_UPDATETEST="$1" SORREL_CARDSHOTS="$T/cards" \
+    SORREL_CARDSTEP="$3" SORREL_UPDATE_FEED="file://$2" "$APP/Contents/MacOS/Sorrel" 2>&1 | grep -E '^updater: (card|launch|install failed|install on quit)' || true
+}
+wait_new() {   # waits for the installer started after log line $1 to finish (including its reopen step), then prints its lines
+  for _ in $(seq 1 240); do
+    tail -n +$(($1 + 1)) "$T/home/Updates/update.log" 2>/dev/null | grep -q "reopen\|giving up" && break
+    sleep 0.5
+  done
+  tail -n +$(($1 + 1)) "$T/home/Updates/update.log" | grep installer: | sed 's/^/  log: /'
+  echo "  now: build $($PB -c "Print :CFBundleVersion" "$APP/Contents/Info.plist")"
+}
+loglines() { wc -l < "$T/home/Updates/update.log" 2>/dev/null | tr -d ' ' || echo 0; }
+GOOD="$T/feed/updates-$((BASE + 4)).json"; BROKEN="$T/feed/updates-$((BASE + 5)).json"
+echo "-- 1. an update is ready (expect: none at launch, ready after the check, the box, ×)"; card card "$GOOD" 1-ready
+echo "-- 2. Update and Restart (expect: updating, then installed and reopened)"; N=$(loglines); card relaunch "$GOOD" 2-relaunch; wait_new "$N"
+echo "-- 3. next launch (expect: Updated to …-test$((BASE + 4)), and still that after the check, never ready)"; card card "$GOOD" 3-updated
+echo "-- 4. a broken update (expect: installer fails codesign, still reopens)"; N=$(loglines); card relaunch "$BROKEN" 4-broken; wait_new "$N"
+echo "-- 5. next launch (expect: failed with the codesign reason, and still failed after the check, never ready)"; card card "$BROKEN" 5-failed
+echo "-- 6. Try Again (expect: downloading/updating, installer fails again, reopens)"; N=$(loglines); card retry "$BROKEN" 6-retry; wait_new "$N"
+echo "-- 7. next launch (expect: gaveUp at launch and after the check)"; card card "$BROKEN" 7-gaveup
+echo "-- 8. quitting with the broken update ready (expect: install on quit skipped)"; N=$(loglines)
+SORREL_HOME="$T/home" SORREL_SNAPSHOT="$T/shot.png" SORREL_DELAY=60 SORREL_UPDATETEST=quit SORREL_UPDATE_FEED="file://$BROKEN" \
+  "$APP/Contents/MacOS/Sorrel" 2>&1 | grep -E '^updater: (state|install on quit)' || true
+sleep 2; echo "  installer runs after quitting: $(tail -n +$((N + 1)) "$T/home/Updates/update.log" | grep -c 'installer: start' || true)"
+echo "   pictures: $T/cards"
 
 if [ "$APPDIR" != "$T/app" ]; then rm -rf "$APP"; echo "removed $APP"; fi
 echo "done; scratch in $T"

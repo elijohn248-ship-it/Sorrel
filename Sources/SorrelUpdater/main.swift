@@ -141,10 +141,34 @@ func stripQuarantine(_ root: URL) {
 
 // MARK: - Installer (detached)
 
+/// Test runs (the test build's service, started for a run with SORREL_UPDATETEST) log the reopen instead of
+/// opening a window. Sorrel.app drops every SORREL_* variable at launch, and its service isn't a test service.
+let dryReopen = isTestService && ProcessInfo.processInfo.environment["SORREL_UPDATETEST"] != nil
+
+func reopenApp(_ log: Log, _ why: String) {
+    if dryReopen { log.line("installer: reopen skipped in a test (\(why))"); return }
+    let (ocode, oout) = run("/usr/bin/open", [appURL.path])
+    log.line("installer: reopen after \(why) \(ocode == 0 ? "ok" : "failed: \(oout)")")
+}
+
+/// Installs, and when Sorrel asked to be relaunched, reopens it whatever happened: a failed install must never
+/// leave the person without their browser (it reopens on the old version, which reads update.log and says why).
 func install(zip: String, signature: String, pid: Int32, relaunch: Bool, log: Log) -> Int32 {
+    let code = installSteps(zip: zip, signature: signature, pid: pid, log: log)
+    guard relaunch else { return code }
+    if code == 0 { reopenApp(log, "update"); return 0 }
+    // Code 3 means Sorrel never quit: nothing to reopen. Otherwise wait for it to be gone (a refusal can come
+    // before it has quit), then open the old copy.
+    var waited = 0.0
+    while kill(pid, 0) == 0 && waited < 90 { usleep(250_000); waited += 0.25 }
+    if kill(pid, 0) != 0 { reopenApp(log, "failed update") }
+    return code
+}
+
+func installSteps(zip: String, signature: String, pid: Int32, log: Log) -> Int32 {
     let fm = FileManager.default
     let app = appURL.path
-    log.line("installer: start zip=\(zip) app=\(app) pid=\(pid) relaunch=\(relaunch)")
+    log.line("installer: start zip=\(zip) app=\(app) pid=\(pid)")
     defer { if isPrivateCopy(zip) { try? fm.removeItem(at: URL(fileURLWithPath: zip).deletingLastPathComponent()) } }
     let current: BundleInfo
     do {
@@ -206,11 +230,6 @@ func install(zip: String, signature: String, pid: Int32, relaunch: Bool, log: Lo
     stripQuarantine(appURL)
     try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: app)   // so Launch Services notices
     log.line("installer: installed \(next.version) (build \(next.build)) over \(current.version) (build \(current.build)) at \(app)")
-
-    if relaunch {
-        let (ocode, oout) = run("/usr/bin/open", [app])
-        log.line("installer: relaunch \(ocode == 0 ? "ok" : "failed: \(oout)")")
-    }
     return 0
 }
 

@@ -102,6 +102,9 @@ struct Settings: Codable {
     var autoUpdateBlocker = true
     /// Look for new Sorrel releases every few hours (Updater.swift). Manual checks work either way.
     var checkForUpdates = true
+    /// Install a downloaded update quietly the next time Sorrel quits, without the "update ready" card in the
+    /// sidebar (the card's "Update automatically" box, and Settings ▸ General). Off by default.
+    var installUpdatesAutomatically = false
     /// Which extensions are switched on, by id. Missing = on for the bundled one, off for the rest.
     var extensionStates: [String: Bool] = [:]
     /// Extra access the person approved when an extension asked for it, by extension id
@@ -164,6 +167,7 @@ struct Settings: Codable {
         searchSuggestions = try c.decodeIfPresent(Bool.self, forKey: .searchSuggestions) ?? d.searchSuggestions
         autoUpdateBlocker = try c.decodeIfPresent(Bool.self, forKey: .autoUpdateBlocker) ?? d.autoUpdateBlocker
         checkForUpdates = try c.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? d.checkForUpdates
+        installUpdatesAutomatically = try c.decodeIfPresent(Bool.self, forKey: .installUpdatesAutomatically) ?? d.installUpdatesAutomatically
         fallbackBrowser = try c.decodeIfPresent(String.self, forKey: .fallbackBrowser) ?? d.fallbackBrowser
         externalLinksOpenInMiniWindow = try c.decodeIfPresent(Bool.self, forKey: .externalLinksOpenInMiniWindow) ?? d.externalLinksOpenInMiniWindow
         peekLinksFromPinnedTabs = try c.decodeIfPresent(Bool.self, forKey: .peekLinksFromPinnedTabs) ?? d.peekLinksFromPinnedTabs

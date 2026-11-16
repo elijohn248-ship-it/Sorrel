@@ -28,6 +28,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private let defaultBrowserStatus = NSTextField(labelWithString: "")
     private let updateStatus = NSTextField(wrappingLabelWithString: "")
     private var updateButton: NSButton?
+    private var autoInstallBox: NSButton?
 
     // Memory & Storage
     private let memoryStatus = NSTextField(labelWithString: "")
@@ -266,6 +267,11 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let info = Updater.shared.current
         let versionLine = note("Sorrel \(info?.version ?? "?") (build \(info?.build ?? 0))")
         versionLine.textColor = .labelColor
+        let autoBox = checkbox("Install updates automatically, without asking", s.installUpdatesAutomatically) { on in
+            Updater.shared.setInstallAutomatically(on)
+        }
+        autoBox.toolTip = "A downloaded update installs quietly the next time you quit Sorrel, instead of showing a card at the bottom of the sidebar."
+        autoInstallBox = autoBox
         refreshUpdateStatus()
 
         return form([
@@ -296,6 +302,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 checkbox("Check for updates automatically", s.checkForUpdates) { [weak self] on in
                     self?.mutate { $0.checkForUpdates = on }
                 },
+                autoBox,
                 check,
                 updateStatus,
                 note("Updates come from Sorrel’s GitHub releases and are signed; one that fails the check is never installed. A downloaded update installs when you quit Sorrel."),
@@ -748,6 +755,8 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         updateStatus.stringValue = Updater.shared.statusText
         updateButton?.title = Updater.shared.readyManifest != nil ? "Relaunch to Update" : "Check Now"
         updateButton?.isEnabled = !Updater.shared.isBusy
+        // The sidebar card has the same box.
+        autoInstallBox?.state = Settings.current.installUpdatesAutomatically ? .on : .off
     }
 
     @objc private func refreshStatus() {
