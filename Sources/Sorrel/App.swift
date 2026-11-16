@@ -1141,6 +1141,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_SPACEROWTEST"] != nil {
+            // Many spaces: the icon row scrolls, reveals the current space, and scrubs into its ends.
+            let sidebar = self.main.sidebar
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { sidebar.debugSpaceRowTest(shots: env["SORREL_SWIPESHOTS"], log: log) }
+        }
         if env["SORREL_SWIPETEST"] != nil {
             // Space swipe: two-finger swipes and click-and-hold scrubs on the space icons (SpaceSwipe.swift).
             let sidebar = self.main.sidebar
