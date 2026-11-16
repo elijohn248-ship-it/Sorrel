@@ -498,6 +498,10 @@ private final class URLPill: NSView {
     private var extensionButtons: [ExtensionIconButton] = []
     static let maxExtensionIcons = 4
     private var copyButton: IconButton!
+    /// An open lock in front of the host when the page came over plain http://. Kept apart from the text so
+    /// cutting a long host short never cuts the lock.
+    private let lockView = NSImageView()
+    private var labelLeading: NSLayoutConstraint!
     private var canCopy = false
     private var hovered = false
     private var area: NSTrackingArea?
@@ -507,10 +511,19 @@ private final class URLPill: NSView {
         wantsLayer = true
         layer?.cornerRadius = 9
         label.font = .systemFont(ofSize: 13)
-        label.lineBreakMode = .byTruncatingTail
+        // A long host is cut at the front, so the part that says whose site it is (evil.com in
+        // "paypal.com.secure-login.evil.com") is the part that always shows.
+        label.lineBreakMode = .byTruncatingHead
+        label.maximumNumberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         addSubview(label)
+        lockView.image = NSImage(systemSymbolName: "lock.open.fill", accessibilityDescription: "Not Secure")?
+            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold).applying(.init(paletteColors: [.systemOrange])))
+        lockView.translatesAutoresizingMaskIntoConstraints = false
+        lockView.isHidden = true
+        addSubview(lockView)
+        labelLeading = label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12)
         copyButton = IconButton(symbol: "link", size: 12) { [weak self] in self?.onCopy?() }
         copyButton.isHidden = true
         addSubview(copyButton)
@@ -520,7 +533,9 @@ private final class URLPill: NSView {
         extensionStack.setContentHuggingPriority(.required, for: .horizontal)
         addSubview(extensionStack)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            labelLeading,
+            lockView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            lockView.centerYAnchor.constraint(equalTo: centerYAnchor),
             label.trailingAnchor.constraint(lessThanOrEqualTo: copyButton.leadingAnchor, constant: -4),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             extensionStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -5),
@@ -553,9 +568,15 @@ private final class URLPill: NSView {
         for b in extensionButtons where id == nil || b.entryID == id { b.refresh() }
     }
 
-    func set(_ text: String?, canCopy: Bool) {
+    /// `insecure`: the page came over plain http://. An open lock goes in front of the host so that is never hidden.
+    func set(_ text: String?, canCopy: Bool, insecure: Bool = false) {
         label.stringValue = text ?? "Search or enter address"
         label.textColor = text == nil ? .tertiaryLabelColor : .labelColor
+        let notSecure = insecure && text != nil
+        label.toolTip = notSecure ? "Not Secure: this page isn’t encrypted. Others on the network can see and change it." : nil
+        lockView.toolTip = label.toolTip
+        lockView.isHidden = !notSecure
+        labelLeading.constant = notSecure ? 27 : 12
         self.canCopy = canCopy
         let key = Keybindings.shared.display(for: "tab.copyURL")
         copyButton.toolTip = "Copy link" + (key.map { " (\($0))" } ?? "")
@@ -742,7 +763,7 @@ private final class SpaceBar: NSView {
     var onDownloads: ((NSView) -> Void)?
     private var addButton: IconButton!
     private(set) var extensionsButton: IconButton!
-    private(set) var downloadsButton: IconButton!
+    private(set) var downloadsButton: DownloadsButton!
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -758,10 +779,9 @@ private final class SpaceBar: NSView {
             if let self { self.onExtensions?(self.extensionsButton) }
         }
         addSubview(extensionsButton)
-        downloadsButton = IconButton(symbol: "arrow.down.circle", size: 12, tooltip: "Downloads") { [weak self] in
+        downloadsButton = DownloadsButton { [weak self] in
             if let self { self.onDownloads?(self.downloadsButton) }
         }
-        downloadsButton.isHidden = true   // appears once something has been downloaded
         addSubview(downloadsButton)
         NSLayoutConstraint.activate([
             downloadsButton.leadingAnchor.constraint(equalTo: extensionsButton.trailingAnchor, constant: 0),
@@ -862,6 +882,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private var themePopover: NSPopover?
 
     private var store: Store { Store.shared }
+    /// Arc's Library, over the sidebar's contents (Library.swift), and the in-progress downloads strip.
+    private(set) lazy var library = LibraryView(store: store)
+    private let downloadsStrip = DownloadsStrip()
 
     /// The extensions button, which extension pop-ups attach to.
     var extensionsAnchor: NSView { spaceBar.extensionsButton }
@@ -871,7 +894,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     /// True while something in the sidebar needs it to stay on screen.
     var wantsToStayOpen: Bool {
-        editingCount > 0 || (themePopover?.isShown ?? false)
+        editingCount > 0 || (themePopover?.isShown ?? false) || (previewPopover?.isShown ?? false)
     }
 
     override init(frame: NSRect) {
@@ -883,6 +906,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         nc.addObserver(self, selector: #selector(itemChanged(_:)), name: .sorrelItem, object: nil)
         nc.addObserver(self, selector: #selector(spaceChanged), name: .sorrelSpace, object: nil)
         nc.addObserver(self, selector: #selector(downloadsChanged), name: .sorrelDownloads, object: nil)
+        DispatchQueue.main.async { [weak self] in self?.downloadsChanged() }   // remembered downloads show the button at launch
         nc.addObserver(self, selector: #selector(extensionsChanged), name: .sorrelExtensions, object: nil)
         nc.addObserver(self, selector: #selector(extensionActionChanged(_:)), name: .sorrelExtensionAction, object: nil)
         nc.addObserver(self, selector: #selector(extensionTabChanged), name: .sorrelSelection, object: nil)
@@ -901,10 +925,12 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         floatingBackground.layer?.borderWidth = 0.5
         floatingBackground.layer?.borderColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
-        for v in [floatingBackground, topRow, pill, favorites, spaceContainer, spaceBar, handle] as [NSView] {
+        for v in [floatingBackground, topRow, pill, favorites, spaceContainer, library, downloadsStrip, spaceBar, handle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
+        library.isHidden = true
+        library.onClose = { [weak self] in self?.closeLibrary() }
 
         // Top row: sidebar toggle after the window buttons, navigation on the right.
         let toggle = IconButton(symbol: "sidebar.left", size: 14, tooltip: "Hide or show the sidebar") {
@@ -983,7 +1009,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         spaceBar.menuProvider = { [weak self] in self?.menu(for: $0) ?? NSMenu() }
         spaceBar.onAdd = { [weak self] anchor in self?.showAddMenu(from: anchor) }
         spaceBar.onExtensions = { [weak self] anchor in self?.showExtensionsMenu(from: anchor) }
-        spaceBar.onDownloads = { [weak self] anchor in self?.showDownloadsMenu(from: anchor) }
+        spaceBar.onDownloads = { [weak self] _ in self?.toggleLibrary() }
+        spaceBar.downloadsButton.onHover = { [weak self] on in self?.hoverPreview(on) }
         handle.onDrag = { [weak self] x in self?.controller?.resizeSidebar(to: x) }
 
         NSLayoutConstraint.activate([
@@ -1014,7 +1041,18 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             spaceContainer.topAnchor.constraint(equalTo: favorites.bottomAnchor, constant: 8),
             spaceContainer.leadingAnchor.constraint(equalTo: leadingAnchor),
             spaceContainer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            spaceContainer.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -4),
+            spaceContainer.bottomAnchor.constraint(equalTo: downloadsStrip.topAnchor, constant: -4),
+
+            library.topAnchor.constraint(equalTo: topRow.bottomAnchor, constant: 2),
+            library.leadingAnchor.constraint(equalTo: leadingAnchor),
+            library.trailingAnchor.constraint(equalTo: trailingAnchor),
+            // To the space bar, not the strip: the strip steps aside while the Library is open, and the Library
+            // must not resize when it does.
+            library.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -4),
+
+            downloadsStrip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            downloadsStrip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            downloadsStrip.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -2),
 
             spaceIcon.topAnchor.constraint(equalTo: spaceContainer.topAnchor, constant: 2),
             spaceIcon.leadingAnchor.constraint(equalTo: spaceContainer.leadingAnchor, constant: 14),
@@ -1209,8 +1247,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         if let u = item?.url, u.hasPrefix("sorrel://") {
             pill.set("Sorrel", canCopy: false)
         } else {
-            pill.set(item?.host?.replacingOccurrences(of: "www.", with: "") ?? item?.url,
-                     canCopy: item?.url?.hasPrefix("http") ?? false)
+            pill.set(Site.display(item?.host) ?? item?.url,
+                     canCopy: item?.url?.hasPrefix("http") ?? false,
+                     insecure: item?.host != nil && item?.url?.lowercased().hasPrefix("http://") == true)
         }
     }
 
@@ -1633,53 +1672,81 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     }
 
     @objc private func downloadsChanged() {
-        let list = Engine.shared.downloads
-        let button = spaceBar.downloadsButton!
-        button.isHidden = list.isEmpty
-        let running = list.filter { $0.state == .running }
-        button.contentTintColor = running.isEmpty ? .secondaryLabelColor : .controlAccentColor
-        if let first = running.first {
-            button.toolTip = "Downloading \(first.file.lastPathComponent) (\(Int(first.fraction * 100))%)"
+        spaceBar.downloadsButton.update(Engine.shared.downloads)
+    }
+
+    // MARK: Library and downloads
+
+    var isLibraryOpen: Bool { !library.isHidden }
+
+    /// The Library button: opens the Library over the sidebar, or closes it. A section name switches to it.
+    func toggleLibrary(_ section: LibraryView.Section? = nil) {
+        spaceBar.downloadsButton.cancelHover()
+        previewPopover?.close()
+        if isLibraryOpen, section == nil || section == library.section {
+            closeLibrary()
         } else {
-            button.toolTip = "Downloads"
+            openLibrary(section ?? library.section)
         }
     }
 
-    func showDownloadsMenu(from anchor: NSView? = nil) {
-        let anchor = anchor ?? spaceBar.downloadsButton!
-        let m = NSMenu()
-        let list = Engine.shared.downloads
-        if list.isEmpty {
-            let none = NSMenuItem(title: "Nothing Downloaded Yet", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            m.addItem(none)
-        }
-        for record in list.prefix(15) {
-            let name = String(record.file.lastPathComponent.prefix(48))
-            switch record.state {
-            case .running:
-                m.addItem(ActionMenuItem("\(name) — \(Int(record.fraction * 100))% · Cancel") {
-                    record.download?.cancel { _ in }
-                })
-            case .done:
-                let item = ActionMenuItem(name) { NSWorkspace.shared.activateFileViewerSelecting([record.file]) }
-                item.image = NSWorkspace.shared.icon(forFile: record.file.path)
-                item.image?.size = NSSize(width: 16, height: 16)
-                item.toolTip = "Show in Finder"
-                m.addItem(item)
-            case .failed:
-                let item = NSMenuItem(title: "\(name) — didn’t finish", action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                m.addItem(item)
-            }
-        }
-        m.addItem(.separator())
-        m.addItem(ActionMenuItem("Open Downloads Folder") { Commands.shared.run("downloads.show") })
-        if list.contains(where: { $0.state != .running }) {
-            m.addItem(ActionMenuItem("Clear This List") { Engine.shared.clearFinishedDownloads() })
-        }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+    /// Slides the Library in over the address box, favorites and tabs, which fade away beneath it.
+    func openLibrary(_ section: LibraryView.Section) {
+        library.show(section)
+        guard !isLibraryOpen else { return }
+        downloadsStrip.isSuppressed = true
+        for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: false, duration: 0.16) }
+        library.fade(in: true, duration: 0.2)
+        library.layer?.popIn(scale: 0.98, rise: 6, fade: false, duration: 0.28)
+        library.didAppear()
     }
+
+    func closeLibrary() {
+        guard isLibraryOpen else { return }
+        library.didDisappear()
+        downloadsStrip.isSuppressed = false
+        library.fade(in: false, duration: 0.14)
+        for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: true, duration: 0.2) }
+    }
+
+    private var previewPopover: NSPopover?
+    private var previewWatch: Timer?
+
+    /// Hovering the Library button shows the latest downloads above it, as Arc does. It stays while the cursor
+    /// is on the button or the preview, and goes once it is on neither.
+    private func hoverPreview(_ on: Bool) {
+        guard on else { return }   // leaving is handled by the watch below, so the cursor can move into the preview
+        guard previewPopover?.isShown != true, !isLibraryOpen, !Engine.shared.downloads.isEmpty, window != nil else { return }
+        let anchor = spaceBar.downloadsButton!
+        let pop = NSPopover()
+        pop.behavior = .semitransient
+        pop.animates = true
+        let preview = DownloadsPreview()
+        preview.onClose = { [weak pop] in pop?.close() }
+        pop.contentViewController = preview
+        pop.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        previewPopover = pop
+        previewWatch?.invalidate()
+        var outsideSince: Date?
+        previewWatch = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak pop] timer in
+            guard let self, let pop, pop.isShown else { timer.invalidate(); return }
+            let mouse = NSEvent.mouseLocation
+            let onButton = anchor.window.map { w in
+                w.convertToScreen(anchor.convert(anchor.bounds, to: nil)).insetBy(dx: -4, dy: -4).contains(mouse)
+            } ?? false
+            let onPreview = pop.contentViewController?.view.window?.frame.insetBy(dx: -6, dy: -6).contains(mouse) ?? false
+            if onButton || onPreview { outsideSince = nil; return }
+            let since = outsideSince ?? Date()
+            outsideSince = since
+            if Date().timeIntervalSince(since) > 0.3 { pop.close(); timer.invalidate(); self.previewWatch = nil }
+        }
+    }
+
+    /// Test hooks: the Library, the hover preview and the button, as seen by tests.
+    var debugDownloadsRing: String { spaceBar.downloadsButton.debugRing }
+    var debugPreview: DownloadsPreview? { previewPopover?.contentViewController as? DownloadsPreview }
+    var debugStripRows: [String] { ["height=\(Int(downloadsStrip.debugHeight))"] + downloadsStrip.rows.map { $0.debugDescription_ } }
+    func debugShowPreview() { hoverPreview(true) }
 
     func showExtensionsMenu(from anchor: NSView? = nil) {
         let anchor = anchor ?? extensionsAnchor

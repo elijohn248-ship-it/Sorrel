@@ -310,6 +310,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         c.register("downloads.show", "Show Downloads Folder") {
             NSWorkspace.shared.open(Sandbox.downloads)
         }
+        // Arc's Library, over the sidebar (Library.swift). A hidden sidebar slides out to show it.
+        c.register("library.open", "Open Library") { [unowned self] in
+            self.main.peekSidebar()
+            self.main.sidebar.toggleLibrary()
+        }
+        c.register("library.downloads", "Show Downloads") { [unowned self] in
+            self.main.peekSidebar()
+            self.main.sidebar.openLibrary(.downloads)
+        }
+        c.register("library.archive", "Show Archived Tabs") { [unowned self] in
+            self.main.peekSidebar()
+            self.main.sidebar.openLibrary(.archive)
+        }
         c.register("blocking.toggleSite", "Turn Ad Blocking Off or On for This Site") { [unowned self] in
             // With uBlock Origin Lite running, its own pop-up is where a site is switched off.
             if let ubol = Extensions.shared.blocker, ubol.isLoaded {
@@ -359,9 +372,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         c.register("history.clear", "Clear Browsing History…") { [unowned self] in
             self.confirm("Clear your browsing history?",
-                         "Sorrel forgets every page you have visited. Open tabs, cookies and logins are not affected.",
+                         "Sorrel forgets every page you have visited and the downloads list. Open tabs, cookies, logins and downloaded files are not affected.",
                          button: "Clear History") {
                 History.shared.clear()
+                Engine.shared.clearFinishedDownloads()
                 self.store.clearArchive()
                 self.main.showToast("History cleared")
             }
@@ -548,7 +562,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .separator(),
             item("mini.expand"), item("tab.openInFallback"),
             .separator(),
-            item("downloads.show"), item("tab.print"),
+            item("library.downloads"), item("downloads.show"), item("tab.print"),
         ])
         _ = add("Edit", [
             std("Undo", "undo:", "z"),
@@ -589,7 +603,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 archived.submenu = archivedMenu
                 return archived
             }(),
-            item("archive.now"), item("tabs.sleepNow"),
+            item("library.archive"), item("archive.now"), item("tabs.sleepNow"),
         ])
         _ = add("Spaces", [item("space.next"), item("space.previous"), .separator(), item("space.new")])
         // History fills itself in each time it is opened.
@@ -1048,6 +1062,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 36) { if !finished { finished = true; NSApp.terminate(nil) } }
             }
         }
+        if env["SORREL_SECTEST2"] != nil {
+            // Security audit fixes (2026-11-15): a leftover "Continue" offer, dialogs from hidden tabs, sorrel:// names
+            // that climb out of the app, and downloads a page starts without a click. Set SORREL_DOWNLOADS to a scratch
+            // folder: if the download check failed, the file would otherwise land in the real Downloads folder.
+            func js(_ wv: WKWebView?, _ code: String, _ done: @escaping (String) -> Void) {
+                wv?.evaluateJavaScript(code) { r, e in done("\(r ?? e?.localizedDescription ?? "nil")") }
+            }
+            let stale = self.store.newTab(url: env["SORREL_SECTEST_HTTP"] ?? "http://expired.badssl.com/")
+            let hidden = self.store.newTab(url: "https://example.com/", select: false)
+            _ = Engine.shared.ensurePage(for: hidden)
+            let home = Paths.support.deletingLastPathComponent()
+            try? "<h1>outside</h1>".write(to: home.appendingPathComponent("sectest2-outside.html"), atomically: true, encoding: .utf8)
+            let depth = Bundle.main.resourceURL?.pathComponents.count ?? 12
+            let climb = String(repeating: "../", count: depth) + String(home.appendingPathComponent("sectest2-outside").path.dropFirst())
+            let lone = Engine.shared.makePage(profileID: nil)
+            Engine.shared.load("sorrel://" + climb, in: lone)
+            let welcome = Engine.shared.makePage(profileID: nil)
+            Engine.shared.load("sorrel://welcome", in: welcome)
+            let dlTab = self.store.newTab(url: "about:blank")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                // Two ways a page saves a file without a click: a scripted click on a download link, and a frame
+                // pointed at something the browser can't show.
+                Engine.shared.ensurePage(for: dlTab).webView.loadHTMLString("""
+                    <script>
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(new Blob(['unasked'], {type: 'application/octet-stream'}));
+                    a.download = 'unasked.bin'; document.documentElement.appendChild(a); a.click();
+                    const f = document.createElement('iframe');
+                    f.src = URL.createObjectURL(new Blob(['unasked2'], {type: 'application/x-unknown-thing'}));
+                    document.documentElement.appendChild(f);
+                    </script>
+                    """, baseURL: URL(string: "https://example.org/")!)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                log("sec2: sorrel:// climbing out loaded=\(lone.webView.url?.absoluteString ?? "nothing")")
+                log("sec2: sorrel://welcome loaded=\(welcome.webView.url?.lastPathComponent ?? "nothing")")
+                log("sec2: page-started download prompt=\(Engine.shared.lastDownloadPrompt ?? "none") recorded=\(Engine.shared.downloads.map(\.file.lastPathComponent))")
+                log("sec2: hidden tab inWindow=\(hidden.page?.webView.window != nil)")
+                let started = Date()
+                js(hidden.page?.webView, "alert('hi'); String(confirm('sure?')) + '|' + String(prompt('password?'))") { r in
+                    log("sec2: hidden tab dialogs answered=\(r) after \(String(format: "%.1f", Date().timeIntervalSince(started))) s")
+                }
+                js(stale.page?.webView, "document.title") { title in
+                    log("sec2: warning showing=\(title)")
+                    // Leave the warning, then try its Continue link from the next page.
+                    if let p = stale.page { Engine.shared.load("https://example.com/", in: p) }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        js(stale.page?.webView, "location.href='sorrel-insecure:continue'; 'sent'") { _ in }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                            log("sec2: after leftover Continue url=\(stale.page?.webView.url?.absoluteString ?? "nil") (must stay https://example.com/)")
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
+            }
+        }
         if env["SORREL_SECTEST"] != nil {
             // Security checks: HTTPS-first (upgrade and warning), private links staying private,
             // pages opening other apps, data: navigations, download quarantine.
@@ -1088,6 +1158,127 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         log("sec: download \(d.file.lastPathComponent) state=\(d.state) quarantine=\(q.map { "\($0[kLSQuarantineAgentNameKey as String] ?? "?") type=\($0[kLSQuarantineTypeKey as String] ?? "?")" } ?? "MISSING")")
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+                }
+            }
+        }
+        if let mode = env["SORREL_DOWNLOADTEST"], let dir = env["SORREL_DOWNLOADS"] {
+            // Arc-style Library and downloads: a real download plus stand-ins for every state and day group,
+            // an archived tab, then the hover preview, the Library's two sections and the in-progress strip,
+            // as text and pictures. "reopen" checks what a relaunch remembered.
+            let out = URL(fileURLWithPath: dir)
+            let sidebar = self.main.sidebar
+            func png(_ view: NSView?, _ name: String) {
+                guard let view, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { log("dl: nothing to snapshot for \(name)"); return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                // A popover's material isn't part of the capture: paint a backdrop in the view's own appearance.
+                let image = NSImage(size: view.bounds.size)
+                image.lockFocus()
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    NSColor.windowBackgroundColor.setFill()
+                    NSRect(origin: .zero, size: view.bounds.size).fill()
+                }
+                rep.draw(in: NSRect(origin: .zero, size: view.bounds.size))
+                image.unlockFocus()
+                if let tiff = image.tiffRepresentation, let data = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? data.write(to: out.appendingPathComponent(name))
+                }
+            }
+            func library(_ label: String) {
+                log("dl: [\(label)] library open=\(sidebar.isLibraryOpen) section=\(sidebar.library.section)")
+                for line in sidebar.library.debugLines { log("dl: [\(label)]   \(line)") }
+            }
+            func button(_ label: String) {
+                log("dl: [\(label)] button \(sidebar.debugDownloadsRing)")
+                log("dl: [\(label)] strip \(sidebar.debugStripRows)")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if mode == "reopen" {
+                    sidebar.openLibrary(.downloads)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                        log("dl: [reopen] list=\(Engine.shared.downloads.map { "\($0.file.lastPathComponent):\($0.state)" })")
+                        library("reopen")
+                        Engine.shared.clearFinishedDownloads()
+                        log("dl: after clear list=\(Engine.shared.downloads.count) savedFileExists=\(FileManager.default.fileExists(atPath: Paths.support.appendingPathComponent("downloads.json").path))")
+                        NSApp.terminate(nil)
+                    }
+                    return
+                }
+                // An archived tab to find in Library ▸ Archive.
+                let old = self.store.newTab(url: "https://example.org/")
+                let tab = self.store.newTab(url: "https://example.com/")
+                old.lastActive = Date().addingTimeInterval(-5 * 3600)
+                log("dl: archived \(self.store.archiveStaleTabs(olderThanHours: 1)) tab(s)")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    let cal = Calendar.current
+                    let yesterday = cal.date(byAdding: .hour, value: -4, to: cal.startOfDay(for: Date()))!
+                    // Yesterday: a picture (Quick Look preview). Earlier: one whose file has gone.
+                    let gone = DownloadRecord(file: out.appendingPathComponent("Old Syllabus.pdf"), started: Date().addingTimeInterval(-12 * 86400))
+                    gone.state = .done
+                    gone.received = 220_000
+                    gone.finished = gone.started
+                    Engine.shared.debugAddDownload(gone)
+                    let picture = out.appendingPathComponent("leaf.png")
+                    if let tiff = NSApp.applicationIconImage?.tiffRepresentation,
+                       let data = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                        try? data.write(to: picture)
+                        let done = DownloadRecord(file: picture, started: yesterday)
+                        done.state = .done
+                        done.received = Int64(data.count)
+                        done.finished = yesterday
+                        Engine.shared.debugAddDownload(done)
+                    }
+                    // Today: one cancelled, one mid-way with a known size, and a real one.
+                    let cancelled = DownloadRecord(file: out.appendingPathComponent("anki-deck.apkg"))
+                    cancelled.state = .failed
+                    cancelled.cancelled = true
+                    Engine.shared.debugAddDownload(cancelled)
+                    let running = DownloadRecord(file: out.appendingPathComponent("Lecture 12 — Renal Physiology.mp4"), started: Date().addingTimeInterval(-6))
+                    running.total = 84_000_000
+                    running.received = 31_500_000
+                    running.fraction = 0.375
+                    Engine.shared.debugAddDownload(running)
+                    if let wv = tab.page?.webView, let f = URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf") {
+                        Engine.shared.startDownload(f, in: wv)
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        button("live")
+                        png(self.main.window?.contentView, "strip.png")
+                        sidebar.debugShowPreview()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            log("dl: [preview] rows=\(sidebar.debugPreview?.rows.map { $0.debugDescription_ } ?? [])")
+                            sidebar.debugPreview?.view.appearance = NSAppearance(named: .aqua)   // capture only
+                            png(sidebar.debugPreview?.view, "preview.png")
+                            sidebar.toggleLibrary()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                log("dl: [library] preview closed=\(sidebar.debugPreview == nil || !(sidebar.debugPreview?.view.window?.isVisible ?? false))")
+                                library("downloads")
+                                button("library")
+                                png(self.main.window?.contentView, "library.png")
+                                sidebar.openLibrary(.archive)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                    library("archive")
+                                    png(self.main.window?.contentView, "archive.png")
+                                    // Reopening the archived tab from the Library closes it and brings the tab back.
+                                    let before = self.store.archive.count
+                                    sidebar.library.debugOpenFirstArchived()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                        log("dl: [restore] archive \(before)->\(self.store.archive.count) libraryOpen=\(sidebar.isLibraryOpen) selected=\(self.store.selected?.url ?? "nil")")
+                                        // The mid-way stand-in finishes: the strip empties and the ring goes.
+                                        running.state = .done
+                                        running.finished = Date()
+                                        try? Data(count: 1024).write(to: running.file)
+                                        running.received = 1024
+                                        NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                                            button("finished")
+                                            png(self.main.window?.contentView, "finished.png")
+                                            NSApp.terminate(nil)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

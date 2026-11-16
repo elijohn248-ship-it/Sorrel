@@ -905,6 +905,11 @@ extension MainWindowController {
         }
     }
 
+    /// A hidden sidebar slides out (as on hover) so something in it can be shown, like the Library.
+    func peekSidebar() {
+        if mode == .hidden { setMode(.peeking) }
+    }
+
     /// Test hook: force a sidebar state without moving the mouse.
     func debugSetSidebar(_ name: String) {
         switch name {

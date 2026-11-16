@@ -547,6 +547,7 @@ final class Store {
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         if let data = try? enc.encode(archive) { try? data.write(to: Paths.archive, options: .atomic) }
+        NotificationCenter.default.post(name: .sorrelArchive, object: nil)
     }
 
     /// Puts away unpinned tabs that have not been used for `hours`. Returns how many were archived.
@@ -587,6 +588,13 @@ final class Store {
         let entry = archive.remove(at: index)
         saveArchive()
         newTab(url: entry.url, title: entry.title, in: space(id: entry.spaceID))
+    }
+
+    /// Forgets one archived tab without reopening it (Library ▸ Archive).
+    func removeArchived(at index: Int) {
+        guard archive.indices.contains(index) else { return }
+        archive.remove(at: index)
+        saveArchive()
     }
 
     func clearArchive() {

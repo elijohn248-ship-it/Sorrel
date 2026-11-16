@@ -26,8 +26,19 @@ enum ChromeCompat {
       } catch (e) {}
     })();
     """#
+    /// The `externally_connectable` patterns that name exact hosts ("https://account.proton.me/*"). Patterns with a
+    /// wildcard host ("*://*.google.com/*") would hand a whole family of sites Chrome's identity and the page
+    /// bridge, so they are left out (CLAUDE.md, Security invariants: ask before widening this).
+    static func exactHostPatterns(_ matches: [String]) -> [String] {
+        matches.filter { pattern in
+            guard let range = pattern.range(of: "://") else { return false }
+            let host = pattern[range.upperBound...].prefix { $0 != "/" }
+            return !host.isEmpty && !host.contains("*")
+        }
+    }
+
     private static let marker = "sorrel_compat"
-    private static let version = 12
+    private static let version = 13
     /// The names this layer used before the app was renamed. A copy patched back then chains through them;
     /// `apply` collapses the chain so the extension runs the current layer straight from its own files.
     private static let oldPrefix = "drift"
@@ -246,7 +257,7 @@ enum ChromeCompat {
             // Sites the extension declares it exchanges messages with get the Chrome-style entry point.
             groups.removeAll { ($0["js"] as? [String]) == [bridgeName] || ($0["js"] as? [String]) == [oldBridge] }
             if let external = manifest["externally_connectable"] as? [String: Any],
-               let matches = external["matches"] as? [String], !matches.isEmpty {
+               case let matches = exactHostPatterns((external["matches"] as? [String]) ?? []), !matches.isEmpty {
                 try? bridge.write(to: dir.appendingPathComponent(bridgeName), atomically: true, encoding: .utf8)
                 groups.insert(["matches": matches, "js": [bridgeName], "world": "MAIN", "run_at": "document_start",
                                "all_frames": false], at: 0)
