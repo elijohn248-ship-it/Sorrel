@@ -329,13 +329,10 @@ final class Bangs {
 
     private var table: [String: Bang] = [:]
 
+    /// Written once as the person's own bangs.json, next to the ~13,000 built in. Starts empty; the
+    /// welcome page explains the format. (An existing file is never rewritten.)
     private static let starterCustom = """
     [
-      {"t": "amb", "s": "AMBOSS", "u": "https://next.amboss.com/us/search?q={{{s}}}"},
-      {"t": "up", "s": "UpToDate", "u": "https://www.uptodate.com/contents/search?search={{{s}}}"},
-      {"t": "mdc", "s": "MDCalc", "u": "https://www.mdcalc.com/search?q={{{s}}}"},
-      {"t": "rad", "s": "Radiopaedia", "u": "https://radiopaedia.org/search?q={{{s}}}&scope=all"},
-      {"t": "pm", "s": "PubMed", "u": "https://pubmed.ncbi.nlm.nih.gov/?term={{{s}}}"}
     ]
     """
 
