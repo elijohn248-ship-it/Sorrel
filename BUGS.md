@@ -23,9 +23,16 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-(none)
+### `tools/update-test.sh` swapzip step doesn't install (found 2026-11-16, not investigated)
+- The "zip swapped after handoff" step ends on the old build: the service refuses the test app's own container log (`The updater only writes to Sorrel's own update.log, not ~/Library/Containers/app.sorrel.browser.test/Data/…/Sorrel Test/Updates/update.log`). Same result with ad-hoc and self-signed builds, so it predates the signing change. Normal install and install-on-quit pass. Check the service's allowed-log-path rule for the test build's profile name ("Sorrel Test").
 
 ## Fixed
+
+### "Allow Sorrel to access files in your Downloads folder" on every download after a rebuild or update (fixed 2026-11-16, branch `downloads-tcc`)
+- **Repro:** rebuild or update Sorrel, download a file.
+- **Expected:** macOS asks once, ever.
+- **Actual:** macOS asked again after every new build.
+- **Cause:** on macOS 27 the sandbox checks with TCC before a sandboxed app touches `~/Downloads`, even with `files.downloads.read-write` (seen in the log: `sandboxd … checking kTCCServiceSystemPolicyDownloadsFolder for Sorrel`). TCC stores the yes against the app's designated requirement, and an ad-hoc signature's requirement is `cdhash H"…"`, which is different for every build. Fix: `build.sh` signs with a free self-signed certificate (`tools/make-signing-identity.sh`, kept in `~/.config/sorrel/signing.keychain-db`), so the requirement is `identifier … and certificate leaf = H"…"` for every build. Verified with the test build: a copy with a new code hash and the same certificate was allowed without asking; the existing sandbox container opened without a prompt after the switch from ad-hoc. Updates install fine (`tools/update-test.sh`). The first launch after the switch asks once more (Downloads, and camera/microphone/location when used).
 
 ### claude.ai (and other sites) call Sorrel an outdated browser on other Macs (fixed 2026-11-16, branch `ua-compat`)
 - **Reported:** on another person's Mac running macOS newer than 15 (exact version unknown), Sorrel 0.2.0. Most likely macOS 26: the binary records SDK 15.4 (SwiftPM uses Package.swift's minimum), and macOS 26 reports "16.x" to such apps, so the old code sent `Version/16.0`, which claude.ai's check flags (verified: `Version/16.0` -> `"browser"`). This Mac (macOS 27.2) no longer does that, so it couldn't be reproduced natively; `SORREL_FAKE_OS=16.0` simulates it.
