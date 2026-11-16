@@ -359,9 +359,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         c.register("history.clear", "Clear Browsing History…") { [unowned self] in
             self.confirm("Clear your browsing history?",
-                         "Sorrel forgets every page you have visited. Open tabs, cookies and logins are not affected.",
+                         "Sorrel forgets every page you have visited and the downloads list. Open tabs, cookies, logins and downloaded files are not affected.",
                          button: "Clear History") {
                 History.shared.clear()
+                Engine.shared.clearFinishedDownloads()
                 self.store.clearArchive()
                 self.main.showToast("History cleared")
             }
@@ -1088,6 +1089,93 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         log("sec: download \(d.file.lastPathComponent) state=\(d.state) quarantine=\(q.map { "\($0[kLSQuarantineAgentNameKey as String] ?? "?") type=\($0[kLSQuarantineTypeKey as String] ?? "?")" } ?? "MISSING")")
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+                }
+            }
+        }
+        if let mode = env["SORREL_DOWNLOADTEST"], let dir = env["SORREL_DOWNLOADS"] {
+            // Arc-style downloads panel: a real download plus stand-ins for the other states, then the panel
+            // and the button's ring as text and pictures. "reopen" checks what a relaunch remembered.
+            let out = URL(fileURLWithPath: dir)
+            func snap(_ name: String) {
+                guard let view = self.main.sidebar.debugDownloadsPanel?.view,
+                      let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { log("dl: no panel to snapshot"); return }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let image = NSImage(size: view.bounds.size)
+                image.lockFocus()
+                NSColor.windowBackgroundColor.setFill()
+                NSRect(origin: .zero, size: view.bounds.size).fill()
+                rep.draw(in: NSRect(origin: .zero, size: view.bounds.size))
+                image.unlockFocus()
+                if let tiff = image.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? png.write(to: out.appendingPathComponent(name))
+                }
+            }
+            func report(_ label: String) {
+                log("dl: [\(label)] list=\(Engine.shared.downloads.map { "\($0.file.lastPathComponent):\($0.state)" })")
+                log("dl: [\(label)] button \(self.main.sidebar.debugDownloadsRing)")
+                for row in self.main.sidebar.debugDownloadsPanel?.rows ?? [] { log("dl: [\(label)] row \(row.debugDescription_)") }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if mode == "reopen" {
+                    self.main.sidebar.showDownloads()
+                    self.main.sidebar.debugDownloadsPanel?.view.appearance = NSAppearance(named: .aqua)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        report("reopen")
+                        snap("panel-reopen.png")
+                        log("dl: saved file=\((try? String(contentsOf: Paths.support.appendingPathComponent("downloads.json"), encoding: .utf8)) ?? "none")")
+                        // Clear History empties the list and the saved file.
+                        Engine.shared.clearFinishedDownloads()
+                        log("dl: after clear list=\(Engine.shared.downloads.count) savedFileExists=\(FileManager.default.fileExists(atPath: Paths.support.appendingPathComponent("downloads.json").path))")
+                        NSApp.terminate(nil)
+                    }
+                    return
+                }
+                let tab = self.store.newTab(url: "https://example.com/")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    // Stand-ins: a finished picture (for the Quick Look preview), one mid-way with a known size, one cancelled.
+                    let picture = out.appendingPathComponent("leaf.png")
+                    if let tiff = NSApp.applicationIconImage?.tiffRepresentation,
+                       let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                        try? png.write(to: picture)
+                        let done = DownloadRecord(file: picture, started: Date().addingTimeInterval(-7200))
+                        done.state = .done
+                        done.received = Int64(png.count)
+                        done.finished = Date().addingTimeInterval(-7200)
+                        Engine.shared.debugAddDownload(done)
+                    }
+                    let running = DownloadRecord(file: out.appendingPathComponent("Lecture 12 — Renal Physiology.mp4"), started: Date().addingTimeInterval(-6))
+                    running.total = 84_000_000
+                    running.received = 31_500_000
+                    running.fraction = 0.375
+                    Engine.shared.debugAddDownload(running)
+                    log("dl: [one running] button \(self.main.sidebar.debugDownloadsRing)")
+                    let cancelled = DownloadRecord(file: out.appendingPathComponent("anki-deck.apkg"))
+                    cancelled.state = .failed
+                    cancelled.cancelled = true
+                    Engine.shared.debugAddDownload(cancelled)
+                    if let wv = tab.page?.webView, let f = URL(string: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf") {
+                        Engine.shared.startDownload(f, in: wv)
+                    }
+                    self.main.sidebar.showDownloads()
+                    self.main.sidebar.debugDownloadsPanel?.view.appearance = NSAppearance(named: .aqua)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                        report("live")
+                        snap("panel.png")
+                        if let v = self.main.window?.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                            v.cacheDisplay(in: v.bounds, to: rep)
+                            try? rep.representation(using: .png, properties: [:])?.write(to: out.appendingPathComponent("window.png"))
+                        }
+                        // Finishing the stand-in: the ring goes away, the row shows size + time.
+                        running.state = .done
+                        running.finished = Date()
+                        try? Data(count: 1024).write(to: running.file)
+                        running.received = 1024
+                        NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                            report("finished")
+                            NSApp.terminate(nil)
+                        }
+                    }
                 }
             }
         }

@@ -19,7 +19,8 @@ final class SorrelWebView: WKWebView {
     }
 }
 
-/// One file being downloaded, or already downloaded this session.
+/// One file being downloaded, or downloaded recently (finished ones from normal windows are remembered
+/// across launches in `downloads.json`; private ones never are).
 final class DownloadRecord {
     enum State { case running, done, failed }
     let file: URL
@@ -27,7 +28,18 @@ final class DownloadRecord {
     weak var download: WKDownload?
     var observation: NSKeyValueObservation?
     var fraction: Double = 0
-    init(file: URL) { self.file = file }
+    /// Bytes so far, and the expected size (0 = the server didn't say).
+    var received: Int64 = 0
+    var total: Int64 = 0
+    let started: Date
+    var finished: Date?
+    var isPrivate = false
+    /// Stopped on purpose (so it reads "Cancelled", not "Didn't finish").
+    var cancelled = false
+    init(file: URL, started: Date = Date()) { self.file = file; self.started = started }
+
+    /// What `downloads.json` keeps: just enough to list the file again.
+    struct Saved: Codable { var path: String; var bytes: Int64; var finished: Date }
 }
 
 extension Notification.Name {
@@ -107,8 +119,10 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     var onToast: ((String) -> Void)?
 
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
-    /// This session's downloads, newest first.
-    private(set) var downloads: [DownloadRecord] = []
+    /// Recent downloads, newest first: this session's, plus finished ones remembered from earlier launches.
+    private(set) lazy var downloads: [DownloadRecord] = loadSavedDownloads()
+    private var downloadsFile: URL { Paths.support.appendingPathComponent("downloads.json") }
+    private static let savedDownloadLimit = 30
 
     /// Starts a download directly (used by tests).
     func startDownload(_ url: URL, in webView: WKWebView) {
@@ -117,7 +131,62 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
 
     func clearFinishedDownloads() {
         downloads.removeAll { $0.state != .running }
+        downloadsChanged(save: true)
+    }
+
+    /// Takes one entry off the list (the file stays where it is). A running download is cancelled first.
+    func removeDownload(_ record: DownloadRecord) {
+        if record.state == .running { record.download?.cancel { _ in } }
+        downloads.removeAll { $0 === record }
+        downloadsChanged(save: true)
+    }
+
+    /// Moves a finished download to the Trash and takes it off the list.
+    func trashDownload(_ record: DownloadRecord) {
+        guard record.state != .running else { return }
+        try? FileManager.default.trashItem(at: record.file, resultingItemURL: nil)
+        removeDownload(record)
+    }
+
+    private func downloadsChanged(save: Bool = false) {
+        if save { saveDownloads() }
         NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+    }
+
+    private func loadSavedDownloads() -> [DownloadRecord] {
+        guard let data = try? Data(contentsOf: downloadsFile) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let saved = try? decoder.decode([DownloadRecord.Saved].self, from: data) else { return [] }
+        return saved.prefix(Self.savedDownloadLimit).map { s in
+            let r = DownloadRecord(file: URL(fileURLWithPath: s.path), started: s.finished)
+            r.state = .done
+            r.fraction = 1
+            r.received = s.bytes
+            r.total = s.bytes
+            r.finished = s.finished
+            return r
+        }
+    }
+
+    /// Only finished downloads from normal windows are written down; private ones leave no record.
+    private func saveDownloads() {
+        let saved = downloads.filter { $0.state == .done && !$0.isPrivate }.prefix(Self.savedDownloadLimit).map {
+            DownloadRecord.Saved(path: $0.file.path, bytes: $0.received, finished: $0.finished ?? $0.started)
+        }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        if saved.isEmpty {
+            try? FileManager.default.removeItem(at: downloadsFile)
+        } else if let data = try? encoder.encode(Array(saved)) {
+            try? data.write(to: downloadsFile, options: .atomic)
+        }
+    }
+
+    /// Test hook: puts a stand-in entry on the list without downloading anything.
+    func debugAddDownload(_ record: DownloadRecord) {
+        downloads.insert(record, at: 0)
+        downloadsChanged()
     }
 
     private func record(for download: WKDownload) -> DownloadRecord? { downloads.first { $0.download === download } }
@@ -705,13 +774,20 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             n += 1
         }
         downloadDestinations[ObjectIdentifier(download)] = dest
-        if download.webView.flatMap({ page($0) })?.isPrivate == true { privateDownloads.insert(ObjectIdentifier(download)) }
+        let isPrivate = download.webView.flatMap({ page($0) })?.isPrivate == true
+        if isPrivate { privateDownloads.insert(ObjectIdentifier(download)) }
         let record = DownloadRecord(file: dest)
         record.download = download
+        record.isPrivate = isPrivate
+        record.total = max(0, response.expectedContentLength)
         record.observation = download.progress.observe(\.fractionCompleted) { [weak record] progress, _ in
             let value = progress.fractionCompleted
+            let done = progress.completedUnitCount, total = progress.totalUnitCount
             DispatchQueue.main.async {
-                guard let record, abs(value - record.fraction) >= 0.02 || value >= 1 else { return }
+                guard let record else { return }
+                record.received = done
+                if total > 0 { record.total = total }
+                guard abs(value - record.fraction) >= 0.01 || value >= 1 else { return }
                 record.fraction = value
                 NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
             }
@@ -729,7 +805,11 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         if let r = record(for: download) {
             r.state = .done
             r.observation = nil
-            NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
+            r.fraction = 1
+            r.finished = Date()
+            if let size = (try? dest.resourceValues(forKeys: [.fileSizeKey]))?.fileSize { r.received = Int64(size) }
+            r.total = r.received
+            downloadsChanged(save: true)
         }
         onToast?("Downloaded \(dest.lastPathComponent)")
         DistributedNotificationCenter.default().post(
@@ -763,11 +843,18 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
         privateDownloads.remove(ObjectIdentifier(download))
         let dest = downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        let cancelled = (error as NSError).code == NSURLErrorCancelled
         if let r = record(for: download) {
             r.state = .failed
+            r.cancelled = r.cancelled || cancelled
             r.observation = nil
+            r.finished = Date()
             NotificationCenter.default.post(name: .sorrelDownloads, object: nil)
         }
-        onToast?("Download failed: \(dest?.lastPathComponent ?? error.localizedDescription)")
+        if cancelled {
+            onToast?("Download cancelled")
+        } else {
+            onToast?("Download failed: \(dest?.lastPathComponent ?? error.localizedDescription)")
+        }
     }
 }

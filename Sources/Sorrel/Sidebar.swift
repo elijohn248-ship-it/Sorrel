@@ -742,7 +742,7 @@ private final class SpaceBar: NSView {
     var onDownloads: ((NSView) -> Void)?
     private var addButton: IconButton!
     private(set) var extensionsButton: IconButton!
-    private(set) var downloadsButton: IconButton!
+    private(set) var downloadsButton: DownloadsButton!
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -758,7 +758,7 @@ private final class SpaceBar: NSView {
             if let self { self.onExtensions?(self.extensionsButton) }
         }
         addSubview(extensionsButton)
-        downloadsButton = IconButton(symbol: "arrow.down.circle", size: 12, tooltip: "Downloads") { [weak self] in
+        downloadsButton = DownloadsButton { [weak self] in
             if let self { self.onDownloads?(self.downloadsButton) }
         }
         downloadsButton.isHidden = true   // appears once something has been downloaded
@@ -871,7 +871,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     /// True while something in the sidebar needs it to stay on screen.
     var wantsToStayOpen: Bool {
-        editingCount > 0 || (themePopover?.isShown ?? false)
+        editingCount > 0 || (themePopover?.isShown ?? false) || (downloadsPopover?.isShown ?? false)
     }
 
     override init(frame: NSRect) {
@@ -883,6 +883,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         nc.addObserver(self, selector: #selector(itemChanged(_:)), name: .sorrelItem, object: nil)
         nc.addObserver(self, selector: #selector(spaceChanged), name: .sorrelSpace, object: nil)
         nc.addObserver(self, selector: #selector(downloadsChanged), name: .sorrelDownloads, object: nil)
+        DispatchQueue.main.async { [weak self] in self?.downloadsChanged() }   // remembered downloads show the button at launch
         nc.addObserver(self, selector: #selector(extensionsChanged), name: .sorrelExtensions, object: nil)
         nc.addObserver(self, selector: #selector(extensionActionChanged(_:)), name: .sorrelExtensionAction, object: nil)
         nc.addObserver(self, selector: #selector(extensionTabChanged), name: .sorrelSelection, object: nil)
@@ -983,7 +984,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         spaceBar.menuProvider = { [weak self] in self?.menu(for: $0) ?? NSMenu() }
         spaceBar.onAdd = { [weak self] anchor in self?.showAddMenu(from: anchor) }
         spaceBar.onExtensions = { [weak self] anchor in self?.showExtensionsMenu(from: anchor) }
-        spaceBar.onDownloads = { [weak self] anchor in self?.showDownloadsMenu(from: anchor) }
+        spaceBar.onDownloads = { [weak self] anchor in self?.showDownloads(from: anchor) }
         handle.onDrag = { [weak self] x in self?.controller?.resizeSidebar(to: x) }
 
         NSLayoutConstraint.activate([
@@ -1633,53 +1634,28 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     }
 
     @objc private func downloadsChanged() {
-        let list = Engine.shared.downloads
-        let button = spaceBar.downloadsButton!
-        button.isHidden = list.isEmpty
-        let running = list.filter { $0.state == .running }
-        button.contentTintColor = running.isEmpty ? .secondaryLabelColor : .controlAccentColor
-        if let first = running.first {
-            button.toolTip = "Downloading \(first.file.lastPathComponent) (\(Int(first.fraction * 100))%)"
-        } else {
-            button.toolTip = "Downloads"
-        }
+        spaceBar.downloadsButton.update(Engine.shared.downloads)
     }
 
-    func showDownloadsMenu(from anchor: NSView? = nil) {
-        let anchor = anchor ?? spaceBar.downloadsButton!
-        let m = NSMenu()
-        let list = Engine.shared.downloads
-        if list.isEmpty {
-            let none = NSMenuItem(title: "Nothing Downloaded Yet", action: nil, keyEquivalent: "")
-            none.isEnabled = false
-            m.addItem(none)
-        }
-        for record in list.prefix(15) {
-            let name = String(record.file.lastPathComponent.prefix(48))
-            switch record.state {
-            case .running:
-                m.addItem(ActionMenuItem("\(name) — \(Int(record.fraction * 100))% · Cancel") {
-                    record.download?.cancel { _ in }
-                })
-            case .done:
-                let item = ActionMenuItem(name) { NSWorkspace.shared.activateFileViewerSelecting([record.file]) }
-                item.image = NSWorkspace.shared.icon(forFile: record.file.path)
-                item.image?.size = NSSize(width: 16, height: 16)
-                item.toolTip = "Show in Finder"
-                m.addItem(item)
-            case .failed:
-                let item = NSMenuItem(title: "\(name) — didn’t finish", action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                m.addItem(item)
-            }
-        }
-        m.addItem(.separator())
-        m.addItem(ActionMenuItem("Open Downloads Folder") { Commands.shared.run("downloads.show") })
-        if list.contains(where: { $0.state != .running }) {
-            m.addItem(ActionMenuItem("Clear This List") { Engine.shared.clearFinishedDownloads() })
-        }
-        m.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+    private var downloadsPopover: NSPopover?
+
+    /// The Arc-style downloads panel, above the space bar's downloads button. A second click closes it.
+    func showDownloads(from anchor: NSView? = nil) {
+        if let pop = downloadsPopover, pop.isShown { pop.close(); return }
+        let button: NSView = spaceBar.downloadsButton
+        let anchor = anchor ?? (button.isHidden ? extensionsAnchor : button)
+        let pop = NSPopover()
+        pop.behavior = .transient
+        let panel = DownloadsPanel()
+        panel.onClose = { [weak pop] in pop?.close() }
+        pop.contentViewController = panel
+        pop.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: anchor.isFlipped ? .minY : .maxY)
+        downloadsPopover = pop
     }
+
+    /// Test hooks: the downloads panel and button as text.
+    var debugDownloadsPanel: DownloadsPanel? { downloadsPopover?.contentViewController as? DownloadsPanel }
+    var debugDownloadsRing: String { spaceBar.downloadsButton.debugRing }
 
     func showExtensionsMenu(from anchor: NSView? = nil) {
         let anchor = anchor ?? extensionsAnchor
