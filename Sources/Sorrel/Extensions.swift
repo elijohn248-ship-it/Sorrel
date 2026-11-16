@@ -935,11 +935,11 @@ final class Extensions: NSObject {
     /// A pop-up is only ever on screen while its popover is shown, so it must never count as hidden.
     /// WebKit treats a page as hidden when macOS reports its window as covered (occluded), even if the
     /// popover is plainly in front. A hidden page gets no animation frames and its CSS animations stop
-    /// at their first frame. Proton Pass fades its item list and item details in (opacity 0 until the
-    /// animation runs) and sizes its list on an animation frame, so the pop-up showed its header and
-    /// counts but a blank list and blank details. With occlusion detection off, WebKit counts the
-    /// pop-up as visible whenever its window is visible. Only pop-ups get this; tabs keep WebKit's
-    /// power saving for covered windows.
+    /// at their first frame, so a pop-up like Proton Pass's (content faded in from opacity 0) stays blank.
+    /// With occlusion detection off, WebKit counts the pop-up as visible whenever its window is visible.
+    /// This was NOT the cause of the owner's blank Proton list (their pop-up was visible; see
+    /// applyDeclaredSize), but it keeps pop-ups drawing when the window is reported covered, which is also
+    /// what lets background test windows see a pop-up render. Tabs keep WebKit's power saving.
     private func keepPopupAwake(_ webView: WKWebView?) {
         let setter = NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")
         guard let webView, webView.responds(to: setter), let method = webView.method(for: setter) else { return }
@@ -980,9 +980,12 @@ final class Extensions: NSObject {
           });
           var w = Math.min(800, declared.width), h = Math.min(600, declared.height), changed = 0;
           if (w > window.innerWidth + 20 || h > window.innerHeight + 20) {
+            // A real width and height, not only a minimum: the page's own `height: 100%` chain (html -> body ->
+            // app) resolves against the height WebKit measures the pop-up with, not against a minimum. With only
+            // min-height, Proton's app area collapsed to its header (115 of 430) and its list got 0 height.
             [root, body].forEach(function (el) {
-              if (w) el.style.setProperty('min-width', w + 'px', 'important');
-              if (h) el.style.setProperty('min-height', h + 'px', 'important');
+              if (w) { el.style.setProperty('min-width', w + 'px', 'important'); el.style.setProperty('width', w + 'px', 'important'); }
+              if (h) { el.style.setProperty('min-height', h + 'px', 'important'); el.style.setProperty('height', h + 'px', 'important'); }
             });
             changed = 1;
           }
