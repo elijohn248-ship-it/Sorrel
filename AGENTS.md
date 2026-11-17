@@ -179,10 +179,11 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.1 Branches and releases
 
-- `main` is at `750aaf2` ("Update card in the sidebar; updater takes open files so real installs work") and is **12 commits ahead of `origin/main`** (not pushed). Pushing is the owner's call.
-- **Published release:** only **v0.2.0 (build 2)**, published 2026-11-16.
-- **v0.2.1 (build 3)** and **v0.2.2 (build 4)** were cut locally (worktrees `~/sorrel-release` and `~/sorrel-release-0.2.2`) but **NOT published. Do not publish them.** They carry the old updater service, which macOS blocks from installing (see 4.3). The next release must be **re-cut from current `main`** (it will become build 5), and only when the owner asks.
-- **Copies already on 0.2.0 most likely cannot update themselves.** Those users need one manual download of the next release. The release notes for the next release should say so.
+- `main` and `origin/main` are in step as of 2026-11-16 (pushed at the owner's request, after the 0.2.3 release commit).
+- **Latest published release: v0.2.3 (build 5)**, published 2026-11-16, cut from `main` in `~/sorrel-release-0.2.3` (branch `release-0.2.3`, local only; the temporary remote branch was deleted). It is the first release with the working updater (open files instead of paths) and the sidebar update card. `tools/update-test.sh` passed on that exact build before publishing. Before it: v0.2.0 (build 2).
+- **v0.2.1 (build 3)** and **v0.2.2 (build 4)** were cut locally (worktrees `~/sorrel-release`, `~/sorrel-release-0.2.2`; tags local only) and **never published. Never publish them**: 0.2.3 supersedes both. The next release will be build 6.
+- **Copies on 0.2.0 most likely cannot install updates themselves** (old updater service). The 0.2.3 release notes tell those users to download it by hand once. From 0.2.3 on, updates should install by themselves.
+- **0.2.3 is signed ad-hoc** (the self-signed identity didn't exist yet), so macOS asks again for Downloads/camera/mic/location after each update until the identity is created and used for a release.
 
 ### 4.2 Worktrees that exist
 
