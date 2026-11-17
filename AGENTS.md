@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Picture in Picture is implemented (2026-11-17):** View ▸ Picture in Picture opens a movable/resizable floating video with hover playback, ±10-second skip, progress and remaining time. Top-level and same-origin videos use their existing WebKit view/store. Cross-origin embeds and shadow-root players may need the site’s own PiP control. Mouse feel and signed-in sites await owner verification.
+
 - **Multiple normal windows are implemented (2026-11-17):** ⌘N opens a new window with independent tab/space selection, shared normal logins, and session restore. Selecting an already visible tab focuses its window. Owner verification is still needed for signed-in extensions and window-switching feel.
 
 - **Updater fix (2026-11-16):** macOS's app-data protection (TCC `SystemPolicyAppDataDetailed`) blocks the unsandboxed updater service from any path inside the app's container. So the app now opens the zip and log itself and passes them to the service as `FileHandle`s. Real installs were most likely always refused before this.
