@@ -33,6 +33,7 @@ final class PaneView: NSView {
     var onAction: ((PaneAction) -> Void)?
 
     private let controls = NSView()
+    private let videoReturn = NSButton(title: "Return video from Picture in Picture", target: nil, action: nil)
     private var area: NSTrackingArea?
     private var controlsShown = false
 
@@ -74,9 +75,20 @@ final class PaneView: NSView {
         }
         previous?.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: -4).isActive = true
 
-        webView.frame = bounds
-        webView.autoresizingMask = [.width, .height]
-        addSubview(webView)
+        videoReturn.target = self
+        videoReturn.action = #selector(returnVideo)
+        videoReturn.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(videoReturn)
+        NSLayoutConstraint.activate([
+            videoReturn.centerXAnchor.constraint(equalTo: centerXAnchor),
+            videoReturn.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        videoReturn.isHidden = !PictureInPicture.shared.contains(webView)
+        if !PictureInPicture.shared.contains(webView) {
+            webView.frame = bounds
+            webView.autoresizingMask = [.width, .height]
+            addSubview(webView)
+        }
         controls.translatesAutoresizingMaskIntoConstraints = false
         addSubview(controls)
         NSLayoutConstraint.activate([
@@ -90,12 +102,17 @@ final class PaneView: NSView {
 
     /// Puts the web view back in this pane if something else (a peek, a mini window) borrowed it.
     func reclaimWebView() {
+        let floating = PictureInPicture.shared.contains(webView)
+        videoReturn.isHidden = !floating
+        if floating { PictureInPicture.shared.setReturnHost(self, for: webView); return }
         guard webView.superview !== self else { return }
         webView.removeFromSuperview()
         webView.frame = bounds
         webView.autoresizingMask = [.width, .height]
         addSubview(webView, positioned: .below, relativeTo: controls)
     }
+
+    @objc private func returnVideo() { PictureInPicture.shared.close() }
 
     private func refreshLook() {
         if inSplit {

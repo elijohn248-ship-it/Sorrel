@@ -350,6 +350,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         c.register("nav.forward", "Forward") { [unowned self] in self.activeWebView?.goForward() }
 
         c.register("sidebar.toggle", "Hide or Show Sidebar") { [unowned self] in self.main.toggleSidebar() }
+        c.register("video.pictureInPicture", "Picture in Picture") { [unowned self] in
+            if let view = self.activeWebView { PictureInPicture.shared.toggle(view) }
+        }
         c.register("find.show", "Find on Page") { [unowned self] in
             if let wv = self.main.currentWebView { self.main.card.findBar.open(for: wv) }
         }
@@ -668,6 +671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .separator(),
             item("tab.reload"), item("tab.hardReload"), item("nav.back"), item("nav.forward"),
             .separator(),
+            item("video.pictureInPicture"),
             item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"),
             .separator(),
             item("blocking.toggleSite"), item("blocking.updateExtension"), item("extensions.update"), item("extensions.manage"),
@@ -795,6 +799,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        if let fixture = env["SORREL_PIPTEST"] {
+            PictureInPicture.shared.runTest(store: self.store, fixture: fixture)
+        }
         if env["SORREL_MEDIATEST"] != nil {
             main.sidebar.mediaPlayer.runMediaTest()
         }

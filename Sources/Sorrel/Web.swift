@@ -99,6 +99,7 @@ final class Page: NSObject {
     }
 
     func teardown() {
+        if PictureInPicture.shared.contains(webView) { PictureInPicture.shared.close() }
         observations.forEach { $0.invalidate() }
         observations = []
         onChange = nil
