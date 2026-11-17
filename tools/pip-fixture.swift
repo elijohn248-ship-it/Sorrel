@@ -1,3 +1,4 @@
+// Generate a silent 60-second local test video. Pass a new .mp4 path in a scratch folder.
 import AVFoundation
 import CoreVideo
 let url = URL(fileURLWithPath: CommandLine.arguments[1])

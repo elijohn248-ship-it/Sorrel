@@ -29,8 +29,9 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
         pending = true
         let ticket = generation
         view.callAsyncJavaScript(Self.enterScript, arguments: [:], in: nil, in: world) { [weak self, weak view] result in
-            guard let self, let view else { return }
+            guard let self else { return }
             self.pending = false
+            guard let view else { return }
             guard ticket == self.generation else {
                 view.callAsyncJavaScript("globalThis.sorrelVideo?.restore(); delete globalThis.sorrelVideo;", arguments: [:], in: nil, in: self.world) { _ in }
                 return
@@ -157,7 +158,7 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
             view.callAsyncJavaScript("const v=document.querySelector('video'); return {paused:v.paused, time:v.currentTime, controls:v.controls, width:v.getBoundingClientRect().width, viewport:innerWidth};", arguments: [:], in: nil, in: .page) {
                 switch $0 {
                 case .success(let value):
-                    if let value, let json = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
+                    if let json = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
                        let line = String(data: json, encoding: .utf8) { log("\(label) got=\(line)") }
                     else { log("\(label) got=missing") }
                 case .failure(let error): log("\(label) got=error \(error.localizedDescription)")
@@ -197,9 +198,12 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
             log("remaining expected=−0:38 got=\(self.canvas?.remainingText ?? "missing")")
             log("hover expected=visible got=\((self.canvas?.overlay.alphaValue ?? 0) > 0.9)")
             self.canvas?.setHovered(false)
+            self.canvas?.onToggle?()
             _ = store.newTab(url: "about:blank")
         }
         after(8) {
+            inspect("resume expected=paused-false/time-advancing")
+            self.canvas?.onToggle?()
             log("background expected=still-floating got=\(view.window === self.panel)")
             log("hover exit expected=hidden got=\((self.canvas?.overlay.alphaValue ?? 1) < 0.1)")
             store.select(tab)
