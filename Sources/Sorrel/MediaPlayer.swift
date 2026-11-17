@@ -54,6 +54,37 @@ enum TabMedia {
         webView.perform(selector, with: callback as AnyObject)
     }
 
+    /// Seek only previously played media in this tab, including accessible same-origin frames.
+    /// Values are arguments, never JavaScript source. Live streams stay inside their seekable window.
+    static func seek(_ webView: WKWebView, by seconds: Double, completion: @escaping (Bool) -> Void) {
+        webView.callAsyncJavaScript("""
+        function findMedia(win) {
+            let found = Array.from(win.document.querySelectorAll('audio,video'))
+                .filter(m => m.played.length > 0 && m.seekable.length > 0);
+            for (let i = 0; i < win.frames.length; i++) {
+                try { found.push(...findMedia(win.frames[i])); } catch (_) {}
+            }
+            return found;
+        }
+        const media = findMedia(window).sort((a, b) =>
+            Number(a.paused) - Number(b.paused) || b.currentTime - a.currentTime);
+        // Prefer playing media over a paused element left behind by a site's player.
+        const m = media.find(m => !m.paused) || media[0];
+        if (!m || !Number.isFinite(offset)) return false;
+        const target = m.currentTime + offset;
+        let nearest = m.seekable.start(0);
+        for (let i = 0; i < m.seekable.length; i++) {
+            const clamped = Math.max(m.seekable.start(i), Math.min(m.seekable.end(i), target));
+            if (Math.abs(clamped - target) < Math.abs(nearest - target)) nearest = clamped;
+        }
+        m.currentTime = nearest;
+        return true;
+        """, arguments: ["offset": seconds], in: nil, in: .page) { result in
+            if case .success(let value) = result { completion(value as? Bool == true) }
+            else { completion(false) }
+        }
+    }
+
     static func metadata(_ webView: WKWebView, completion: @escaping (String?, String?) -> Void) {
         let selector = NSSelectorFromString("_nowPlayingMediaTitleAndArtist:")
         guard webView.responds(to: selector) else { completion(nil, nil); return }
@@ -78,7 +109,8 @@ final class SidebarMediaPlayer: NSView {
     private let detail = NSTextField(labelWithString: "")
     private var playButton: IconButton!
     private var muteButton: IconButton!
-    private var sourcesButton: IconButton!
+    private var rewindButton: IconButton!
+    private var forwardButton: IconButton!
     private var height: NSLayoutConstraint!
     private var mediaTitle: String?
     private var artist: String?
@@ -104,31 +136,44 @@ final class SidebarMediaPlayer: NSView {
         }
         playButton = IconButton(symbol: "pause.fill", size: 15, tooltip: "Pause") { [weak self] in self?.togglePlayback() }
         muteButton = IconButton(symbol: "speaker.wave.2", size: 13, tooltip: "Mute Tab") { [weak self] in self?.toggleMute() }
-        sourcesButton = IconButton(symbol: "chevron.down", size: 10, tooltip: "Choose Playing Tab") { [weak self] in self?.showSources() }
+        rewindButton = IconButton(symbol: "gobackward.15", size: 17, tooltip: "Rewind 15 Seconds") { [weak self] in self?.seek(by: -15) }
+        forwardButton = IconButton(symbol: "goforward.15", size: 17, tooltip: "Forward 15 Seconds") { [weak self] in self?.seek(by: 15) }
+        rewindButton.setAccessibilityLabel("Rewind 15 Seconds")
+        forwardButton.setAccessibilityLabel("Forward 15 Seconds")
         let labels = NSStackView(views: [track, detail])
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 3
-        let row = NSStackView(views: [artwork, labels, playButton, muteButton, sourcesButton])
+        let row = NSStackView(views: [artwork, labels, muteButton])
         row.orientation = .horizontal
         row.spacing = 8
         row.alignment = .centerY
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
+        let controls = NSStackView(views: [rewindButton, playButton, forwardButton])
+        controls.orientation = .horizontal
+        controls.spacing = 18
+        controls.alignment = .centerY
+        controls.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(controls)
         height = heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             height,
             row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
             row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            row.centerYAnchor.constraint(equalTo: centerYAnchor),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            controls.centerXAnchor.constraint(equalTo: centerXAnchor),
+            controls.topAnchor.constraint(equalTo: row.bottomAnchor, constant: 3),
             artwork.widthAnchor.constraint(equalToConstant: 26),
             artwork.heightAnchor.constraint(equalToConstant: 26),
             playButton.widthAnchor.constraint(equalToConstant: 24),
             playButton.heightAnchor.constraint(equalToConstant: 30),
             muteButton.widthAnchor.constraint(equalToConstant: 22),
             muteButton.heightAnchor.constraint(equalToConstant: 30),
-            sourcesButton.widthAnchor.constraint(equalToConstant: 14),
-            sourcesButton.heightAnchor.constraint(equalToConstant: 30),
+            rewindButton.widthAnchor.constraint(equalToConstant: 30),
+            rewindButton.heightAnchor.constraint(equalToConstant: 30),
+            forwardButton.widthAnchor.constraint(equalToConstant: 30),
+            forwardButton.heightAnchor.constraint(equalToConstant: 30),
         ])
         isHidden = true
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
@@ -161,12 +206,14 @@ final class SidebarMediaPlayer: NSView {
         states = states.filter { live.contains($0.key) }
         guard !tabs.isEmpty else { source = nil; render(); return }
         polling = true
+        var newlyPlaying: Set<UUID> = []
         var remaining = tabs.count
         for item in tabs {
             guard let page = item.page else { continue }
             page.webView.requestMediaPlaybackState { [weak self, weak item, weak page] state in
                 guard let self else { return }
                 if let item, let page, item.page === page {
+                    if state == .playing && self.states[item.id] != .playing { newlyPlaying.insert(item.id) }
                     self.states[item.id] = state
                     page.mediaIsPlaying = state == .playing
                     if state == .playing { self.previouslyPlaying.insert(item.id) }
@@ -175,7 +222,7 @@ final class SidebarMediaPlayer: NSView {
                 remaining -= 1
                 if remaining == 0 {
                     self.polling = false
-                    self.chooseSource()
+                    self.chooseSource(newlyPlaying: newlyPlaying)
                 }
             }
         }
@@ -188,11 +235,15 @@ final class SidebarMediaPlayer: NSView {
         }
     }
 
-    private func chooseSource() {
+    private func chooseSource(newlyPlaying: Set<UUID> = []) {
         let tabs = candidates
-        // Keep the chosen source through pauses and space switches, until it closes or loses its media.
-        if !tabs.contains(where: { $0 === source }) {
-            source = tabs.first(where: { states[$0.id] == .playing }) ?? tabs.first
+        // Follow new playback automatically; retain the source through pauses and space switches.
+        let started = tabs.first { $0 === store.selected && newlyPlaying.contains($0.id) }
+            ?? tabs.first { newlyPlaying.contains($0.id) }
+        let next = started ?? tabs.first { $0 === source && states[$0.id] == .playing }
+            ?? tabs.first { states[$0.id] == .playing } ?? tabs.first { $0 === source } ?? tabs.first
+        if source !== next {
+            source = next
             mediaTitle = nil
             artist = nil
         }
@@ -214,7 +265,7 @@ final class SidebarMediaPlayer: NSView {
         let arriving = visible && !shown
         shown = visible
         if visible {
-            height.constant = 62
+            height.constant = 78
             if isHidden { isHidden = false; alphaValue = 1; layer?.clearPopOut() }
             if arriving { alphaValue = 1; layer?.clearPopOut(); layer?.popIn(scale: 0.96, rise: 6, duration: 0.3) }
         } else if !isHidden {
@@ -240,8 +291,8 @@ final class SidebarMediaPlayer: NSView {
         muteButton.toolTip = muted ? "Unmute Tab" : "Mute Tab"
         muteButton.setAccessibilityLabel(muted ? "Unmute Tab" : "Mute Tab")
         muteButton.isEnabled = TabMedia.mutedState(page.webView) != nil
-        sourcesButton.toolTip = "Playing Tabs (\(candidates.count))"
-        sourcesButton.setAccessibilityLabel("Choose Playing Tab")
+        rewindButton.isEnabled = !busy
+        forwardButton.isEnabled = !busy
     }
 
     func togglePlayback() {
@@ -275,23 +326,12 @@ final class SidebarMediaPlayer: NSView {
         TabMedia.toggleMute(page.webView)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.render() }
     }
-    private func showSources() {
-        let menu = NSMenu()
-        for tab in candidates {
-            let entry = NSMenuItem(title: tab.displayTitle, action: #selector(pickSource(_:)), keyEquivalent: "")
-            entry.target = self
-            entry.representedObject = tab.id
-            entry.state = tab === source ? .on : .off
-            menu.addItem(entry)
+    func seek(by seconds: Double) {
+        guard !busy, let page = source?.page else { return }
+        TabMedia.seek(page.webView, by: seconds) { [weak self, weak page] moved in
+            guard let self, let page, self.source?.page === page else { return }
+            if !moved { Engine.shared.onToast?("Open the media tab to seek in this player") }
         }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.height), in: self)
-    }
-    @objc private func pickSource(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? UUID else { return }
-        source = candidates.first { $0.id == id }
-        mediaTitle = nil
-        artist = nil
-        chooseSource()
     }
 
     var debugState: String {
@@ -301,6 +341,42 @@ final class SidebarMediaPlayer: NSView {
 }
 
 extension SidebarMediaPlayer {
+    /// Run alongside the silent media fixture, during its paused interval.
+    func runMediaSeekTest() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, let webView = self.source?.page?.webView else {
+                FileHandle.standardError.write(Data("seek: fixture expected=present got=missing\n".utf8))
+                return
+            }
+            func check(_ label: String, _ expression: String, _ next: @escaping () -> Void) {
+                webView.evaluateJavaScript(expression) { value, error in
+                    let passed = error == nil && value as? Bool == true
+                    FileHandle.standardError.write(Data("seek: \(label) expected=true got=\(passed)\n".utf8))
+                    next()
+                }
+            }
+            webView.evaluateJavaScript("document.querySelector('audio').currentTime = 30") { _, _ in
+                self.forwardButton.performClick(nil)
+                // JavaScript calls on this web view execute in order.
+                check("forward button +15 while paused", "Math.abs(document.querySelector('audio').currentTime - 45) < 0.1 && document.querySelector('audio').paused") {
+                    self.rewindButton.performClick(nil)
+                    check("rewind button -15 while paused", "Math.abs(document.querySelector('audio').currentTime - 30) < 0.1 && document.querySelector('audio').paused") {
+                        TabMedia.seek(webView, by: -100) { moved in
+                            check("clamp to start", "document.querySelector('audio').currentTime === 0") {
+                                TabMedia.seek(webView, by: 100) { moved in
+                                    check("clamp to end", "Math.abs(document.querySelector('audio').currentTime - 60) < 0.1") {
+                                        // Restore the fixture before its scheduled resume check.
+                                        webView.evaluateJavaScript("document.querySelector('audio').currentTime = 2", completionHandler: nil)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Silent local WAVs exercise WebKit playback in real tabs, without downloads, permissions or sound.
     func runMediaTest() {
         func log(_ text: String) { FileHandle.standardError.write(("media: " + text + "\n").data(using: .utf8)!) }
@@ -362,10 +438,7 @@ extension SidebarMediaPlayer {
             after(2) { play(secondPage) }
             after(4) {
                 log("multiple expected=sources=2: \(self.debugState)")
-                let entry = NSMenuItem()
-                entry.representedObject = second.id
-                self.pickSource(entry)
-                log("switch source expected=true: \(self.source === second)")
+                log("automatic source expected=true: \(self.source === second)")
                 store.close(second)
             }
         }
