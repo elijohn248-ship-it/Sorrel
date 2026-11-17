@@ -28,6 +28,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### Sidebar mini player lacks transport controls (fixed 2026-11-17, branch `miniplayer-controls`)
+- **Repro:** play media, switch tabs, inspect the sidebar player.
+- **Expected:** compact Arc-style player with rewind, play/pause and fast-forward; automatic source selection.
+- **Actual:** only play/pause and mute, plus a dropdown for previously playing tabs; no seek controls.
+- **Cause / fix:** the original card implemented play/pause, mute and manual source selection only. Added 15-second rewind/forward buttons below track details, removed the dropdown, and automatically follow newly playing tabs. Fixed-script seeking preserves paused playback and clamps to seekable ranges. Verified before/after with silent local media, real seek button actions, bounds checks, source handoff, mute/sleep, Library suppression, closing/navigation and private-store isolation. Signed-in sites and feel need the owner; seeking cannot reach cross-origin frames.
+
 ### ⌘N could only show the existing main window (fixed 2026-11-17, branch `multiple-windows`)
 - **Repro:** choose File ▸ Show Main Window / press ⌘N while a browser window is open.
 - **Expected:** open another normal window and use different tabs in the same browsing session.
