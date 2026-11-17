@@ -59,6 +59,8 @@ final class Page: NSObject {
     weak var item: Item?
     /// Used by mini windows, which show a page that is not a tab yet.
     var onChange: ((Page) -> Void)?
+    /// Native playback state, including media whose tab is muted. Keeps background music awake.
+    var mediaIsPlaying = false
     var favicon: NSImage?
     private var observations: [NSKeyValueObservation] = []
 
