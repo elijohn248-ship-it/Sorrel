@@ -206,6 +206,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.4 Waiting on the owner (don't try to verify these yourself)
 
+- Sidebar mini player: play music, switch tabs/spaces, and check play/pause, tab mute and the card's feel. Local media and Library/memory tests pass.
+
 - The **feel** of: fluid motion, space swipe ("feels good" confirmed), space icon row scrolling, download flight, command bar typing, Arc-style colours/grain, the update card in their real sidebar, the import card motion.
 - Real Open-panel "Allow" flow for browser import; Safari's folder access.
 - Website location on Top Hat (the owner's attendance site) by hand.

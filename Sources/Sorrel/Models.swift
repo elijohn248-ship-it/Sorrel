@@ -634,6 +634,7 @@ final class Store {
     /// a page mid-load, or an extension's own page.
     func canSleep(_ item: Item) -> Bool {
         guard let wv = item.page?.webView else { return false }
+        if item.page?.mediaIsPlaying == true { return false }
         if wv.isLoading || wv.cameraCaptureState != .none || wv.microphoneCaptureState != .none { return false }
         if wv.responds(to: Selector(("_isPlayingAudio"))), (wv.value(forKey: "_isPlayingAudio") as? Bool) == true { return false }
         if let u = wv.url, !(u.scheme ?? "").hasPrefix("http") { return false }

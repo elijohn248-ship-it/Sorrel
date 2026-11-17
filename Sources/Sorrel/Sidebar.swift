@@ -1144,7 +1144,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private let downloadsStrip = DownloadsStrip()
     /// Arc's "update ready" card, just above the space icons (UpdateCard.swift).
     let updateCard = UpdateCard()
-    private lazy var updateCardBottom = updateCard.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -2)
+    let mediaPlayer = SidebarMediaPlayer()
+    private lazy var updateCardBottom = updateCard.bottomAnchor.constraint(equalTo: mediaPlayer.topAnchor, constant: -2)
 
     /// The Library button, where a starting download's icon flies to (DownloadFlight).
     var downloadsAnchor: DownloadsButton { spaceBar.downloadsButton }
@@ -1200,7 +1201,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         floatingBackground.layer?.borderWidth = 0.5
         floatingBackground.layer?.borderColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
-        for v in [floatingBackground, topRow, pill, favorites, spaceClip, library, downloadsStrip, updateCard, spaceBar, handle] as [NSView] {
+        for v in [floatingBackground, topRow, pill, favorites, spaceClip, library, downloadsStrip, updateCard, mediaPlayer, spaceBar, handle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -1353,6 +1354,9 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             updateCard.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             updateCard.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             updateCardBottom,
+            mediaPlayer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            mediaPlayer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            mediaPlayer.bottomAnchor.constraint(equalTo: spaceBar.topAnchor, constant: -4),
 
             spaceIcon.topAnchor.constraint(equalTo: spaceContainer.topAnchor, constant: 2),
             spaceIcon.leadingAnchor.constraint(equalTo: spaceContainer.leadingAnchor, constant: 14),
@@ -2023,6 +2027,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         library.show(section)
         guard !isLibraryOpen else { return }
         downloadsStrip.isSuppressed = true
+        mediaPlayer.isSuppressed = true
         updateCard.isSuppressed = true
         for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: false, duration: 0.16) }
         library.fade(in: true, duration: 0.2)
@@ -2034,6 +2039,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         guard isLibraryOpen else { return }
         library.didDisappear()
         downloadsStrip.isSuppressed = false
+        mediaPlayer.isSuppressed = false
         updateCard.isSuppressed = false
         library.fade(in: false, duration: 0.14)
         for v in [pill, favorites, spaceContainer] as [NSView] { v.fade(in: true, duration: 0.2) }
