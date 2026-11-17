@@ -86,6 +86,9 @@ final class SpacePager {
         startLink()
     }
 
+    /// Stop display callbacks before the owning window and its views are released.
+    func cancel() { finish() }
+
     /// Past either end the page still moves, but less and less: at most half a page.
     private func band(_ p: CGFloat) -> CGFloat {
         let hi = CGFloat(max(0, count - 1))

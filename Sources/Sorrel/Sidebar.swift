@@ -1411,6 +1411,15 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     func reloadForWindow() { reloadAll(animated: false) }
 
+    func prepareForClose() {
+        pager.cancel()
+        previewWatch?.invalidate()
+        previewPopover?.close()
+        themePopover?.close()
+        library.didDisappear()
+        NotificationCenter.default.removeObserver(self)
+    }
+
     @objc private func selectionChanged(_ note: Notification) {
         if let source = note.object as? Store, source !== store { return }
         refreshSelection()

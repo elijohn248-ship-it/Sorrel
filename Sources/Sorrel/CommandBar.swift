@@ -366,7 +366,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
 
     private func takeFocus(selectAll: Bool = true) {
         guard let window else { return }
-        if !window.isKeyWindow { window.makeKeyAndOrderFront(nil) }
+        if !window.isKeyWindow && !isQuietTest { window.makeKeyAndOrderFront(nil) }
         window.makeFirstResponder(field)
         if selectAll {
             field.currentEditor()?.selectAll(nil)

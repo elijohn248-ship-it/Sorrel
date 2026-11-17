@@ -918,6 +918,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         dismissPeek(refocus: false)
         commandBar.dismiss()
+        sidebar.prepareForClose()
         peekTimer?.invalidate()
         toastTimer?.invalidate()
         if let clickMonitor { NSEvent.removeMonitor(clickMonitor); self.clickMonitor = nil }

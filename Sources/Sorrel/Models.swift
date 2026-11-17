@@ -190,6 +190,7 @@ final class Store {
     private func focusExistingWindow(for item: Item) -> Bool {
         guard let other = AppDelegate.shared?.windows.first(where: { $0.store !== self && $0.store.displays(item) }) else { return false }
         AppDelegate.shared.focus(other)
+        if other.store.selected !== item { other.store.select(item) }
         return true
     }
 
@@ -200,7 +201,7 @@ final class Store {
     }
 
     private var storedState: AppState!
-    var state: AppState {
+    private(set) var state: AppState {
         get { owner?.state ?? storedState }
         set { if let owner { owner.state = newValue } else { storedState = newValue } }
     }
@@ -214,7 +215,7 @@ final class Store {
     private(set) var lastSwitchDirection = 1
 
     private var storedArchive: [ArchivedTab] = []
-    var archive: [ArchivedTab] {
+    private(set) var archive: [ArchivedTab] {
         get { owner?.archive ?? storedArchive }
         set { if let owner { owner.archive = newValue } else { storedArchive = newValue } }
     }
@@ -515,7 +516,12 @@ final class Store {
             item.page = nil
             post(.sorrelStructure)
             if wasSelected {
-                let neighbor = idx < sp.today.count ? sp.today[idx] : sp.today.last
+                let neighbors = Array(sp.today.dropFirst(idx)) + Array(sp.today.prefix(idx).reversed())
+                let neighbor = neighbors.first { candidate in
+                    !sessions.contains { session in
+                        session !== self && (candidate.isSplit ? candidate.children : [candidate]).contains(where: session.displays)
+                    }
+                }
                 select(neighbor ?? mostRecentLoaded(excluding: item))
             }
         }
