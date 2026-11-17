@@ -26,7 +26,7 @@ final class SpacePager {
     private unowned let clip: NSView
     private unowned let page: NSView
     private let offset: NSLayoutConstraint
-    private var store: Store { .shared }
+    private var store: Store { (clip.window?.windowController as? MainWindowController)?.store ?? .shared }
 
     init(clip: NSView, page: NSView, offset: NSLayoutConstraint) {
         self.clip = clip
@@ -377,9 +377,11 @@ final class SpacePreviewView: NSView, NSOutlineViewDataSource, NSOutlineViewDele
         outline.reloadData()
     }
 
+    private var store: Store { (window?.windowController as? MainWindowController)?.store ?? .shared }
+
     private var lit: Item? {
-        guard let sp = space, let id = sp.selectedID, let item = Store.shared.item(id: id) else { return nil }
-        return Store.shared.unit(item)
+        guard let sp = space, let id = store.selectedID(in: sp), let item = store.item(id: id) else { return nil }
+        return store.unit(item)
     }
 
     // MARK: Outline data (a read-only mirror of SidebarView's)
@@ -439,7 +441,7 @@ final class SpacePreviewView: NSView, NSOutlineViewDataSource, NSOutlineViewDele
         guard let it = item as? Item else { return nil }
         if it.isSplit {
             let c = SplitCell()
-            let focused: Item? = lit === it ? space?.selectedID.flatMap { Store.shared.item(id: $0) } : nil
+            let focused: Item? = lit === it ? space.flatMap { store.selectedID(in: $0) }.flatMap { store.item(id: $0) } : nil
             c.configure(it, level: outlineView.level(forItem: it), focused: focused)
             c.setHovered(false)
             return c

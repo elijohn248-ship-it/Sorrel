@@ -17,6 +17,7 @@ final class ImportOverlay: NSView {
     private let wash = ThemeBackgroundView()
     private let tint = NSView()
     private let stage = FlippedContainer()
+    private var store: Store { (window?.windowController as? MainWindowController)?.store ?? .shared }
     private var stageHeight: NSLayoutConstraint!
     private var current: NSView?
     private let width: CGFloat = 480
@@ -142,7 +143,7 @@ final class ImportOverlay: NSView {
     // MARK: Showing and leaving
 
     func present() {
-        wash.apply(Store.shared.currentSpace.theme)
+        wash.apply(self.store.currentSpace.theme)
         isHidden = false
         alphaValue = 1
         show(pickView(), direction: 0)
@@ -644,7 +645,7 @@ final class ImportOverlay: NSView {
     @objc func runImport() {
         guard let s = source, !busy, step == "choose" || step == "done" else { return }
         busy = true
-        let result = Importer.apply(found, from: s, choice: choice, store: Store.shared)
+        let result = Importer.apply(found, from: s, choice: choice, store: self.store)
         summary = result
         busy = false
         let v = doneView(result)
@@ -700,7 +701,7 @@ final class ImportOverlay: NSView {
     }
 
     private func ringColor() -> NSColor {
-        let theme = summary?.firstSpace?.theme ?? Store.shared.currentSpace.theme
+        let theme = summary?.firstSpace?.theme ?? self.store.currentSpace.theme
         let c = theme.colors.compactMap { NSColor(hex: $0) }.first ?? .controlAccentColor
         // Pale theme colours would vanish on the card; deepen them until they read.
         return c.luminance > 0.7 ? (c.blended(withFraction: 0.45, of: .black) ?? c) : c
@@ -709,7 +710,7 @@ final class ImportOverlay: NSView {
     @objc private func finish() {
         let target = summary?.firstSpace
         dismiss {
-            if let target { Store.shared.switchSpace(to: target) }
+            if let target { self.store.switchSpace(to: target) }
         }
     }
 

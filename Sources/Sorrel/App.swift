@@ -4,7 +4,68 @@ import WebKit
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     static var shared: AppDelegate!
 
-    private(set) var main: MainWindowController!
+    private(set) var windows: [MainWindowController] = []
+    private weak var focusedMain: MainWindowController?
+    var main: MainWindowController! { focusedMain ?? windows.first }
+
+    @discardableResult
+    func newWindow(restoring saved: BrowserWindowState? = nil, present: Bool = true) -> MainWindowController {
+        let snapshot = saved ?? BrowserWindowState(id: UUID(), currentSpaceID: main?.store.currentSpace.id ?? Store.profile.currentSpace.id, selections: [:])
+        let controller = MainWindowController(store: Store(windowState: snapshot))
+        if saved == nil, let previous = main?.window, let window = controller.window {
+            window.cascadeTopLeft(from: NSPoint(x: previous.frame.minX + 24, y: previous.frame.maxY - 24))
+        }
+        windows.append(controller)
+        focusedMain = controller
+        if launched { Extensions.shared.windowReady(controller) }
+        if present { focus(controller) }
+        controller.store.scheduleSave()
+        return controller
+    }
+
+    func focus(_ controller: MainWindowController) {
+        focusedMain = controller
+        if isQuietTest {
+            controller.window?.orderBack(nil)
+        } else {
+            controller.showWindow(nil)
+            controller.window?.deminiaturize(nil)
+            controller.window?.makeKeyAndOrderFront(nil)
+            bringAppForward()
+        }
+    }
+
+    func windowFocused(_ controller: MainWindowController) {
+        focusedMain = controller
+        Extensions.shared.controller.didFocusWindow(controller.extensionWindow)
+    }
+
+    private var isTerminating = false
+
+    func windowClosed(_ controller: MainWindowController) {
+        // AppKit closes windows one by one during quit. Preserve the complete session snapshot.
+        guard !isTerminating else { return }
+        // Keep the last normal window's selection for reopening; never include private mini windows.
+        Store.profile.saveNow()
+        let tabs = controller.extensionWindow.items
+        windows.removeAll { $0 === controller }
+        if focusedMain === controller { focusedMain = windows.last }
+        if let target = windows.first {
+            for (index, item) in tabs.enumerated() {
+                item.browserWindowID = target.store.windowID
+                Extensions.shared.controller.didMoveTab(item.extensionTab, from: index, in: controller.extensionWindow)
+            }
+        }
+        Extensions.shared.controller.didCloseWindow(controller.extensionWindow)
+        if !windows.isEmpty { Store.profile.saveNow() }
+    }
+
+    func window(for page: Page?) -> MainWindowController? {
+        guard let page else { return nil }
+        if let owner = page.webView.window?.windowController as? MainWindowController { return owner }
+        return windows.first { controller in controller.peek?.page === page || page.item.map { controller.store.displays($0) } == true }
+            ?? windows.first { $0.store.windowID == page.item?.browserWindowID }
+    }
     private var pendingURLs: [URL] = []
     private var launched = false
     private var keyMonitor: Any?
@@ -21,13 +82,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = Bangs.shared
         registerCommands()
         wireEngine()
-        main = MainWindowController()
+        if let saved = Store.profile.state.windows, !saved.isEmpty {
+            for snapshot in saved { newWindow(restoring: snapshot, present: false) }
+        } else {
+            let profile = Store.profile
+            newWindow(restoring: profile.windowState, present: false)
+        }
         buildMenu()
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard let w = event.window,
                   w.windowController is MainWindowController || w.windowController is MiniWindowController,
                   w.attachedSheet == nil else { return event }
+            if let controller = w.windowController as? MainWindowController, controller !== self.main {
+                self.windowFocused(controller)
+            }
             // Esc closes an open preview.
             if event.keyCode == 53, event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty,
                w === self.main.window, self.main.peek != nil, self.main.commandBar.isHidden {
@@ -38,12 +107,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return (Keybindings.shared.handle(event) || Extensions.shared.handleKey(event)) ? nil : event
         }
 
-        if isQuietTest { main.window?.orderBack(nil) } else { main.showWindow(nil) }
+        for controller in windows {
+            if isQuietTest { controller.window?.orderBack(nil) } else { controller.showWindow(nil) }
+        }
         bringAppForward()
         launched = true
         Blocker.shared.start()
         Extensions.shared.start()
-        Extensions.shared.windowReady()
+        for controller in windows { Extensions.shared.windowReady(controller) }
         Updater.shared.start()
         NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { [weak self] _ in
             self?.updateMenuItem?.title = Updater.shared.menuTitle
@@ -75,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        isTerminating = true
         // Settings ▸ Memory & Storage ▸ "Empty the cache when Sorrel quits" (Cleanup.swift), then the update.
         if Settings.current.emptyCacheOnQuit, !cacheEmptiedForQuit {
             cacheEmptiedForQuit = true
@@ -92,29 +164,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var cacheEmptiedForQuit = false
 
     func applicationWillTerminate(_ notification: Notification) {
-        store.saveNow()
+        Store.profile.saveNow()
         History.shared.saveNow()
     }
 
     private func archiveStaleTabs() {
         let n = store.archiveStaleTabs(olderThanHours: Settings.current.archiveAfterHours)
-        if n > 0 { main.showToast("Archived \(n) unused tab\(n == 1 ? "" : "s") · Tabs ▸ Archived Tabs") }
+        if n > 0 { main?.showToast("Archived \(n) unused tab\(n == 1 ? "" : "s") · Tabs ▸ Archived Tabs") }
     }
 
     /// Called by the Settings window after a change.
     func settingsChanged(blocking: Bool) {
-        main.root.trackWhenInactive = Settings.current.sidebarHoverWhenInactive
+        for controller in windows { controller.root.trackWhenInactive = Settings.current.sidebarHoverWhenInactive }
         if blocking { Blocker.shared.settingsChanged() }
     }
 
     func showMainWindow() {
-        if isQuietTest {
-            if main.window?.isVisible != true { main.window?.orderBack(nil) }
-            return
+        if let main { focus(main) } else {
+            let saved = Store.profile.state.windows?.first
+            newWindow(restoring: saved)
         }
-        main.showWindow(nil)
-        main.window?.makeKeyAndOrderFront(nil)
-        bringAppForward()
     }
 
     /// Links from other apps.
@@ -123,8 +192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if Settings.current.externalLinksOpenInMiniWindow {
                 MiniWindowController.present(url: url)
             } else {
-                store.newTab(url: url.absoluteString)
                 showMainWindow()
+                store.newTab(url: url.absoluteString)
             }
         }
     }
@@ -135,15 +204,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let engine = Engine.shared
         engine.onNewPage = { [weak self] newPage, source in
             guard let self else { return }
+            let store = self.window(for: source)?.store ?? self.store
             if let item = source?.item {
-                let space = self.store.space(containing: item)
-                self.store.newTab(url: "", in: space, after: item, page: newPage)
-            } else if let source, source === self.main.peek?.page {
-                self.store.newTab(url: "", page: newPage)
+                let space = store.space(containing: item)
+                store.newTab(url: "", in: space, after: item, page: newPage)
+            } else if let source, self.window(for: source)?.peek?.page === source {
+                store.newTab(url: "", page: newPage)
             } else if source != nil {
                 MiniWindowController.present(url: nil, page: newPage, isPrivate: newPage.isPrivate)
             } else {
-                self.store.newTab(url: "", page: newPage)
+                store.newTab(url: "", page: newPage)
             }
         }
         engine.onOpenInBackground = { [weak self] url, source in
@@ -153,13 +223,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 MiniWindowController.present(url: url, isPrivate: true)
                 return
             }
+            let store = self.window(for: source)?.store ?? self.store
             let item = source?.item
-            self.store.newTab(url: url.absoluteString, in: item.flatMap { self.store.space(containing: $0) },
+            let created = store.newTab(url: url.absoluteString, in: item.flatMap { store.space(containing: $0) },
                               after: item, select: false)
             // Background tabs start loading right away, as they do in other browsers.
-            if let created = self.store.currentSpace.today.first(where: { $0.url == url.absoluteString && $0.page == nil }) {
-                _ = Engine.shared.ensurePage(for: created)
-            }
+            _ = Engine.shared.ensurePage(for: created)
         }
         engine.onPageClosed = { [weak self] page in
             if let item = page.item {
@@ -169,10 +238,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         engine.onPeek = { [weak self] url, source in
-            self?.main.showPeek(url, profileID: source.profileID)
+            self?.window(for: source)?.showPeek(url, profileID: source.profileID)
         }
-        engine.onToast = { [weak self] text in self?.main.showToast(text) }
-        engine.onDownloadStarted = { [weak self] record, webView in self?.main.downloadStarted(record, in: webView) ?? false }
+        engine.onToast = { [weak self] text in self?.main?.showToast(text) }
+        engine.onDownloadStarted = { record, webView in
+            (webView?.window?.windowController as? MainWindowController)?.downloadStarted(record, in: webView) ?? false
+        }
         DownloadFlight.install()
     }
 
@@ -198,6 +269,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func registerCommands() {
         let c = Commands.shared
+
+        c.register("window.new", "New Window") { [unowned self] in
+            self.newWindow().commandBar.present(.newTab)
+        }
+        c.register("window.close", "Close Window") { NSApp.keyWindow?.performClose(nil) }
 
         c.register("tab.new", "New Tab") { [unowned self] in
             self.showMainWindow()
@@ -565,9 +641,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             std("Quit Sorrel", "terminate:", "q"),
         ])
         _ = add("File", [
-            item("tab.new"), item("mini.new"), item("private.new"), item("folder.new"), item("space.new"),
+            item("window.new"), item("tab.new"), item("mini.new"), item("private.new"), item("folder.new"), item("space.new"),
             .separator(),
-            item("tab.close"), item("tab.reopen"),
+            item("tab.close"), item("window.close"), item("tab.reopen"),
             .separator(),
             item("mini.expand"), item("tab.openInFallback"),
             .separator(),
@@ -646,6 +722,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let out = env["SORREL_SNAPSHOT"] else { return }
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
+
+        if let mode = env["SORREL_WINDOWTEST"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                func check(_ label: String, _ value: Bool) { log("windows: \(label) expected=true got=\(value)") }
+                guard let first = self.windows.first else { check("first window", false); return }
+                if mode == "restore" {
+                    check("restored two windows", self.windows.count == 2)
+                    check("restored independent selections", self.windows.count == 2 && self.windows[0].store.selected !== self.windows[1].store.selected)
+                    check("restored page ownership", self.windows.allSatisfy { $0.currentWebView?.window === $0.window })
+                    check("normal stores share session", self.windows.count == 2 && self.windows[0].currentWebView?.configuration.websiteDataStore === self.windows[1].currentWebView?.configuration.websiteDataStore)
+                    return
+                }
+                let a = first.store.newTab(url: "sorrel://welcome")
+                Commands.shared.run("window.new")
+                guard let second = self.main, second !== first else { check("new window command", false); return }
+                second.commandBar.dismiss()
+                check("new window command", self.windows.count == 2 && second.store.selected == nil)
+                let b = second.store.newTab(url: "sorrel://welcome")
+                check("independent selections", first.store.selected === a && second.store.selected === b)
+                check("page ownership", a.page?.webView.window === first.window && b.page?.webView.window === second.window)
+                check("shared normal logins", a.page?.webView.configuration.websiteDataStore === b.page?.webView.configuration.websiteDataStore)
+                let privatePage = Engine.shared.makePage(profileID: nil, isPrivate: true)
+                check("private session isolated", !privatePage.webView.configuration.websiteDataStore.isPersistent && privatePage.webView.configuration.websiteDataStore !== a.page?.webView.configuration.websiteDataStore)
+                privatePage.teardown()
+                second.store.select(a)
+                check("select existing focuses owner", self.main === first && first.store.selected === a && second.store.selected === b && a.page?.webView.window === first.window)
+                self.focus(second)
+                let beforeBackground = Set(first.store.allTabs.map { $0.item.id })
+                Engine.shared.onOpenInBackground?(URL(string: "sorrel://welcome")!, a.page)
+                let background = first.store.allTabs.first { !beforeBackground.contains($0.item.id) }?.item
+                check("background link uses source window", background?.browserWindowID == first.store.windowID && first.store.selected === a && second.store.selected === b)
+                let sp = second.store.addSpace(name: "Window test")
+                let c = second.store.newTab(url: "sorrel://welcome")
+                check("space selection independent", first.store.currentSpace !== sp && second.store.currentSpace === sp && first.store.selected === a)
+                let d = second.store.newTab(url: "sorrel://welcome", select: false)
+                let split = second.store.makeSplit(c, with: d)
+                check("split stays in its window", split != nil && second.card.panes.count == 2 && first.card.panes.count == 1)
+                first.store.select(c)
+                check("select split pane focuses owner", self.main === second && first.store.selected === a && c.page?.webView.window === second.window)
+                check("cannot split across windows", first.store.makeSplit(a, with: c) == nil)
+                check("sleep protects both windows", first.store.sleepTabs([a, c, d]) == 0)
+                a.lastActive = .distantPast; c.lastActive = .distantPast; d.lastActive = .distantPast
+                _ = first.store.archiveStaleTabs(olderThanHours: 1)
+                check("archive protects both windows", first.store.item(id: a.id) === a && first.store.item(id: c.id) === c)
+                check("extension windows distinct", a.extensionTab.owner === first && c.extensionTab.owner === second)
+                check("extension tab lists independent", first.extensionWindow.items.contains(a) && !first.extensionWindow.items.contains(c) && second.extensionWindow.items.contains(c))
+                second.store.close(d)
+                check("close pane preserves other window", first.store.selected === a && second.store.selected === c && second.card.panes.count == 1)
+                second.close()
+                check("close one keeps other", self.windows.count == 1 && first.store.selected === a && a.page?.webView.window === first.window)
+                first.close()
+                check("close all releases controllers", self.windows.isEmpty)
+                Commands.shared.run("window.show")
+                check("reopen last window", self.windows.count == 1 && self.main.store.selected === a)
+                let restored = self.main!
+                let last = self.newWindow()
+                last.store.newTab(url: "sorrel://welcome")
+                restored.store.saveNow()
+                let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+                let saved = try? decoder.decode(AppState.self, from: Data(contentsOf: Paths.state))
+                check("save both window selections", saved?.windows?.count == 2 && saved?.windows?.allSatisfy { !$0.selections.isEmpty } == true)
+            }
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             for id in (env["SORREL_RUN"] ?? "").split(separator: ",") { Commands.shared.run(String(id)) }

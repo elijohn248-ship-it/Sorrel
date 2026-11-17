@@ -445,7 +445,7 @@ private final class ExtensionIconButton: NSButton {
 
     /// Reads the button's current state from the extension.
     func refresh() {
-        let live = Extensions.shared.action(for: entry)
+        let live = Extensions.shared.action(for: entry, in: (window?.windowController as? MainWindowController)?.store.selected)
         let icon = (live?.icon(for: NSSize(width: 16, height: 16)) ?? entry.icon?.copy() as? NSImage)
             ?? symbol("puzzlepiece.extension", size: 12) ?? NSImage()
         icon.size = NSSize(width: 16, height: 16)
@@ -1138,7 +1138,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     private var editingCount = 0
     private var themePopover: NSPopover?
 
-    private var store: Store { Store.shared }
+    private let store: Store
     /// Arc's Library, over the sidebar's contents (Library.swift), and the in-progress downloads strip.
     private(set) lazy var library = LibraryView(store: store)
     private let downloadsStrip = DownloadsStrip()
@@ -1161,14 +1161,15 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             || pager.isActive || spaceBar.isScrubbing
     }
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    init(store: Store) {
+        self.store = store
+        super.init(frame: .zero)
         build()
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(structureChanged), name: .sorrelStructure, object: nil)
-        nc.addObserver(self, selector: #selector(selectionChanged), name: .sorrelSelection, object: nil)
+        nc.addObserver(self, selector: #selector(selectionChanged(_:)), name: .sorrelSelection, object: nil)
         nc.addObserver(self, selector: #selector(itemChanged(_:)), name: .sorrelItem, object: nil)
-        nc.addObserver(self, selector: #selector(spaceChanged), name: .sorrelSpace, object: nil)
+        nc.addObserver(self, selector: #selector(spaceChanged(_:)), name: .sorrelSpace, object: nil)
         nc.addObserver(self, selector: #selector(downloadsChanged), name: .sorrelDownloads, object: nil)
         DispatchQueue.main.async { [weak self] in self?.downloadsChanged() }   // remembered downloads show the button at launch
         nc.addObserver(self, selector: #selector(extensionsChanged), name: .sorrelExtensions, object: nil)
@@ -1404,12 +1405,18 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
 
     @objc private func structureChanged() { reloadOutline() }
 
-    @objc private func selectionChanged() {
+    func reloadForWindow() { reloadAll(animated: false) }
+
+    @objc private func selectionChanged(_ note: Notification) {
+        if let source = note.object as? Store, source !== store { return }
         refreshSelection()
         refreshNavigation()
     }
 
-    @objc private func spaceChanged() { reloadAll(animated: true) }
+    @objc private func spaceChanged(_ note: Notification) {
+        if let source = note.object as? Store, source !== store { return }
+        reloadAll(animated: true)
+    }
 
     @objc private func itemChanged(_ note: Notification) {
         guard let item = note.object as? Item else { return }
@@ -2081,7 +2088,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             m.addItem(none)
         }
         for entry in loaded {
-            let live = Extensions.shared.action(for: entry)
+            let live = Extensions.shared.action(for: entry, in: (window?.windowController as? MainWindowController)?.store.selected)
             let badge = live?.badgeText ?? ""
             let item = ActionMenuItem(entry.name + (badge.isEmpty ? "" : "  (\(badge))")) { Extensions.shared.performAction(entry) }
             if let icon = live?.icon(for: NSSize(width: 16, height: 16)) ?? entry.icon?.copy() as? NSImage {
@@ -2244,7 +2251,7 @@ extension SidebarView {
     /// Drives two-finger swipes (synthetic trackpad events) and click-and-hold scrubs on the space icons through
     /// the real handlers, logging `swipe:` lines. With `shots` set, writes swipe-mid.png and scrub-mid.png there.
     func debugSwipeTest(shots: String?, log: @escaping (String) -> Void) {
-        let store = Store.shared
+        let store = self.store
         let icons = ["🌿", "🌊", "🔥"]
         while store.spaces.count < 3 { store.addSpace(name: "Space \(store.spaces.count + 1)", icon: icons[store.spaces.count % 3]) }
         store.switchSpace(to: store.spaces[0])
@@ -2342,7 +2349,7 @@ extension SidebarView {
     /// spaces), the row revealing the current space, a sideways scroll of an overflowing row (scrolls, doesn't
     /// switch), clicking an icon that was scrolled into view, and scrubbing into the row's end (keeps scrolling).
     func debugSpaceRowTest(shots: String?, log: @escaping (String) -> Void) {
-        let store = Store.shared
+        let store = self.store
         let row = spaceBar.debugRowScroll
         swipe.debugInverted = true
         func idx() -> Int { store.spaces.firstIndex { $0 === store.currentSpace } ?? -1 }

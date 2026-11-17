@@ -441,7 +441,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let root = RootView()
     private let background = ThemeBackgroundView()
     let card = ContentCard()
-    let sidebar = SidebarView()
+    let sidebar: SidebarView
     let commandBar = CommandBar()
     /// Downloads in progress over the page's bottom left, while the sidebar is hidden (DownloadFlight.swift).
     let downloadsCapsule = DownloadsCapsule()
@@ -463,10 +463,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var clickMonitor: Any?
     private let margin: CGFloat = 8
 
-    private var store: Store { Store.shared }
+    let store: Store
+    lazy var extensionWindow = ExtensionWindow(controller: self)
     private var width: CGFloat { CGFloat(store.sidebarWidth) }
 
-    init() {
+    init(store: Store) {
+        self.store = store
+        sidebar = SidebarView(store: store)
         let w = SorrelWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 860),
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                             backing: .buffered, defer: false)
@@ -485,8 +488,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.isReleasedWhenClosed = false
         w.delegate = self
         w.center()
-        w.setFrameAutosaveName("SorrelMainWindow")
+        w.setFrameAutosaveName("SorrelWindow-" + store.windowID.uuidString)
         build()
+        sidebar.reloadForWindow()
         observe()
         wireSplitView()
         mode = store.sidebarCollapsed ? .hidden : .pinned
@@ -566,16 +570,27 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func observe() {
         let nc = NotificationCenter.default
-        nc.addObserver(self, selector: #selector(selectionChanged), name: .sorrelSelection, object: nil)
-        nc.addObserver(self, selector: #selector(themeChanged), name: .sorrelSpace, object: nil)
-        nc.addObserver(self, selector: #selector(themeChanged), name: .sorrelTheme, object: nil)
+        nc.addObserver(self, selector: #selector(selectionChanged(_:)), name: .sorrelSelection, object: nil)
+        nc.addObserver(self, selector: #selector(structureChanged), name: .sorrelStructure, object: nil)
+        nc.addObserver(self, selector: #selector(themeChanged(_:)), name: .sorrelSpace, object: nil)
+        nc.addObserver(self, selector: #selector(themeChanged(_:)), name: .sorrelTheme, object: nil)
     }
 
-    @objc private func selectionChanged() {
+    @objc private func selectionChanged(_ note: Notification) {
+        if let source = note.object as? Store, source !== store { return }
         dismissPeek(refocus: false)   // a preview belongs to the tab it was opened from
         showSelected()
     }
-    @objc private func themeChanged() { applyTheme(animated: true) }
+    @objc private func themeChanged(_ note: Notification) {
+        if let source = note.object as? Store, source !== store { return }
+        store.reconcileSelection()
+        applyTheme(animated: true)
+        showSelected()
+    }
+    @objc private func structureChanged() {
+        store.reconcileSelection()
+        showSelected()
+    }
 
     // MARK: Content
 
@@ -897,6 +912,19 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: Window delegate
+
+    func windowDidBecomeKey(_ notification: Notification) { AppDelegate.shared.windowFocused(self) }
+
+    func windowWillClose(_ notification: Notification) {
+        dismissPeek(refocus: false)
+        commandBar.dismiss()
+        peekTimer?.invalidate()
+        toastTimer?.invalidate()
+        if let clickMonitor { NSEvent.removeMonitor(clickMonitor); self.clickMonitor = nil }
+        NotificationCenter.default.removeObserver(self)
+        card.show(nil)
+        AppDelegate.shared.windowClosed(self)
+    }
 
     func windowDidEnterFullScreen(_ notification: Notification) { setWindowButtons(visible: mode != .hidden) }
     func windowDidExitFullScreen(_ notification: Notification) { setWindowButtons(visible: mode != .hidden) }

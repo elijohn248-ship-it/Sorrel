@@ -560,7 +560,7 @@ final class DownloadRow: NSView, NSDraggingSource {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             highlight.backgroundColor = NSColor.labelColor.withAlphaComponent(0.08).cgColor
             barTrack.backgroundColor = NSColor.labelColor.withAlphaComponent(0.1).cgColor
-            let tint = Store.shared.currentSpace.theme.progressColors(dark: isDarkAppearance)
+            let tint = ((window?.windowController as? MainWindowController)?.store ?? .shared).currentSpace.theme.progressColors(dark: isDarkAppearance)
             bar.colors = tint.map(\.cgColor)
             bar.shadowColor = (tint.last ?? tint[0]).cgColor
             checkDisc.fillColor = tint[0].cgColor

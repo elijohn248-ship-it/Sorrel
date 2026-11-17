@@ -203,7 +203,7 @@ extension MainWindowController {
         }
         let type = UTType(filenameExtension: record.file.pathExtension) ?? .data
         let image = NSWorkspace.shared.icon(for: type)
-        let tint = Store.shared.currentSpace.theme.progressColors(dark: sidebar.isDarkAppearance)
+        let tint = store.currentSpace.theme.progressColors(dark: sidebar.isDarkAppearance)
         DownloadFlight.fly(record, image: image, in: root, from: start, to: end, tint: tint) { [weak self] in
             guard let self else { return }
             if toSidebar { self.sidebar.downloadsAnchor.catchLanding(tint: tint) }
@@ -213,7 +213,7 @@ extension MainWindowController {
 
     /// The space's colours changed: the capsule and every download bar follow.
     func downloadsThemeChanged() {
-        downloadsCapsule.apply(Store.shared.currentSpace.theme)
+        downloadsCapsule.apply(store.currentSpace.theme)
         NotificationCenter.default.post(name: .sorrelDownloadTint, object: nil)
     }
 }

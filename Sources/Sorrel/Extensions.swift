@@ -64,10 +64,20 @@ final class ExtensionTab: NSObject {
 }
 
 extension ExtensionTab: WKWebExtensionTab {
-    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? { Extensions.shared.window }
+    func window(for context: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
+        owner?.extensionWindow
+    }
+
+    var owner: MainWindowController? {
+        guard let item else { return nil }
+        let windows = AppDelegate.shared.windows
+        return windows.first { $0.store.displays(item) }
+            ?? windows.first { $0.store.windowID == item.browserWindowID }
+            ?? windows.first
+    }
 
     func indexInWindow(for context: WKWebExtensionContext) -> Int {
-        Store.shared.allTabs.firstIndex { $0.item === item } ?? NSNotFound
+        owner?.extensionWindow.items.firstIndex { $0 === item } ?? NSNotFound
     }
 
     func webView(for context: WKWebExtensionContext) -> WKWebView? { item?.page?.webView }
@@ -86,7 +96,7 @@ extension ExtensionTab: WKWebExtensionTab {
         !(item?.page?.webView.isLoading ?? false)
     }
 
-    func isSelected(for context: WKWebExtensionContext) -> Bool { item != nil && Store.shared.selected === item }
+    func isSelected(for context: WKWebExtensionContext) -> Bool { item != nil && owner?.store.selected === item }
     func size(for context: WKWebExtensionContext) -> CGSize { item?.page?.webView.bounds.size ?? .zero }
     func zoomFactor(for context: WKWebExtensionContext) -> Double { Double(item?.page?.webView.pageZoom ?? 1) }
     func shouldGrantPermissionsOnUserGesture(for context: WKWebExtensionContext) -> Bool { true }
@@ -115,7 +125,7 @@ extension ExtensionTab: WKWebExtensionTab {
     }
 
     func activate(for context: WKWebExtensionContext, completionHandler: @escaping ((any Error)?) -> Void) {
-        if let item { Store.shared.select(item) }
+        if let item, let owner { AppDelegate.shared.focus(owner); owner.store.select(item) }
         completionHandler(nil)
     }
 
@@ -125,18 +135,25 @@ extension ExtensionTab: WKWebExtensionTab {
     }
 }
 
-/// Sorrel's main window, as extensions see it. Tabs from every space belong to it.
-final class ExtensionWindow: NSObject {}
+/// One normal browser window, with its own active tab. The sidebar remains shared across windows.
+final class ExtensionWindow: NSObject {
+    weak var controller: MainWindowController?
+    init(controller: MainWindowController) { self.controller = controller }
+
+    var items: [Item] {
+        Store.profile.allTabs.map { $0.item }.filter { $0.extensionTab.owner === controller }
+    }
+}
 
 extension ExtensionWindow: WKWebExtensionWindow {
-    private var window: NSWindow? { AppDelegate.shared.main?.window }
+    private var window: NSWindow? { controller?.window }
 
     func tabs(for context: WKWebExtensionContext) -> [any WKWebExtensionTab] {
-        Store.shared.allTabs.map { $0.item.extensionTab }
+        items.map { $0.extensionTab }
     }
 
     func activeTab(for context: WKWebExtensionContext) -> (any WKWebExtensionTab)? {
-        Store.shared.selected?.extensionTab
+        controller?.store.selected?.extensionTab
     }
 
     func windowType(for context: WKWebExtensionContext) -> WKWebExtension.WindowType { .normal }
@@ -152,7 +169,7 @@ extension ExtensionWindow: WKWebExtensionWindow {
     func frame(for context: WKWebExtensionContext) -> CGRect { window?.frame ?? .zero }
 
     func focus(for context: WKWebExtensionContext, completionHandler: @escaping ((any Error)?) -> Void) {
-        AppDelegate.shared.showMainWindow()
+        if let controller { AppDelegate.shared.focus(controller) }
         completionHandler(nil)
     }
 }
@@ -165,7 +182,6 @@ final class Extensions: NSObject {
     static let blockerID = "ublock-origin-lite"
 
     let controller: WKWebExtensionController
-    let window = ExtensionWindow()
     private(set) var entries: [ExtensionEntry] = []
     private weak var openPopover: NSPopover?
 
@@ -851,9 +867,9 @@ final class Extensions: NSObject {
         controller.didChangeTabProperties([.URL, .title, .loading], for: item.extensionTab)
     }
 
-    func windowReady() {
-        controller.didOpenWindow(window)
-        controller.didFocusWindow(window)
+    func windowReady(_ main: MainWindowController) {
+        controller.didOpenWindow(main.extensionWindow)
+        controller.didFocusWindow(main.extensionWindow)
     }
 
     // MARK: Toolbar actions
@@ -1060,11 +1076,11 @@ final class Extensions: NSObject {
 
 extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, openWindowsFor extensionContext: WKWebExtensionContext) -> [any WKWebExtensionWindow] {
-        [window]
+        AppDelegate.shared.windows.map { $0.extensionWindow }
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, focusedWindowFor extensionContext: WKWebExtensionContext) -> (any WKWebExtensionWindow)? {
-        window
+        AppDelegate.shared.main?.extensionWindow
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, openNewTabUsing configuration: WKWebExtension.TabConfiguration,
@@ -1074,7 +1090,8 @@ extension Extensions: WKWebExtensionControllerDelegate {
             FileHandle.standardError.write("extlog[sorrel]: extension asked for a new tab: \(configuration.url?.absoluteString ?? "blank")\n".data(using: .utf8)!)
         }
         AppDelegate.shared.showMainWindow()
-        let item = Store.shared.newTab(url: configuration.url?.absoluteString ?? "", select: configuration.shouldBeActive)
+        let target = (configuration.window as? ExtensionWindow)?.controller ?? AppDelegate.shared.main!
+        let item = target.store.newTab(url: configuration.url?.absoluteString ?? "", select: configuration.shouldBeActive)
         if !configuration.shouldBeActive { _ = Engine.shared.ensurePage(for: item) }
         completionHandler(item.extensionTab, nil)
     }
@@ -1082,10 +1099,15 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, openNewWindowUsing configuration: WKWebExtension.WindowConfiguration,
                                 for extensionContext: WKWebExtensionContext,
                                 completionHandler: @escaping ((any WKWebExtensionWindow)?, (any Error)?) -> Void) {
-        // Sorrel has one main window, so a requested window opens as tabs in it.
-        AppDelegate.shared.showMainWindow()
-        for url in configuration.tabURLs { Store.shared.newTab(url: url.absoluteString) }
-        completionHandler(window, nil)
+        // Private pages must never be placed in a persistent normal window.
+        guard !configuration.shouldBePrivate else {
+            completionHandler(nil, NSError(domain: "Sorrel", code: 11,
+                userInfo: [NSLocalizedDescriptionKey: "Extensions cannot create private windows."]))
+            return
+        }
+        let main = AppDelegate.shared.newWindow()
+        for url in configuration.tabURLs { main.store.newTab(url: url.absoluteString) }
+        completionHandler(main.extensionWindow, nil)
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, openOptionsPageFor extensionContext: WKWebExtensionContext,
@@ -1132,17 +1154,17 @@ extension Extensions: WKWebExtensionControllerDelegate {
     func webExtensionController(_ controller: WKWebExtensionController, didUpdate action: WKWebExtension.Action,
                                 forExtensionContext context: WKWebExtensionContext) {
         // Only the selected tab's button is on screen; a change for another tab shows when that tab is selected.
-        if let tab = action.associatedTab as? ExtensionTab, let item = tab.item, Store.shared.selected !== item { return }
+        if let tab = action.associatedTab as? ExtensionTab, let item = tab.item, tab.owner?.store.selected !== item { return }
         NotificationCenter.default.post(name: .sorrelExtensionAction, object: entry(for: context))
     }
 
     func webExtensionController(_ controller: WKWebExtensionController, presentActionPopup action: WKWebExtension.Action,
                                 for context: WKWebExtensionContext, completionHandler: @escaping ((any Error)?) -> Void) {
-        guard let popover = action.popupPopover, let main = AppDelegate.shared.main else {
+        guard let popover = action.popupPopover, let main = (action.associatedTab as? ExtensionTab)?.owner ?? AppDelegate.shared.main else {
             completionHandler(nil)
             return
         }
-        AppDelegate.shared.showMainWindow()
+        AppDelegate.shared.focus(main)
         let (view, rect, edge) = main.extensionPopupAnchor(for: entry(for: context))
         completionHandler(nil)
         openPopover = popover

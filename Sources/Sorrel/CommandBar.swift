@@ -331,7 +331,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         // Suggestions from the last time the bar was open don't carry over.
         suggestions = []
         suggestionsFor = ""
-        if mode == .editCurrent, let u = Store.shared.selected?.url, !u.hasPrefix("sorrel://") {
+        if mode == .editCurrent, let u = controller?.store.selected?.url, !u.hasPrefix("sorrel://") {
             field.stringValue = u
         } else {
             field.stringValue = ""
@@ -430,7 +430,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
     // MARK: Results
 
     private func go(_ url: URL) {
-        let store = Store.shared
+        let store = controller?.store ?? Store.shared
         if mode == .editCurrent, let item = store.selected {
             let page = Engine.shared.ensurePage(for: item)
             Engine.shared.load(url.absoluteString, in: page)
@@ -447,13 +447,13 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
 
     /// Picking an open tab: switch to it, or in split mode, put it beside the current tab.
     private func pick(_ item: Item) {
-        let store = Store.shared
+        let store = controller?.store ?? Store.shared
         guard mode == .newSplit, let base = store.selected, base !== item else { store.select(item); return }
         controller?.splitSelected(with: item)
     }
 
     private func compute(_ raw: String) -> [Result] {
-        let store = Store.shared
+        let store = controller?.store ?? Store.shared
         let q = raw.trimmingCharacters(in: .whitespaces)
         var out: [Result] = []
 

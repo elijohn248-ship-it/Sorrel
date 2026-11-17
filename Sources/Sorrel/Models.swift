@@ -17,6 +17,7 @@ final class Item: NSObject, Codable {
     var split: SplitLayout?
 
     // Runtime only.
+    var browserWindowID: UUID?
     var page: Page?
     weak var parent: Item?
     /// A sleeping tab's back/forward history and scroll position, restored when it wakes.
@@ -122,11 +123,19 @@ struct ArchivedTab: Codable {
     var date: Date
 }
 
+/// Window selections only; pages, cookies and tab data belong to the shared profile.
+struct BrowserWindowState: Codable {
+    var id: UUID
+    var currentSpaceID: UUID
+    var selections: [UUID: UUID]
+}
+
 struct AppState: Codable {
     var version = 1
     var spaces: [Space]
     var favorites: [Item]
     var currentSpaceID: UUID
+    var windows: [BrowserWindowState]?
     var sidebarCollapsed = false
     var sidebarWidth: Double = 250
 }
@@ -147,7 +156,42 @@ extension Notification.Name {
 // MARK: - Store
 
 final class Store {
-    static let shared = Store()
+    static let profile = Store()
+    /// Commands without a view use the most recently focused normal window.
+    static var shared: Store { AppDelegate.shared?.main?.store ?? profile }
+
+    private let owner: Store?
+    let windowID: UUID
+    private var currentSpaceID: UUID
+    private var selections: [UUID: UUID]
+    var windowState: BrowserWindowState {
+        BrowserWindowState(id: windowID, currentSpaceID: currentSpace.id, selections: selections)
+    }
+    private var sessions: [Store] { AppDelegate.shared?.windows.map { $0.store } ?? [self] }
+
+    init(windowState: BrowserWindowState) {
+        owner = Store.profile
+        windowID = windowState.id
+        currentSpaceID = windowState.currentSpaceID
+        selections = windowState.selections
+        reconcileSelection()
+        if let selected, sessions.contains(where: { $0.displays(selected) }) {
+            selections[currentSpace.id] = nil
+        }
+    }
+
+    func selectedID(in space: Space) -> UUID? { selections[space.id] }
+
+    func displays(_ item: Item) -> Bool {
+        visibleTabs.contains { $0 === item }
+    }
+
+    /// A live page has one view. Selecting it elsewhere focuses its existing window.
+    private func focusExistingWindow(for item: Item) -> Bool {
+        guard let other = AppDelegate.shared?.windows.first(where: { $0.store !== self && $0.store.displays(item) }) else { return false }
+        AppDelegate.shared.focus(other)
+        return true
+    }
 
     enum Location {
         case favorites
@@ -155,15 +199,31 @@ final class Store {
         case today(Space)
     }
 
-    private(set) var state: AppState
+    private var storedState: AppState!
+    var state: AppState {
+        get { owner?.state ?? storedState }
+        set { if let owner { owner.state = newValue } else { storedState = newValue } }
+    }
     private let saver = Debouncer(delay: 0.8)
-    private var closedStack: [(url: String, title: String, spaceID: UUID)] = []
+    private var storedClosedStack: [(url: String, title: String, spaceID: UUID)] = []
+    private var closedStack: [(url: String, title: String, spaceID: UUID)] {
+        get { owner?.closedStack ?? storedClosedStack }
+        set { if let owner { owner.closedStack = newValue } else { storedClosedStack = newValue } }
+    }
     /// Direction of the last space switch, for the slide animation. +1 = forward.
     private(set) var lastSwitchDirection = 1
 
-    private(set) var archive: [ArchivedTab] = []
+    private var storedArchive: [ArchivedTab] = []
+    var archive: [ArchivedTab] {
+        get { owner?.archive ?? storedArchive }
+        set { if let owner { owner.archive = newValue } else { storedArchive = newValue } }
+    }
 
     private init() {
+        owner = nil
+        windowID = UUID()
+        currentSpaceID = UUID()
+        selections = [:]
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         if let data = try? Data(contentsOf: Paths.archive),
@@ -179,6 +239,8 @@ final class Store {
             }
             state = Store.seed()
         }
+        currentSpaceID = state.currentSpaceID
+        selections = Dictionary(uniqueKeysWithValues: state.spaces.compactMap { sp in sp.selectedID.map { (sp.id, $0) } })
         rebuildParents()
     }
 
@@ -198,11 +260,11 @@ final class Store {
     var favorites: [Item] { state.favorites }
 
     var currentSpace: Space {
-        state.spaces.first { $0.id == state.currentSpaceID } ?? state.spaces[0]
+        state.spaces.first { $0.id == currentSpaceID } ?? state.spaces[0]
     }
 
     var selected: Item? {
-        guard let id = currentSpace.selectedID else { return nil }
+        guard let id = selections[currentSpace.id] else { return nil }
         return item(id: id)
     }
 
@@ -286,10 +348,23 @@ final class Store {
         return nil
     }
 
+    /// Removes stale selections after another window closes/moves a shared tab or space.
+    func reconcileSelection() {
+        if space(id: currentSpaceID) == nil { currentSpaceID = spaces[0].id }
+        for (spaceID, tabID) in selections {
+            guard let tab = item(id: tabID), let sp = space(id: spaceID),
+                  isFavorite(tab) || space(containing: tab) === sp else {
+                selections[spaceID] = nil
+                continue
+            }
+        }
+    }
+
     // MARK: Notifications and saving
 
     private func post(_ name: Notification.Name, _ object: Any? = nil) {
-        NotificationCenter.default.post(name: name, object: object)
+        let scoped = name == .sorrelSelection
+        NotificationCenter.default.post(name: name, object: scoped ? self : object)
     }
 
     func itemChanged(_ item: Item) {
@@ -298,10 +373,17 @@ final class Store {
     }
 
     func scheduleSave() {
+        if let owner { owner.scheduleSave(); return }
         saver.schedule { [weak self] in self?.saveNow() }
     }
 
     func saveNow() {
+        if let owner { owner.saveNow(); return }
+        if let app = AppDelegate.shared, !app.windows.isEmpty {
+            state.windows = app.windows.map { $0.store.windowState }
+            state.currentSpaceID = app.main.store.currentSpace.id
+            for sp in spaces { sp.selectedID = app.main.store.selectedID(in: sp) }
+        }
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         enc.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
@@ -331,11 +413,18 @@ final class Store {
             select(sv.children.max { $0.lastActive < $1.lastActive })
             return
         }
-        if let item, let sp = space(containing: item), sp.id != state.currentSpaceID {
+        if let item, focusExistingWindow(for: item) { return }
+        if let item, let sp = space(containing: item), sp.id != currentSpaceID {
             setCurrentSpace(sp)
         }
         let previous = selected
-        currentSpace.selectedID = item?.id
+        let oldWindow = item?.extensionTab.owner
+        let oldIndex = oldWindow.flatMap { window in item.flatMap { tab in window.extensionWindow.items.firstIndex { $0 === tab } } }
+        item?.browserWindowID = windowID
+        selections[currentSpace.id] = item?.id
+        if let item, let oldWindow, oldWindow.store !== self, let oldIndex {
+            Extensions.shared.controller.didMoveTab(item.extensionTab, from: oldIndex, in: oldWindow.extensionWindow)
+        }
         // Every pane of a split view is on screen, so none of them counts as idle.
         if let item, let sv = split(containing: item) {
             let now = Date()
@@ -371,6 +460,7 @@ final class Store {
                 select shouldSelect: Bool = true, page: Page? = nil) -> Item {
         let sp = space ?? currentSpace
         let item = Item(url: url, title: title)
+        item.browserWindowID = windowID
         if let page {
             item.page = page
             page.item = item
@@ -388,6 +478,7 @@ final class Store {
     }
 
     func close(_ item: Item) {
+        if let other = sessions.first(where: { $0 !== self && $0.displays(item) }) { other.close(item); return }
         if item.isSplit {
             for t in item.children { close(t) }
             return
@@ -398,8 +489,8 @@ final class Store {
             return
         }
         let wasSelected = selected === item
-        for s in state.spaces where s.selectedID == item.id && s.id != state.currentSpaceID {
-            s.selectedID = nil
+        for s in state.spaces where selections[s.id] == item.id && s.id != currentSpaceID {
+            selections[s.id] = nil
         }
 
         if isFavorite(item) || isPinned(item) {
@@ -444,8 +535,8 @@ final class Store {
             guard let (loc, idx) = locate(item) else { return }
             remove(at: loc, index: idx)
         }
-        for s in state.spaces where s.selectedID == item.id && s.id != state.currentSpaceID {
-            s.selectedID = nil
+        for s in state.spaces where selections[s.id] == item.id && s.id != currentSpaceID {
+            selections[s.id] = nil
         }
         if let u = item.url, !u.isEmpty {
             closedStack.append((u, item.displayTitle, sp.id))
@@ -468,7 +559,7 @@ final class Store {
         let wasSelected = kids.contains { $0 === selected }
         remove(at: loc, index: idx)
         for t in kids {
-            for s in state.spaces where s.selectedID == t.id && s.id != state.currentSpaceID { s.selectedID = nil }
+            for s in state.spaces where selections[s.id] == t.id && s.id != currentSpaceID { selections[s.id] = nil }
             if let u = t.url, !u.isEmpty {
                 closedStack.append((u, t.displayTitle, sp.id))
                 if closedStack.count > 50 { closedStack.removeFirst() }
@@ -485,7 +576,9 @@ final class Store {
     }
 
     private func mostRecentLoaded(excluding: Item) -> Item? {
-        cycleOrder.filter { $0 !== excluding && $0.page != nil }
+        cycleOrder.filter { candidate in
+            candidate !== excluding && candidate.page != nil && !sessions.contains { $0 !== self && $0.displays(candidate) }
+        }
             .max { $0.lastActive < $1.lastActive }
     }
 
@@ -524,7 +617,7 @@ final class Store {
     /// screen and those `canSleep` protects are skipped. nil = every tab. Returns how many went to sleep.
     @discardableResult
     func sleepTabs(_ candidates: [Item]? = nil) -> Int {
-        let visible = visibleTabs
+        let visible = sessions.flatMap { $0.visibleTabs }
         var count = 0
         let pool = candidates ?? allTabs.map { $0.item }
         for item in pool where !visible.contains(where: { $0 === item }) && canSleep(item) {
@@ -585,7 +678,7 @@ final class Store {
         for space in state.spaces {
             // A split view goes only when none of its panes has been used, and none is on screen.
             let stale = space.today.filter { entry in
-                (entry.isSplit ? entry.children : [entry]).allSatisfy { $0.lastActive < cutoff && $0.id != space.selectedID }
+                (entry.isSplit ? entry.children : [entry]).allSatisfy { tab in tab.lastActive < cutoff && tab.id != selectedID(in: space) && !sessions.contains { $0.displays(tab) } }
             }
             for entry in stale {
                 space.today.removeAll { $0 === entry }
@@ -735,8 +828,8 @@ final class Store {
         let item = unit(item)
         guard let source = space(containing: item), source !== target else { return }
         let wasPinned = isPinned(item)
-        if source.selectedID == item.id || item.children.contains(where: { $0.id == source.selectedID }) {
-            source.selectedID = nil
+        if selections[source.id] == item.id || item.children.contains(where: { $0.id == selections[source.id] }) {
+            selections[source.id] = nil
             if source === currentSpace { post(.sorrelSelection) }
         }
         if wasPinned { move(item, to: .pinned(target, nil)) } else { move(item, to: .today(target), index: 0) }
@@ -762,7 +855,8 @@ final class Store {
     @discardableResult
     func makeSplit(_ base: Item, with other: Item, otherFirst: Bool = false, stacked: Bool? = nil,
                    focus: Item? = nil) -> Item? {
-        guard base !== other, canSplit(base), canSplit(other) else { return nil }
+        guard base !== other, canSplit(base), canSplit(other),
+              !sessions.contains(where: { $0 !== self && ($0.displays(base) || $0.displays(other)) }) else { return nil }
         if let existing = split(containing: base) {
             if existing === split(containing: other) {
                 if let s = stacked { existing.split?.stacked = s }
@@ -795,7 +889,7 @@ final class Store {
     private func detachSingle(_ item: Item) -> Bool {
         guard let (loc, idx) = locate(item) else { return false }
         if selected !== item {
-            for s in state.spaces where s.selectedID == item.id { s.selectedID = nil }
+            for s in state.spaces where selections[s.id] == item.id { selections[s.id] = nil }
         }
         remove(at: loc, index: idx)
         return true
@@ -945,22 +1039,25 @@ final class Store {
     // MARK: Spaces
 
     private func setCurrentSpace(_ space: Space) {
-        let oldIdx = state.spaces.firstIndex { $0.id == state.currentSpaceID } ?? 0
+        let oldIdx = state.spaces.firstIndex { $0.id == currentSpaceID } ?? 0
         let newIdx = state.spaces.firstIndex { $0 === space } ?? 0
         lastSwitchDirection = newIdx >= oldIdx ? 1 : -1
-        state.currentSpaceID = space.id
-        post(.sorrelSpace)
+        currentSpaceID = space.id
+        if let selected, sessions.contains(where: { $0 !== self && $0.displays(selected) }) {
+            selections[space.id] = nil
+        }
+        NotificationCenter.default.post(name: .sorrelSpace, object: self)
     }
 
     func switchSpace(to space: Space) {
-        guard space.id != state.currentSpaceID else { return }
+        guard space.id != currentSpaceID else { return }
         setCurrentSpace(space)
         post(.sorrelSelection)
         scheduleSave()
     }
 
     func switchSpace(offset: Int) {
-        guard let idx = state.spaces.firstIndex(where: { $0.id == state.currentSpaceID }) else { return }
+        guard let idx = state.spaces.firstIndex(where: { $0.id == currentSpaceID }) else { return }
         let next = idx + offset
         guard next >= 0, next < state.spaces.count else { return }
         switchSpace(to: state.spaces[next])
@@ -972,6 +1069,7 @@ final class Store {
         let sp = Space(name: name, icon: icon, theme: t)
         state.spaces.append(sp)
         switchSpace(to: sp)
+        post(.sorrelSpace)
         return sp
     }
 
@@ -981,10 +1079,10 @@ final class Store {
             t.page?.teardown()
             t.page = nil
         }
-        let wasCurrent = space.id == state.currentSpaceID
+        let wasCurrent = space.id == currentSpaceID
         state.spaces.remove(at: idx)
         if wasCurrent {
-            state.currentSpaceID = state.spaces[max(0, idx - 1)].id
+            currentSpaceID = state.spaces[max(0, idx - 1)].id
             post(.sorrelSpace)
             post(.sorrelSelection)
         } else {

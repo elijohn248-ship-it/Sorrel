@@ -22,6 +22,11 @@ final class Commands {
     @discardableResult
     func run(_ id: String) -> Bool {
         guard let c = byID[id] else { return false }
+        // Menu commands still work after the last normal window has been closed.
+        if let app = AppDelegate.shared, app.main == nil,
+           !["window.new", "window.close", "tab.close", "mini.new", "private.new", "settings.open"].contains(id) {
+            app.showMainWindow()
+        }
         c.action()
         return true
     }
@@ -62,7 +67,8 @@ final class Keybindings {
         ("alt+cmd+left", "space.previous"),
         ("alt+cmd+n", "mini.new"),
         ("cmd+o", "mini.expand"),
-        ("cmd+n", "window.show"),
+        ("cmd+n", "window.new"),
+        ("cmd+shift+w", "window.close"),
         ("ctrl+cmd+n", "folder.new"),
         ("cmd+shift+n", "private.new"),
         ("cmd+p", "tab.print"),
