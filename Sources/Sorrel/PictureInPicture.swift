@@ -36,15 +36,15 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
                 view.callAsyncJavaScript("globalThis.sorrelVideo?.restore(); delete globalThis.sorrelVideo;", arguments: [:], in: nil, in: self.world) { _ in }
                 return
             }
-            guard case .success(let value) = result, let size = value as? [String: Double] else {
+            guard case .success(let value) = result, let size = value as? [String: Any] else {
                 Engine.shared.onToast?("No accessible video on this page. For embedded players, use their own Picture in Picture control.")
                 return
             }
-            self.present(view, width: size["width"] ?? 16, height: size["height"] ?? 9)
+            self.present(view, width: size["width"] as? Double ?? 16, height: size["height"] as? Double ?? 9, paused: size["paused"] as? Bool ?? true)
         }
     }
 
-    private func present(_ view: WKWebView, width: Double, height: Double) {
+    private func present(_ view: WKWebView, width: Double, height: Double, paused: Bool) {
         webView = view
         originalHost = view.superview
         let ratio = min(2.4, max(0.6, width / max(1, height)))
@@ -75,6 +75,11 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
         canvas = content
         (originalHost as? PaneView)?.reclaimWebView()
         if isQuietTest { window.orderBack(nil) } else { window.orderFrontRegardless() }
+        // WebKit may resume a suspended video when its view becomes visible again.
+        // Preserve an explicit pause across the move into the floating window.
+        if paused {
+            view.callAsyncJavaScript("globalThis.sorrelVideo?.video.pause();", arguments: [:], in: nil, in: world) { _ in }
+        }
         loading = view.observe(\.isLoading, options: [.new]) { [weak self] view, _ in
             if view.isLoading { self?.close() }
         }
@@ -264,6 +269,9 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
     const chosen = find(window).sort((a,b) => Number(a.video.paused) - Number(b.video.paused)
         || b.video.videoWidth * b.video.videoHeight - a.video.videoWidth * a.video.videoHeight)[0];
     if (!chosen) return null;
+    const paused = chosen.video.paused;
+    // Commit an explicit pause before the visibility/style transition as well as after reparenting.
+    if (paused) chosen.video.pause();
     globalThis.sorrelVideo?.restore();
     const saved = [], sheets = [];
     function focus(element) {
@@ -297,7 +305,7 @@ final class PictureInPicture: NSObject, NSWindowDelegate {
         }
         for (const sheet of sheets) sheet.remove();
     }};
-    return {width: video.videoWidth, height: video.videoHeight};
+    return {width: video.videoWidth, height: video.videoHeight, paused};
     """
 }
 
