@@ -28,6 +28,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### Paused video resumed when reopening Picture in Picture (fixed 2026-11-17, branch `picture-in-picture`)
+- **Repro:** pause a video in PiP, return it to the tab, then open PiP again.
+- **Expected:** the video stays paused, including after seeking.
+- **Actual:** the local video fixture resumed after WebKit moved into the floating window.
+- **Cause / fix:** WebKit could resume suspended playback as its view became visible again. Capture pause state before changing styles, explicitly pause before moving a paused video, and reapply the pause after attaching the floating window. Verified with local video pause/resume, reopen, seek bounds, return, embedded frames, navigation/close and private-store teardown; nearby sidebar playback/seek and split hooks pass. Debug/release builds retain the two existing source warnings.
+
 ### Sidebar mini player lacks transport controls (fixed 2026-11-17, branch `miniplayer-controls`)
 - **Repro:** play media, switch tabs, inspect the sidebar player.
 - **Expected:** compact Arc-style player with rewind, play/pause and fast-forward; automatic source selection.
