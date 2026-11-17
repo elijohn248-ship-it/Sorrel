@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Multiple normal windows are implemented (2026-11-17):** ⌘N opens a new window with independent tab/space selection, shared normal logins, and session restore. Selecting an already visible tab focuses its window. Owner verification is still needed for signed-in extensions and window-switching feel.
+
 - **Updater fix (2026-11-16):** macOS's app-data protection (TCC `SystemPolicyAppDataDetailed`) blocks the unsandboxed updater service from any path inside the app's container. So the app now opens the zip and log itself and passes them to the service as `FileHandle`s. Real installs were most likely always refused before this.
 - **Signing identity not created yet.** `build.sh` signs with a self-signed identity from `~/.config/sorrel/signing.keychain-db` if it exists; it **does not exist yet**, so builds are signed ad-hoc, and macOS re-asks for Downloads/camera/mic/location permission after every rebuild or update. The fix is for the **owner** to run `tools/make-signing-identity.sh` (an agent's attempt was blocked by the permission system). Don't run it yourself without the owner's explicit go-ahead in this session. After it exists: owner quits Sorrel, `./build.sh`, one last permission prompt.
 - **Proton Pass pop-up is fixed** (owner confirmed 2026-11-16, "It works!"). Cause was pop-up sizing (`applyDeclaredSize` set only `min-height`).
@@ -240,7 +242,6 @@ Arc-style sync across the owner's Macs and iPhone, free, **end-to-end encrypted*
 
 From `~/sorrel-gap-audit/GAPS.md` and `CLAUDE.md` ▸ Known gaps. Already done since that list: Arc import, History window (⌘Y) with search and per-entry delete, Clear Browsing Data with time range, website location.
 
-- **Second main window (⌘N)**: only one main window exists.
 - Site info panel (click the lock): certificate details, see/revoke camera/mic, per-site data, blocking toggle.
 - Screen sharing in web meetings (`getDisplayMedia`), untested.
 - Link hover status bubble (needs a private WebKit delegate).

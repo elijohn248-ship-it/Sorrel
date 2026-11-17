@@ -28,6 +28,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### ⌘N could only show the existing main window (fixed 2026-11-17, branch `multiple-windows`)
+- **Repro:** choose File ▸ Show Main Window / press ⌘N while a browser window is open.
+- **Expected:** open another normal window and use different tabs in the same browsing session.
+- **Actual:** the existing window came forward; one global selection could not support independent windows.
+- **Cause / fix:** one window controller and global selection owned every page. Normal windows now have independent selections over shared profile data; selecting an already visible tab focuses its owning window. Quit preserves all normal window snapshots rather than saving each window's close in turn. Verified with the multi-window and restore hooks, split-view, private/security and silent-media checks.
+
 ### Updates refused for the real app: the updater service can't reach Sorrel's container (fixed 2026-11-16, branch `update-card`)
 - **Found as:** `tools/update-test.sh` swapzip step didn't install (`The updater only writes to Sorrel's own update.log, not ~/Library/Containers/…`), same with ad-hoc and self-signed builds, and also when launched through LaunchServices (`open -g`).
 - **Cause:** macOS app-data protection. `sandboxd` logs `TCC denied kTCCServiceSystemPolicyAppDataDetailed` when the (unsandboxed) updater service touches a path in the app's container, where the real app keeps both the downloaded zip and `update.log`. Other tests passed only because `SORREL_HOME` moves both to /private/tmp. So real installs were most likely always refused at the hand-off.
