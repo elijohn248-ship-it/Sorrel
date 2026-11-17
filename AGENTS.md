@@ -191,7 +191,6 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 |---|---|---|
 | `~/sorrel` | `main` | The owner's copy. Don't work here. |
 | `~/sorrel-sync` | `sync` | **Active, not merged.** Tab sync, rounds 1-2 of 4 done (section 5.2). |
-| `~/sorrel-sidebar-player` | `sidebar-player` | Sidebar mini player: play/pause, tab audio mute, source selection. Not merged; owner music-site/feel check pending. |
 | `~/sorrel-release`, `~/sorrel-release-0.2.2` | `release-0.2.1`, `release-0.2.2` | Unpublished, superseded releases. Don't publish. Remove only when the owner says. |
 | `~/sorrel-gap-audit` | `feature-gap-audit` | Holds an untracked `GAPS.md` (feature gap list, 2026-11-15). Useful as an idea list; parts are already done (see 5.3). Don't commit it. |
 | `~/sorrel-sandbox`, `~/sorrel-security-audit`, `~/sorrel-downloads`, `~/sorrel-claude-setup` | various | Already merged. Kept until the owner says to remove them. `sorrel-security-audit` holds the git-excluded `SECURITY-AUDIT.md`. |
@@ -206,6 +205,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 - `CLAUDE.md` ▸ "Known gaps" still lists location as missing; website location was added 2026-11-16 (it's in the Security behaviour section).
 
 ### 4.4 Waiting on the owner (don't try to verify these yourself)
+
+- Sidebar mini player: play music, switch tabs/spaces, and check play/pause, tab mute and the card's feel. Local media and Library/memory tests pass.
 
 - The **feel** of: fluid motion, space swipe ("feels good" confirmed), space icon row scrolling, download flight, command bar typing, Arc-style colours/grain, the update card in their real sidebar, the import card motion.
 - Real Open-panel "Allow" flow for browser import; Safari's folder access.
