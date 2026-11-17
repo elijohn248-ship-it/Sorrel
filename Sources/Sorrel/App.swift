@@ -806,6 +806,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             main.sidebar.mediaPlayer.runMediaTest()
         }
 
+        if env["SORREL_MEDIASEEKTEST"] != nil {
+            main.sidebar.mediaPlayer.runMediaSeekTest()
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             for id in (env["SORREL_RUN"] ?? "").split(separator: ",") { Commands.shared.run(String(id)) }
             if let u = env["SORREL_OPEN"] { self.store.newTab(url: u) }
