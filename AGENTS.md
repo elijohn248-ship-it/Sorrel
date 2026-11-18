@@ -179,6 +179,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.1 Branches and releases
 
+- **Prepared, not published (2026-11-18): v0.4.1 (build 9)** in `~/sorrel-release-0.4.1`, branch `release-0.4.1`, from main `c48f617`. Signed update ZIP, feed, DMG and user-facing notes are in `dist/`. Live latest remains v0.4.0 (build 8). Separate publishing approval is pending; do not cut another build 9. Main has not been rebuilt or advanced to the release commit.
+
 - `main` and `origin/main` are in step as of 2026-11-16 (pushed at the owner's request, after the 0.2.3 release commit).
 - **Latest published release: v0.4.0 (build 8)**, published 2026-11-17: the rename to Birch (plus Move to Applications), cut in `~/sorrel-release-0.4.0`, signed ad-hoc; the published zip and signature were checked against the live feed. `main` pushed and the temporary remote branch `release-0.4.0` deleted the same day (owner's go-ahead). Before it: **v0.3.1 (build 7)**, published 2026-11-17 (fullscreen toolbar auto-hides), cut in `~/sorrel-release-0.3.1`; before it v0.3.0 (build 6, 2026-11-17). Both signed ad-hoc. Earlier: **v0.2.3 (build 5)**, published 2026-11-16, cut from `main` in `~/sorrel-release-0.2.3` (branch `release-0.2.3`, local only; the temporary remote branch was deleted). It is the first release with the working updater (open files instead of paths) and the sidebar update card. `tools/update-test.sh` passed on that exact build before publishing. Before it: v0.2.0 (build 2).
 - **v0.2.1 (build 3)** and **v0.2.2 (build 4)** were cut locally (worktrees `~/sorrel-release`, `~/sorrel-release-0.2.2`; tags local only) and **never published. Never publish them**: 0.2.3 supersedes both. The next release will be build 9.
