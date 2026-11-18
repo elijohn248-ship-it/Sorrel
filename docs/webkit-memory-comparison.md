@@ -141,10 +141,25 @@ Between the last sustained sample and the 120-second post-close sample, WebConte
 fell by 1385.1 MiB in Birch Test and 1251.6 MiB in Safari. That is a whole-group
 change over an interval, not an exact allocation owned by the closed tab.
 
+For the warm-session repeat, times start at the reopening confirmation.
+The first rows are initial reopen observations, not precisely timed navigation
+peaks. UWorld stayed open throughout.
+
+| After reopen | Browser | Main | All WebContent | GPU | Networking |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 0 | Birch Test | 70.8 | 1472.9 | 143.9 | 19.2 |
+| 0 | Safari | 184.9 | 2004.4 | 52.7 | 23.6 |
+| 15 | Birch Test | 70.6 | 1526.9 | 58.0 | 19.2 |
+| 15 | Safari | 184.7 | 2002.3 | 52.4 | 23.7 |
+| 30 | Birch Test | 70.7 | 1572.4 | 56.4 | 19.1 |
+| 30 | Safari | 184.8 | 2021.8 | 52.6 | 23.6 |
+| 120 | Birch Test | 70.7 | 1548.2 | 51.3 | 19.0 |
+| 120 | Safari | 184.6 | 2021.8 | 49.6 | 23.4 |
+
 ### Result and remaining checks
 
-The measured scale is comparable to Safari's WebKit content memory. In this
-one prepared session, Birch's main process was much smaller, while content
+The measured scale is comparable to Safari's WebKit content memory. In these
+prepared sessions, Birch's main process was much smaller, while content
 memory overlapped Safari's range and fell substantially after YouTube closed.
 This supports heavy WebKit/content work as the principal observed cost;
 it does not establish that every 1 GB tab is expected, exclude a WebKit leak,
@@ -158,27 +173,29 @@ categories cannot distinguish website JavaScript from extension/injected
 script allocations. The category's swapped/compressed subset is already
 included in dirty accounting, not additional memory to sum again.
 
-A repeat was requested with Safari reopened first, then Birch Test. During
-the following six-minute sampling window, no owner confirmation of reopening
-arrived. These waiting samples are excluded from playback results and are not
-a second trial. No UWorld reload or closure was forced: an unfinished test was
-left alone. Thus independent repetitions, exact navigation-relative initial
-loads, an isolated UWorld trial and post-UWorld-close samples remain unverified.
-Five repeated measurements in one loaded session establish observed variation,
-not the distribution across independent sessions. Extension versions, actual
-awake counts and equal visibility/viewport/codecs also remain uncertain.
+A repeat was requested with Safari reopened first, then Birch Test. The
+six-minute waiting window before confirmation is excluded from playback
+results. After the owner confirmed reopening, a second series sampled at
+0, 15, 30 and 120 seconds. This was a warm-session repeat with UWorld kept
+open; it was not a fresh independent launch or a repeat UWorld navigation.
+Initial samples capture the aftermath of reopening, with unknown delay
+between completed navigation and the owner's reply. No UWorld reload or
+closure was forced: an unfinished test was left alone. Exact navigation-relative
+initial loads, an isolated UWorld trial and post-UWorld-close samples remain
+unverified. Extension versions, actual awake counts and equal
+visibility/viewport/codecs also remain uncertain. Two within-session playback
+trials do not establish a distribution across independent sessions.
+
+The second YouTube-close request was not confirmed before the prepared test
+app reached its 30-minute automatic timeout. Its exit is not counted as a
+tab-close measurement, and no after-exit values are used. The first explicit
+YouTube closure was sampled through 120 seconds. Post-UWorld closure remains
+unverified.
 
 Owner follow-up: when the test can safely be saved/exited, use the matched
 workload protocol above for each site separately, including a blank baseline,
 two navigations and post-close samples. Use only numeric role summaries and
 settings in the report. Do not copy profile data or disclose page content.
-
-In a later post-close inspection, the largest remaining content processes had
-412.9 MiB (Birch Test) and 573.0 MiB (Safari) footprint. `footprint` attributed
-338.3 and 486.6 MiB respectively to WebKit Malloc. Its swapped/compressed
-column is a subset of dirty accounting, not additional memory to add again.
-WebKit-managed heaps can contain both site and injected extension allocations;
-the category does not identify JavaScript ownership or establish a leak.
 
 ## Interpretation and implementation review
 
@@ -230,5 +247,29 @@ video buffers, images and WebKit caches remain potential contributors.
   query; the installed SDK defines rusage v0. The installed `footprint` manual
   documents group deduplication.
 
-No source establishes a universal expected 1 GB-per-tab budget. A conclusion
-about these two sites requires the matched workload results, not this control.
+No source establishes a universal expected 1 GB-per-tab budget. Interpret
+these sites using the prepared-session measurements and their limitations,
+rather than the idle main-process control alone.
+
+## Verification and change scope
+
+No additional app optimization was made from this comparison. It incorporates
+the existing `memory-efficiency` pressure handler and its Settings explanation.
+Added the external numeric sampler, this report and handbook corrections;
+no entitlement, privacy setting, extension compatibility bridge, updater,
+vendor file or app network behavior was changed by the comparison work.
+
+Debug and release builds pass with the same two distinct source warnings
+(weak capture ownership in Extensions, deprecated baseline separator in
+MainWindow). The 17 pressure checks, 22 multi-window checks and silent
+media/seek checks pass after incorporating main; pressure checks are rerun
+on the rebuilt task bundle. The pressure fixture verifies release/wake of
+Page/WKWebView and protection of visible/recent/playing tabs without creating
+actual OS memory pressure. The security-pattern diff scan has no hits.
+All 26 numeric table rows were compared programmatically against raw counters.
+Sampler self counters, invalid PID reporting and footprint cross-checks pass.
+Fresh throwaway profiles were used for automated tests; no test process is
+left running. No real profile files or secrets were inspected, and no raw
+browser logs/screenshots, page addresses, titles or question content are
+committed. The owner's main rebuild and scoped worktree cleanup are explicitly
+authorized for this task; nothing is pushed or published.
