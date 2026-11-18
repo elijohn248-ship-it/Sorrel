@@ -18,10 +18,10 @@ Birch was called **Sorrel** until version 0.3.1. Copies of Sorrel update to Birc
 
 ## Install
 
-1. Go to the [latest release](https://github.com/elijohn248-ship-it/sorrel/releases/latest) and download the `.zip` file under **Assets**.
-2. Open the downloaded zip. Your Mac unzips it into `Birch.app`.
-3. Drag **Birch** into your **Applications** folder.
-4. Open Birch from Applications.
+1. Go to the [latest release](https://github.com/elijohn248-ship-it/sorrel/releases/latest) and download the disk image, `Birch-<version>.dmg`, under **Assets**.
+2. Open the downloaded `.dmg`. A window opens showing Birch and your Applications folder.
+3. Drag **Birch** onto the **Applications** folder in that window.
+4. Open Birch from Applications. (Then you can eject the Birch disk in Finder's sidebar and delete the `.dmg`.)
 5. **The first time only**, macOS says it can't verify Birch. This is because Birch isn't notarized by Apple, which requires a paid developer account. To open it anyway:
    1. Click **Done** in the warning.
    2. Open **System Settings ▸ Privacy & Security**.
@@ -30,7 +30,9 @@ Birch was called **Sorrel** until version 0.3.1. Copies of Sorrel update to Birc
 
 After that, Birch opens normally.
 
-> **Run it from Applications, not Downloads.** macOS won't let an app running from the Downloads folder update itself.
+> **Run it from Applications, not Downloads or the disk image.** macOS won't let an app running from there update itself. If you open it from there by mistake, Birch offers to move itself into Applications.
+
+The `.zip` in the release works too (and is the only download for releases before the disk image was added): open it, then drag `Birch.app` into Applications.
 
 ### Make Birch your default browser (optional)
 

@@ -210,6 +210,7 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 - **Multiple normal windows are implemented (2026-11-17):** ⌘N opens a new window with independent tab/space selection, shared normal logins, and session restore. Selecting an already visible tab focuses its window. Owner verification is still needed for signed-in extensions and window-switching feel.
 
 - **Updater fix (2026-11-16):** macOS's app-data protection (TCC `SystemPolicyAppDataDetailed`) blocks the unsandboxed updater service from any path inside the app's container. So the app now opens the zip and log itself and passes them to the service as `FileHandle`s. Real installs were most likely always refused before this.
+- **Release disk image (2026-11-17, branch `release-dmg`):** releases now also carry `Birch-<ver>.dmg` (app + Applications link + background with an arrow), made by `tools/release.sh` without Finder (`CLAUDE.md` ▸ Updates). The zip and `updates.json` are unchanged and still the only thing updates use. Not yet in a published release; the window's look and the drag into Applications await the owner.
 - **Renamed to Birch (2026-11-17, branch `birch`):** user-facing name, `birch://` pages (old `sorrel://` tabs still load), `build/Birch.app`, birch-leaf icon. Bundle id, profile, permissions, updater chain and code names unchanged (`CLAUDE.md` ▸ Name). Installed 0.3.x copies update to it by themselves but keep the file name `Sorrel.app`.
 - **Signing identity not created yet.** `build.sh` signs with a self-signed identity from `~/.config/sorrel/signing.keychain-db` if it exists; it **does not exist yet**, so builds are signed ad-hoc, and macOS re-asks for Downloads/camera/mic/location permission after every rebuild or update. The fix is for the **owner** to run `tools/make-signing-identity.sh` (an agent's attempt was blocked by the permission system). Don't run it yourself without the owner's explicit go-ahead in this session. After it exists: owner quits Sorrel, `./build.sh`, one last permission prompt.
 - **Proton Pass pop-up is fixed** (owner confirmed 2026-11-16, "It works!"). Cause was pop-up sizing (`applyDeclaredSize` set only `min-height`).
@@ -449,8 +450,8 @@ Use the shared helpers in `Support.swift` (`Motion`): `settle` (arriving), `leav
 ### 9.7 Cut a release (ONLY when the owner asks)
 
 1. Make a worktree from current `main` (never cut in `~/sorrel`: `build.sh` deletes the running app): `git worktree add ../sorrel-release-<ver> -b release-<ver>`.
-2. In it: `tools/release.sh <version>` (e.g. `0.2.3`). It bumps the version and build number, builds, signs the zip with `~/.config/sorrel/update-signing-key`, writes `dist/`, commits and tags.
-3. **Rewrite `dist/notes.md` by hand** in user-facing language. The auto notes list every internal commit. Include the "Open Anyway" first-launch note, and (for the next release) that 0.2.0 users need one manual download.
+2. In it: `tools/release.sh <version>` (e.g. `0.2.3`). It bumps the version and build number, builds, signs the zip with `~/.config/sorrel/update-signing-key`, makes the "drag to Applications" disk image `Birch-<ver>.dmg` (first downloads only; it mounts a hidden image at `/Volumes/Birch`, no Finder window), writes `dist/`, commits and tags. **The zip and `updates.json` are what every installed copy updates from: never drop or rename them.** Publishing uploads the `.dmg` as a third asset, after the feed.
+3. **Rewrite `dist/notes.md` by hand** in user-facing language. The auto notes list every internal commit. Keep the "New here?" paragraph (download the `.dmg`, drag Birch to Applications, Open Anyway once), and (for the next release) that 0.2.0 users need one manual download.
 4. Fast-forward `main` to the release commit (so the next build number goes up) **only if the owner agrees**.
 5. **Publishing (`tools/release.sh publish`) needs a separate, explicit go-ahead.** It reaches every installed copy. It pushes the current branch, so afterwards delete the temporary remote release branch (ask first).
 6. Build numbers must only ever go up. Downgrades are refused by every copy.
@@ -491,7 +492,7 @@ All app code is in `Sources/Sorrel/`. Biggest files: `Sidebar.swift` (~2400 line
 | `Sources/SorrelUpdater/` | Unsandboxed XPC service that swaps the app bundle. **Ask before editing.** |
 | `Resources/` | `Info.plist`, `Sorrel.entitlements`, `welcome.html` (`sorrel://welcome`), `bangs.json`, `emoji.tsv`, icon |
 | `vendor/` | uBlock Origin Lite, Kagi bangs. **Don't edit.** |
-| `tools/` | `release.sh`, `update-sign.swift`, `update-test.sh`, `make-signing-identity.sh`, `make-icon.swift`, `make-emoji-list.py` |
+| `tools/` | `release.sh`, `dmg-layout.swift` (the release disk image's window layout), `update-sign.swift`, `update-test.sh`, `make-signing-identity.sh`, `make-icon.swift`, `make-emoji-list.py` |
 
 **User data files** (per profile folder): `state.json` (spaces/tabs), `settings.json`, `keybindings.json`, `bangs.json`, `history.json`, `downloads.json`, `archive.json`, `zoom.json`, `blocker.json` + `rulelists/`, `Extensions/`, `BundledExtensions/`, `Updates/`. Any change to the shape of these must still **load old files** (use `decodeIfPresent` with defaults; make new fields optional).
 
