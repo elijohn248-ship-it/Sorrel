@@ -160,7 +160,7 @@ User data (per profile folder, inside the container's `Library/Application Suppo
 
 ## Updates
 
-**Release preparation (2026-11-18):** v0.4.1 (build 9), branch `release-0.4.1` in `~/sorrel-release-0.4.1`, is cut locally from current main and awaits separate publishing approval. It ships memory-pressure handling, Dock New Window and the first release DMG. Live latest is still v0.4.0 (build 8); no main rebuild was performed.
+**Latest release (2026-11-18):** v0.4.1 (build 9), branch `release-0.4.1` in `~/sorrel-release-0.4.1`, published with the owner’s explicit approval. It ships memory-pressure handling, Dock New Window and the first release DMG. Live latest/feed and downloaded ZIP/DMG match the tested artifacts; ZIP Ed25519 verification passed. Main advances to the release/documentation commits and is pushed; no main app rebuild was performed. Next build number: 10 or higher.
 
 Sorrel updates itself from the owner's GitHub releases, free and without Apple: **`UpdateConfig.repository`** (`Sources/SorrelUpdateCore/UpdateCore.swift`, currently `elijohn248-ship-it/sorrel`, which is `origin`) and the feed `https://github.com/<repo>/releases/latest/download/updates.json`, which GitHub redirects to the newest published release's asset. Built 2026-11-15 and merged into `main`; `main` was first pushed to that repository on 2026-11-15. **First release: 0.2.0 (build 2), published 2026-11-16** (tag `v0.2.0`). Cut releases in a worktree, not `~/sorrel` (`build.sh` deletes the owner's running `build/Birch.app`), then fast-forward `main` to the release commit so the next build number goes up. The GitHub repo is now named `Sorrel` (capital S); GitHub redirects the lowercase name, and the feed works through it.
 
