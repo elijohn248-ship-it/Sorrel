@@ -28,6 +28,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### A downloaded release stays in Downloads and can't update (fixed 2026-11-17, branch `move-to-apps`)
+- **Repro:** download the release zip from GitHub, open Sorrel from Downloads (Open Anyway once).
+- **Expected:** Sorrel ends up in Applications, where the updater can replace it.
+- **Actual:** it runs translocated (a hidden read-only copy) and only said "drag it into Applications yourself"; updates never installed.
+- **Cause / fix:** the sandboxed app can't write to Applications. At launch a translocated Sorrel now asks "Move Sorrel to Applications?"; SorrelUpdater.xpc copies its own (read-only, Gatekeeper-approved) bundle into /Applications (or ~/Applications), strips quarantine, and a detached helper swaps it in once Sorrel quits, trashes the Downloads copy and reopens Sorrel from Applications. `SORREL_MOVETEST=1` covers it with a /private/tmp stand-in (only Launch Services can translocate); the real download path needs the owner.
+
 ### White bar across the top in fullscreen (fixed 2026-11-17, branch `fullscreen-toolbar`)
 - **Repro:** enter fullscreen (⌃⌘F) in a main or mini window.
 - **Expected:** the top of the screen is page/sidebar; the titlebar strip (window buttons) appears only when the cursor reaches the top edge, like the menu bar.

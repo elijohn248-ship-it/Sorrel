@@ -360,10 +360,7 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
     }
 
     private func explainTranslocation() {
-        let a = NSAlert()
-        a.messageText = "Move Birch to your Applications folder first"
-        a.informativeText = "macOS runs an app straight from Downloads at a temporary address, where it can't be updated. Quit Birch, drag it into Applications, open it from there and the update will install."
-        a.runModal()
+        MoveToApplications.offer(because: "Updates can only install once Birch is in Applications.")
     }
 
     // MARK: The card at the bottom of the sidebar (UpdateCard.swift)

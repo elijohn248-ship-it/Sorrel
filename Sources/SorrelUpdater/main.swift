@@ -230,6 +230,88 @@ func installSteps(zip: String, signature: String, pid: Int32, log: Log) -> Int32
     return 0
 }
 
+// MARK: - Moving a downloaded copy into Applications
+
+/// macOS runs a quarantined app opened from Downloads at a random read-only mount under AppTranslocation.
+/// Only Launch Services can make such a mount (SecTranslocateCreateSecureDirectoryForURL is refused to other
+/// processes), so the test build's service also accepts a copy under /private/tmp as a stand-in.
+let isTranslocated = appURL.path.contains("/AppTranslocation/")
+    || (isTestService && appURL.path.hasPrefix("/private/tmp/"))
+
+/// Where a translocated bundle really is (e.g. ~/Downloads/Sorrel.app), from Security.framework's
+/// SecTranslocateCreateOriginalPathForURL (exported, not in the public headers, hence dlsym).
+func originalLocation(of url: URL) -> URL? {
+    guard let lib = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY),
+          let sym = dlsym(lib, "SecTranslocateCreateOriginalPathForURL") else { return nil }
+    typealias Original = @convention(c) (CFURL, UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Unmanaged<CFURL>?
+    let original = unsafeBitCast(sym, to: Original.self)
+    guard let made = original(url as CFURL, nil)?.takeRetainedValue() as URL? else { return nil }
+    return made.standardizedFileURL.path == url.standardizedFileURL.path ? nil : made
+}
+
+/// /Applications when this account may write there (admins), otherwise ~/Applications.
+func applicationsFolder() -> URL {
+    let system = URL(fileURLWithPath: "/Applications", isDirectory: true)
+    if access(system.path, W_OK) == 0 { return system }
+    let mine = realHome.appendingPathComponent("Applications", isDirectory: true)
+    try? FileManager.default.createDirectory(at: mine, withIntermediateDirectories: true)
+    return mine
+}
+
+/// The detached half of a move: waits for Sorrel to quit, puts the staged copy at `dest`, trashes `original`,
+/// and opens `dest`. If the copy can't be put in place it opens `original` again, so the person still has Sorrel.
+func finishMove(staged: String, dest: String, original: String, pid: Int32, log: Log) -> Int32 {
+    let fm = FileManager.default
+    let stagedURL = URL(fileURLWithPath: staged), destURL = URL(fileURLWithPath: dest)
+    let stage = stagedURL.deletingLastPathComponent()
+    defer { try? fm.removeItem(at: stage) }
+    log.line("mover: start staged=\(staged) dest=\(dest) original=\(original) pid=\(pid)")
+    // The service made these; check they still look that way (the staging folder sits beside the destination).
+    guard stage.lastPathComponent.hasPrefix(".sorrel-move-"),
+          stage.deletingLastPathComponent().path == destURL.deletingLastPathComponent().path,
+          let appID, BundleInfo(appURL: stagedURL)?.identifier == appID else {
+        log.line("mover: refused: unexpected staged copy"); return 2
+    }
+    func reopen(_ path: String, _ why: String) {
+        if dryReopen { log.line("mover: open skipped in a test (\(why))"); return }
+        let (code, out) = run("/usr/bin/open", [path])
+        log.line("mover: open after \(why) \(code == 0 ? "ok" : "failed: \(out)")")
+    }
+    var waited = 0.0
+    while kill(pid, 0) == 0 && waited < 90 { usleep(250_000); waited += 0.25 }
+    if kill(pid, 0) == 0 { log.line("mover: Sorrel (pid \(pid)) is still running after 90 s; giving up"); return 3 }
+    log.line("mover: Sorrel quit after \(waited) s")
+
+    let token = String(UUID().uuidString.prefix(8))
+    let old = destURL.deletingLastPathComponent().appendingPathComponent(".sorrel-old-\(token)", isDirectory: true)
+    do {
+        if fm.fileExists(atPath: dest) {
+            try fm.moveItem(at: destURL, to: old)
+            do { try fm.moveItem(at: stagedURL, to: destURL) }
+            catch { try? fm.moveItem(at: old, to: destURL); throw error }
+            try? fm.removeItem(at: old)
+        } else {
+            try fm.moveItem(at: stagedURL, to: destURL)
+        }
+    } catch {
+        log.line("mover: couldn't put Sorrel in place: \(error)")
+        if !original.isEmpty { reopen(original, "failed move") }
+        return 6
+    }
+    try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: dest)   // so Launch Services notices
+    log.line("mover: Sorrel is now at \(dest)")
+    // The copy that was opened (usually in Downloads) goes to the Trash, so only the one in Applications is left.
+    if !original.isEmpty, original != dest, let info = BundleInfo(appURL: URL(fileURLWithPath: original)), info.identifier == appID {
+        do {
+            var trashed: NSURL?
+            try fm.trashItem(at: URL(fileURLWithPath: original), resultingItemURL: &trashed)
+            log.line("mover: moved \(original) to the Trash\(trashed?.path.map { " (\($0))" } ?? "")")
+        } catch { log.line("mover: left \(original) where it is: \(error)") }
+    }
+    reopen(dest, "move")
+    return 0
+}
+
 // MARK: - XPC service
 
 final class Service: NSObject, SorrelUpdaterXPC {
@@ -276,6 +358,64 @@ final class Service: NSObject, SorrelUpdaterXPC {
         log.line("service: installer started as pid \(child)")
         reply(nil)
     }
+
+    func moveToApplications(pid: Int32, log logHandle: FileHandle, reply: @escaping (String?) -> Void) {
+        guard let logFD = checkedLog(logHandle) else { reply("The updater only writes to a plain log file"); return }
+        let log = Log(handle: logHandle, echo: true)
+        func refuse(_ why: String) { log.line("service: move refused: \(why)"); reply(clean(why)) }
+        let fm = FileManager.default
+        let current: BundleInfo
+        do { current = try installedApp() } catch let r as Refused { refuse(r.why); return } catch { refuse("\(error)"); return }
+        // Only a translocated copy: macOS keeps it read-only, so what is copied is what Gatekeeper checked and the
+        // person approved, never something the sandboxed app could have written (it may write to ~/Downloads).
+        guard isTranslocated else { refuse("Birch isn't running from a download, so there is nothing to move"); return }
+        let original = originalLocation(of: appURL) ?? (isTestService && !appURL.path.contains("/AppTranslocation/") ? appURL : nil)
+        let folder = applicationsFolder()
+        // The app was Sorrel until 0.3.1; a copy is now called Birch.app (code names, the bundle id and the test app kept Sorrel).
+        let dest = folder.appendingPathComponent(isTestService ? "SorrelTest.app" : "Birch.app", isDirectory: true)
+        if let there = BundleInfo(appURL: dest) {
+            guard there.identifier == current.identifier else { refuse("\(dest.path) is a different app"); return }
+            guard there.build <= current.build else {
+                refuse("Applications already has a newer Birch (\(there.version)). Open that one instead."); return
+            }
+        }
+
+        // Copy now, while the translocated mount surely exists; the helper only renames it into place.
+        var template = Array(folder.appendingPathComponent(".sorrel-move-XXXXXX").path.utf8CString)
+        guard let made = mkdtemp(&template) else { refuse("Couldn't write to \(folder.path)"); return }
+        let stage = URL(fileURLWithPath: String(cString: made), isDirectory: true)
+        let staged = stage.appendingPathComponent(dest.lastPathComponent, isDirectory: true)
+        let (code, out) = run("/usr/bin/ditto", [appURL.path, staged.path])
+        guard code == 0 else { try? fm.removeItem(at: stage); refuse("Copying Birch failed: \(out)"); return }
+        let (vcode, vout) = run("/usr/bin/codesign", ["--verify", "--deep", "--strict", staged.path])
+        guard vcode == 0, BundleInfo(appURL: staged)?.identifier == current.identifier else {
+            try? fm.removeItem(at: stage); refuse("The copy of Birch didn't check out: \(vout)"); return
+        }
+        // Without this the copy would be translocated again on every launch (and still couldn't update).
+        stripQuarantine(staged)
+
+        guard let exe = Bundle.main.executablePath else { try? fm.removeItem(at: stage); refuse("The updater's executable path is unknown"); return }
+        let testRun = isTestService && path(of: logFD).hasPrefix("/private/tmp/")
+        let args = [exe, "--move", staged.path, dest.path, original?.path ?? "", String(pid), testRun ? "2" : "1"]
+        var argv: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) }
+        argv.append(nil)
+        defer { argv.forEach { free($0) } }
+        var attr: posix_spawnattr_t?
+        posix_spawnattr_init(&attr)
+        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETSID))
+        var actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&actions)
+        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_adddup2(&actions, logFD, 1)
+        posix_spawn_file_actions_adddup2(&actions, logFD, 2)
+        var child: pid_t = 0
+        let rc = posix_spawn(&child, exe, &actions, &attr, argv, environ)
+        posix_spawn_file_actions_destroy(&actions)
+        posix_spawnattr_destroy(&attr)
+        if rc != 0 { try? fm.removeItem(at: stage); refuse("Couldn't start the mover (error \(rc))"); return }
+        log.line("service: copied \(appURL.path) to \(staged.path); mover started as pid \(child) for \(dest.path) (original \(original?.path ?? "unknown"))")
+        reply(nil)
+    }
 }
 
 final class Listener: NSObject, NSXPCListenerDelegate {
@@ -292,6 +432,11 @@ if argv.count == 6, argv[1] == "--install" {
     let log = Log(handle: FileHandle.standardError, echo: false)
     dryReopen = isTestService && argv[5] == "2"
     exit(install(zip: argv[2], signature: argv[3], pid: Int32(argv[4]) ?? 0, relaunch: argv[5] != "0", log: log))
+}
+if argv.count == 7, argv[1] == "--move" {
+    let log = Log(handle: FileHandle.standardError, echo: false)
+    dryReopen = isTestService && argv[6] == "2"
+    exit(finishMove(staged: argv[2], dest: argv[3], original: argv[4], pid: Int32(argv[5]) ?? 0, log: log))
 }
 let delegate = Listener()
 let listener = NSXPCListener.service()

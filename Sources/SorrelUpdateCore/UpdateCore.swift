@@ -112,6 +112,14 @@ public struct BundleInfo {
     /// app's Updates/update.log, opened for appending. Replies with nil, or a sentence saying what refused.
     func install(zip: FileHandle, signature: String, pid: Int32, relaunch: Bool, log: FileHandle,
                  reply: @escaping (String?) -> Void)
+
+    /// For a release zip opened from Downloads: macOS runs that copy translocated (from a hidden read-only
+    /// mount), where it can never update. Copies the bundle that contains the service into Applications
+    /// (/Applications, or ~/Applications when that isn't writable) under the app's fixed name, then starts a
+    /// detached helper that waits for `pid` to exit, puts the copy in place, moves the copy that was opened to
+    /// the Trash, and opens the one in Applications. Refused unless the app is translocated: that read-only
+    /// copy is exactly what Gatekeeper checked and the person approved. Takes no paths. Replies like `install`.
+    func moveToApplications(pid: Int32, log: FileHandle, reply: @escaping (String?) -> Void)
 }
 
 public enum UpdaterService {

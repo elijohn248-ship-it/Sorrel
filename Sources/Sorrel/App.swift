@@ -132,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Extensions.shared.start()
         for controller in windows { Extensions.shared.windowReady(controller) }
         Updater.shared.start()
+        MoveToApplications.offerAtLaunch()
         NotificationCenter.default.addObserver(forName: .sorrelUpdateState, object: nil, queue: .main) { [weak self] _ in
             self?.updateMenuItem?.title = Updater.shared.menuTitle
         }
@@ -2252,6 +2253,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let mode = env["SORREL_UPDATETEST"] {
             // Sorrel's own updater: version | check | install | quit, against SORREL_UPDATE_FEED (tools/update-test.sh).
             Updater.shared.runTest(mode)
+        }
+        if env["SORREL_MOVETEST"] == "1" {
+            // Moving a translocated copy into Applications through the updater service (MoveToApplications.swift).
+            MoveToApplications.runTest()
         }
         if let late = env["SORREL_OPEN_LATE"] {
             // Open a page a few seconds in, once extensions have loaded.
