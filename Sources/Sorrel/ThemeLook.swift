@@ -1,11 +1,11 @@
 import AppKit
 
-// Arc's look for a space's colours: soft, never neon, gradients that melt rather than band, and a film grain on top.
+// Arc's look for a space's colours: soft by default, optionally brighter, with smooth gradients and film grain.
 //
 // - Colours are worked on in OKLab (a perceptual colour space), so mixing a colour toward white or toward the dark
 //   base keeps its hue and lightness even, and the middle of a gradient never turns grey or muddy.
 // - Each chosen colour's chroma (how vivid it is) is eased through a soft knee: vivid picks become pastel, gentle
-//   picks stay as they are, so no space is loud.
+//   picks stay as they are. Optional brightness restores the original colours after this softening.
 // - Gradients are drawn with many stops interpolated in OKLab on a gentle S-curve; one colour gets a faint tonal
 //   lift so it still has depth.
 // - Grain is a fixed noise tile (light and dark specks, so it reads on both) laid over the gradient. Each space has
@@ -75,15 +75,19 @@ extension Theme {
     /// 0 = smooth, 1 = Arc's heaviest grain.
     var grainAmount: Double { max(0, min(1, grain ?? Theme.defaultGrain)) }
 
+    /// Existing spaces stay soft; moving toward 1 restores the chosen colours' vividness and lightness.
+    var brightnessAmount: Double { max(0, min(1, brightness ?? 0)) }
+
     /// The neutral a theme fades into at low strength.
     static func softBase(dark: Bool) -> OKLab {
         dark ? OKLab(NSColor(srgbRed: 0.12, green: 0.12, blue: 0.14, alpha: 1)) : OKLab(L: 1, a: 0, b: 0)
     }
 
-    /// One chosen colour as a space draws it: vividness eased through a soft knee (pastel, never neon), then mixed
-    /// toward the light or dark base by the strength.
-    static func soften(_ color: NSColor, intensity: Double, dark: Bool) -> OKLab {
+    /// One chosen colour as a space draws it: soften by default, restore the original by optional brightness,
+    /// then mix toward the light or dark base by the strength.
+    static func soften(_ color: NSColor, intensity: Double, dark: Bool, brightness: Double = 0) -> OKLab {
         var lab = OKLab(color)
+        let original = lab
         let c = lab.chroma
         if c > 0.0001 {
             let cap = 0.15
@@ -94,11 +98,14 @@ extension Theme {
         // In dark mode a colour sinks to a deep, rich tone (Arc turns its coral into a dark rust), instead of a
         // bright midtone that reads as muddy next to dark pages. Already-deep colours are left as they are.
         if dark { lab.L = min(lab.L, 0.3 + 0.2 * lab.L) }
+        lab = lab.mix(original, max(0, min(1, brightness)))
         return softBase(dark: dark).mix(lab, max(0, min(1, intensity)))
     }
 
     func softLabs(dark: Bool) -> [OKLab] {
-        let labs = colors.compactMap { NSColor(hex: $0) }.map { Theme.soften($0, intensity: intensity, dark: dark) }
+        let labs = colors.compactMap { NSColor(hex: $0) }.map {
+            Theme.soften($0, intensity: intensity, dark: dark, brightness: brightnessAmount)
+        }
         return labs.isEmpty ? [Theme.softBase(dark: dark)] : labs
     }
 
@@ -172,6 +179,9 @@ enum Grain {
 /// so deep colours stay deep.
 final class ColorWheel: NSView {
     var colors: [NSColor] = [] { didSet { needsDisplay = true } }
+    var brightness: Double = 0 {
+        didSet { if brightness != oldValue { wheelImage = nil; needsDisplay = true } }
+    }
     /// While dragging (live) and on let-go (final = true).
     var onChange: (([NSColor], _ final: Bool) -> Void)?
     private var dragging: Int?
@@ -219,7 +229,7 @@ final class ColorWheel: NSView {
                 var h = atan2(dy, dx) / (2 * .pi)
                 if h < 0 { h += 1 }
                 let raw = NSColor(hue: CGFloat(h), saturation: CGFloat(min(1, d / r)), brightness: 1, alpha: 1)
-                let c = Theme.soften(raw, intensity: 1, dark: false).color
+                let c = Theme.soften(raw, intensity: 1, dark: false, brightness: brightness).color
                 let edge = max(0, min(1, r + 0.5 - d))  // antialiased rim
                 let k = (i + j * px) * 4
                 data[k] = UInt8(c.redComponent * 255 * edge)
@@ -273,7 +283,7 @@ final class ColorWheel: NSView {
             NSColor.white.setFill()
             NSBezierPath(ovalIn: r).fill()
             NSGraphicsContext.restoreGraphicsState()
-            Theme.soften(c, intensity: 1, dark: false).color.setFill()
+            Theme.soften(c, intensity: 1, dark: false, brightness: brightness).color.setFill()
             NSBezierPath(ovalIn: r.insetBy(dx: 2.5, dy: 2.5)).fill()
         }
     }

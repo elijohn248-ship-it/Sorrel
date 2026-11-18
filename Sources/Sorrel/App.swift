@@ -867,6 +867,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
             if env["SORREL_THEME"] != nil { self.main.sidebar.showThemeEditor() }
+            if let dir = env["SORREL_BRIGHTNESSTEST"] {
+                // Opt-in space brightness: legacy defaults, colour endpoints, real slider/preset actions and saving.
+                func check(_ name: String, _ ok: Bool) { log("bright: \(name) expected=true got=\(ok)") }
+                let old = try? JSONDecoder().decode(Theme.self, from: Data(##"{"colors":["#FE6F3E"],"angle":315,"intensity":1}"##.utf8))
+                check("legacy soft default", old?.brightnessAmount == 0)
+                var soft = Theme(colors: ["#FE6F3E"], angle: 315, intensity: 1)
+                var bright = soft; bright.brightness = 1
+                var middle = soft; middle.brightness = 0.5
+                for dark in [false, true] {
+                    let a = soft.softLabs(dark: dark)[0], b = bright.softLabs(dark: dark)[0]
+                    check("vividness dark=\(dark)", b.chroma > a.chroma)
+                    check("chosen color at full brightness dark=\(dark)", bright.resolvedColors(systemIsDark: dark)[0].hexString == "#FE6F3E")
+                    let mid = middle.softLabs(dark: dark)[0]
+                    check("smooth midpoint dark=\(dark)", abs(mid.a - (a.a + b.a) / 2) < 0.000001)
+                }
+                check("dark mode brighter", bright.resolvedColors(systemIsDark: true)[0].luminance > soft.resolvedColors(systemIsDark: true)[0].luminance)
+                soft.brightness = 0
+                check("legacy colors unchanged", old?.gradientStops(dark: true).map(\.hexString) == soft.gradientStops(dark: true).map(\.hexString))
+                var bounds = soft; bounds.brightness = -1
+                check("lower bound", bounds.brightnessAmount == 0)
+                bounds.brightness = 2
+                check("upper bound", bounds.brightnessAmount == 1)
+                var valid = true
+                for preset in Theme.presets {
+                    for amount in [0.0, 0.5, 1.0] {
+                        var t = preset; t.brightness = amount
+                        for dark in [false, true] {
+                            let stops = t.gradientStops(dark: dark)
+                            valid = valid && stops.count == Theme.gradientStopCount && stops.allSatisfy {
+                                [$0.redComponent, $0.greenComponent, $0.blueComponent].allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
+                            }
+                        }
+                    }
+                }
+                check("all presets valid light and dark", valid)
+                check("swipe soft endpoint", Theme.blendedStops(soft, bright, 0, dark: true).map(\.hexString) == soft.gradientStops(dark: true).map(\.hexString))
+                check("swipe bright endpoint", Theme.blendedStops(soft, bright, 1, dark: true).map(\.hexString) == bright.gradientStops(dark: true).map(\.hexString))
+                let m = self.main!, space = self.store.currentSpace
+                _ = self.store.addSpace(name: "Brightness isolation", theme: Theme.presets[2])
+                self.store.switchSpace(to: space)
+                let others = self.store.spaces.filter { $0 !== space }.map(\.theme)
+                self.store.setTheme(Theme.presets[0], for: space)
+                m.sidebar.showThemeEditor()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    guard let editor = m.sidebar.debugThemeEditor else { check("editor opened", false); return }
+                    let before = space.theme
+                    editor.debugSetBrightness(0.75)
+                    check("slider saves", space.theme.brightnessAmount == 0.75)
+                    check("other controls unchanged", space.theme.colors == before.colors && space.theme.intensity == before.intensity && space.theme.grain == before.grain && space.theme.angle == before.angle)
+                    editor.debugPickPreset(1)
+                    check("preset keeps brightness", space.theme.brightnessAmount == 0.75 && space.theme.colors == Theme.presets[1].colors)
+                    editor.debugSetGrain(0.9)
+                    _ = editor.debugWheelDrag(dot: 0, turn: 0.1)
+                    check("wheel and grain keep brightness", space.theme.brightnessAmount == 0.75 && space.theme.grainAmount == 0.9)
+                    check("other spaces unchanged", others == self.store.spaces.filter { $0 !== space }.map(\.theme))
+                    self.store.saveNow()
+                    let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+                    let saved = (try? Data(contentsOf: Paths.state)).flatMap { try? decoder.decode(AppState.self, from: $0) }
+                    check("saved state roundtrip", saved?.spaces.first(where: { $0.id == space.id })?.theme == space.theme)
+                    m.sidebar.showThemeEditor()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        m.sidebar.debugThemeEditor?.debugSetGrain(0.4)
+                        check("reopened editor keeps brightness", space.theme.brightnessAmount == 0.75)
+                        if let v = m.sidebar.debugCustomizeView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                            v.cacheDisplay(in: v.bounds, to: rep)
+                            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir + "/brightness.png"))
+                        }
+                        m.sidebar.debugThemeEditor?.debugSetBrightness(0)
+                        check("return to soft", space.theme.brightnessAmount == 0)
+                        check("done", true)
+                    }
+                }
+            }
             if let dir = env["SORREL_THEMETEST"] {
                 // Arc-style colours (ThemeLook.swift): old saves still load, every preset in light and dark, the
                 // colour wheel and grain slider. Writes preset-<i>-<light|dark>.png and customize.png into `dir`.

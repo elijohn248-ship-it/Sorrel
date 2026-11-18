@@ -218,6 +218,8 @@ struct Theme: Codable, Equatable {
     var intensity: Double
     /// Film grain over the colours, 0…1 (Arc's noise slider). nil = `Theme.defaultGrain` (ThemeLook.swift).
     var grain: Double? = nil
+    /// Restores vivid colours and dark-mode lightness, 0…1. nil = 0 to preserve existing spaces' soft look.
+    var brightness: Double? = nil
 
     /// Arc's palette: its single colours and two-colour gradients, softened when drawn (ThemeLook.swift), with
     /// two deep ones for dark spaces.
