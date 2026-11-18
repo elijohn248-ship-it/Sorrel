@@ -454,6 +454,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let card = ContentCard()
     let sidebar: SidebarView
     let commandBar = CommandBar()
+    let tabSwitcher = TabSwitcher()
     /// Downloads in progress over the page's bottom left, while the sidebar is hidden (DownloadFlight.swift).
     let downloadsCapsule = DownloadsCapsule()
     private(set) var peek: PeekOverlay?
@@ -506,6 +507,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         w.center()
         w.setFrameAutosaveName("SorrelWindow-" + store.windowID.uuidString)
         build()
+        tabSwitcher.attach(to: root)
+        store.onTabCycleChanged = { [weak self] tabs in
+            guard let self else { return }
+            self.tabSwitcher.show(tabs, selected: self.store.selected)
+        }
+        tabSwitcher.onChoose = { [weak self] item in self?.store.select(item) }
         sidebar.reloadForWindow()
         observe()
         wireSplitView()
@@ -608,6 +615,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         showSelected()
     }
     @objc private func structureChanged() {
+        let liveIDs = Set(store.cycleOrder.map { $0.id })
+        if tabSwitcher.itemIDs.contains(where: { !liveIDs.contains($0) }) { store.endTabCycle() }
         store.reconcileSelection()
         showSelected()
     }
@@ -952,6 +961,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) { AppDelegate.shared.windowFocused(self) }
 
     func windowWillClose(_ notification: Notification) {
+        store.endTabCycle()
         dismissPeek(refocus: false)
         commandBar.dismiss()
         sidebar.prepareForClose()

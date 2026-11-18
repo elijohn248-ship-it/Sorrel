@@ -169,7 +169,13 @@ final class Store {
     private var tabCycleIDs: [UUID] = []
     private var selectingInTabCycle = false
 
-    func endTabCycle() { tabCycleIDs = [] }
+    /// Window-local presentation only; never persisted with the profile.
+    var onTabCycleChanged: (([Item]) -> Void)?
+
+    func endTabCycle() {
+        tabCycleIDs = []
+        onTabCycleChanged?([])
+    }
     var windowState: BrowserWindowState {
         BrowserWindowState(id: windowID, currentSpaceID: currentSpace.id, selections: selections)
     }
@@ -471,8 +477,11 @@ final class Store {
     func cycleTab(_ offset: Int, holdingControl: Bool = false) {
         if !holdingControl { endTabCycle() }
         guard Settings.current.controlTabUsesRecency else {
-            endTabCycle()
+            tabCycleIDs = []
+            selectingInTabCycle = true
             selectRelative(offset)
+            selectingInTabCycle = false
+            if holdingControl { onTabCycleChanged?(cycleOrder) } else { endTabCycle() }
             return
         }
         // A tab already on screen in another window belongs to that window's cycle.
@@ -497,7 +506,11 @@ final class Store {
         selectingInTabCycle = true
         select(target)
         selectingInTabCycle = false
-        if !holdingControl { endTabCycle() }
+        if holdingControl {
+            onTabCycleChanged?(tabCycleIDs.compactMap { id in eligible.first { $0.id == id } })
+        } else {
+            endTabCycle()
+        }
     }
 
     // MARK: Tabs

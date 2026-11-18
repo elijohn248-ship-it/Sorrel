@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @discardableResult
     func newWindow(restoring saved: BrowserWindowState? = nil, present: Bool = true) -> MainWindowController {
+        main?.store.endTabCycle()
         let snapshot = saved ?? BrowserWindowState(id: UUID(), currentSpaceID: main?.store.currentSpace.id ?? Store.profile.currentSpace.id, selections: [:])
         let controller = MainWindowController(store: Store(windowState: snapshot))
         if saved == nil, let previous = main?.window, let window = controller.window {
@@ -105,6 +106,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             if let controller = w.windowController as? MainWindowController, controller !== self.main {
                 self.windowFocused(controller)
+            }
+            // The switcher owns Escape while Control is held; leave the current tab selected.
+            if event.keyCode == 53, let controller = w.windowController as? MainWindowController,
+               controller.tabSwitcher.isPresented {
+                controller.store.endTabCycle()
+                return nil
             }
             // Esc closes an open preview.
             if event.keyCode == 53, event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty,
@@ -741,6 +748,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let out = env["SORREL_SNAPSHOT"] else { return }
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
+
+        if env["SORREL_TABSWITCHERTEST"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                func check(_ name: String, _ passed: Bool) { log("switcher: \(name) expected=true got=\(passed)") }
+                let original = Settings.current
+                defer { Settings.current = original }
+                Settings.current.controlTabUsesRecency = true
+                let controller = self.main!
+                let store = controller.store
+                let hud = controller.tabSwitcher
+                let space = store.addSpace(name: "Switcher test")
+                let tabs = (1...12).map { store.newTab(url: "sorrel://welcome", title: "Test tab \($0)", select: false) }
+                func event(_ code: UInt16, _ flags: NSEvent.ModifierFlags, type: NSEvent.EventType = .keyDown) {
+                    if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
+                                               timestamp: 0, windowNumber: controller.window!.windowNumber,
+                                               context: nil, characters: code == 48 ? "\t" : "",
+                                               charactersIgnoringModifiers: code == 48 ? "\t" : "",
+                                               isARepeat: false, keyCode: code) { NSApp.sendEvent(e) }
+                }
+                store.select(tabs[0]); store.select(tabs[2]); store.select(tabs[1])
+                event(48, [.control])
+                check("opens-through-shortcut", hud.isPresented && !hud.isHidden)
+                check("recent-order", Array(hud.itemIDs.prefix(3)) == [tabs[1].id, tabs[2].id, tabs[0].id])
+                check("selection-matches", hud.selectedID == store.selected?.id && store.selected === tabs[2])
+                let frozen = hud.itemIDs
+                event(48, [.control]); check("held-order-stable", hud.itemIDs == frozen && hud.selectedID == tabs[0].id)
+                event(48, [.control, .shift]); check("reverse", hud.itemIDs == frozen && hud.selectedID == tabs[2].id)
+                controller.root.layoutSubtreeIfNeeded()
+                check("centered", abs(hud.frame.midX - controller.root.bounds.midX) < 1 && abs(hud.frame.midY - controller.root.bounds.midY) < 1)
+                check("bounded-width", hud.frame.width <= controller.root.bounds.width - 48)
+                for _ in 0..<9 { event(48, [.control]) }
+                check("overflow-scrolls-to-selection", hud.selectedTileIsVisible)
+                if let rep = controller.root.bitmapImageRepForCachingDisplay(in: controller.root.bounds) {
+                    controller.root.cacheDisplay(in: controller.root.bounds, to: rep)
+                    let shot = URL(fileURLWithPath: out).deletingLastPathComponent().appendingPathComponent("tab-switcher.png")
+                    try? rep.representation(using: .png, properties: [:])?.write(to: shot)
+                }
+                event(59, [], type: .flagsChanged)
+                check("release-dismisses", !hud.isPresented && hud.itemIDs.isEmpty)
+                event(48, [.control]); event(53, [.control])
+                check("escape-dismisses", !hud.isPresented)
+                event(48, [.control]); store.select(tabs[4])
+                check("explicit-selection-dismisses", !hud.isPresented)
+                event(48, [.control]); store.close(tabs[11])
+                check("structure-dismisses", !hud.isPresented)
+                event(48, [.control])
+                check("closed-tab-absent", !hud.itemIDs.contains(tabs[11].id))
+                controller.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification))
+                check("focus-loss-dismisses", !hud.isPresented)
+                Settings.current.controlTabUsesRecency = false
+                store.select(store.cycleOrder[0]); event(48, [.control])
+                check("sidebar-order-setting", hud.itemIDs == store.cycleOrder.map { $0.id } && hud.selectedID == store.cycleOrder[1].id)
+                event(59, [], type: .flagsChanged)
+                store.cycleTab(1)
+                check("unheld-command-no-popup", !hud.isPresented)
+                let single = store.addSpace(name: "Single switcher tab")
+                store.newTab(url: "sorrel://welcome")
+                event(48, [.control]); check("single-tab-no-popup", !hud.isPresented)
+                store.switchSpace(to: space); event(48, [.control]); store.switchSpace(to: single)
+                check("space-switch-dismisses", !hud.isPresented)
+                store.switchSpace(to: space); event(48, [.control])
+                let second = self.newWindow(present: false)
+                self.focus(second)
+                check("window-isolation", !hud.isPresented && !second.tabSwitcher.isPresented)
+                second.window?.close()
+            }
+        }
 
         if env["SORREL_TABRECENCYTEST"] != nil {
             // Synthetic shortcuts in a background window; real keyboard feel still needs the owner.
