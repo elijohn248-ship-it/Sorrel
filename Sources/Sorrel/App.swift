@@ -727,6 +727,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
 
+        if env["SORREL_FULLSCREEN_TEST"] != nil {
+            // Exercise fullscreen layout callbacks without switching the owner's macOS Space.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                self.main.debugFullscreenTest(log: log)
+            }
+        }
+
         if let mode = env["SORREL_WINDOWTEST"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 func check(_ label: String, _ value: Bool) { log("windows: \(label) expected=true got=\(value)") }

@@ -1114,6 +1114,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     let floatingBackground = ThemeBackgroundView()
     private let topRow = NSView()
     private var topRowHeight: NSLayoutConstraint!
+    private var toggleLeading: NSLayoutConstraint!
     private let pill = URLPill()
     private let favorites = FavoritesGrid()
     /// Clips the space page while it slides sideways during a swipe or scrub.
@@ -1227,6 +1228,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             b.heightAnchor.constraint(equalToConstant: 22).isActive = true
         }
         topRowHeight = topRow.heightAnchor.constraint(equalToConstant: 40)
+        toggleLeading = toggle.leadingAnchor.constraint(equalTo: topRow.leadingAnchor, constant: 78)
 
         // Space header
         spaceIcon.isBordered = false
@@ -1316,7 +1318,7 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
             topRow.leadingAnchor.constraint(equalTo: leadingAnchor),
             topRow.trailingAnchor.constraint(equalTo: trailingAnchor),
             topRowHeight,
-            toggle.leadingAnchor.constraint(equalTo: topRow.leadingAnchor, constant: 78),
+            toggleLeading,
             reloadButton.trailingAnchor.constraint(equalTo: topRow.trailingAnchor, constant: -10),
             forwardButton.trailingAnchor.constraint(equalTo: reloadButton.leadingAnchor, constant: -2),
             backButton.trailingAnchor.constraint(equalTo: forwardButton.leadingAnchor, constant: -2),
@@ -1384,9 +1386,17 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
     }
 
     /// Floating = hovering over the page with its own background, instead of sitting beside it.
-    func setFloating(_ floating: Bool) {
+    func setFloating(_ floating: Bool, fullscreen: Bool = false, animated: Bool = true) {
         floatingBackground.animator().alphaValue = floating ? 1 : 0
-        topRowHeight.animator().constant = floating ? 24 : 40
+        let rowHeight = floating ? 24.0 : (fullscreen ? 32.0 : 40.0)
+        let toggleOffset = fullscreen ? 10.0 : 78.0
+        if animated {
+            topRowHeight.animator().constant = rowHeight
+            toggleLeading.animator().constant = toggleOffset
+        } else {
+            topRowHeight.constant = rowHeight
+            toggleLeading.constant = toggleOffset
+        }
         handle.isHidden = floating
         if floating {
             let s = NSShadow()

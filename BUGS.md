@@ -24,7 +24,11 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 ## Open
 
 
-(none)
+### Fullscreen retains windowed chrome (2026-11-17, branch `fullscreen-polish`)
+- **Repro:** enter fullscreen with the sidebar hidden, reveal it on hover, then pin it.
+- **Expected:** edge-to-edge page when hidden, compact pinned header, working native exit control, and restored windowed layout on exit.
+- **Actual:** fullscreen uses the same page insets, corner radius and header spacing as a normal window; window buttons are forced transparent.
+
 
 ## Fixed
 

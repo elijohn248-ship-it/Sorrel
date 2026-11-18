@@ -93,6 +93,15 @@ final class ContentCard: NSView {
     /// With no tab open the card is see-through, so the space's own color and gradient fill the area.
     private var isEmpty = true
     private var themeIsDark = false
+    /// A single page can fill fullscreen; split panes retain their individual frames.
+    var paneCornerRadius: CGFloat = 8
+    var edgeToEdge = false {
+        didSet {
+            guard oldValue != edgeToEdge else { return }
+            for pane in panes { pane.layer?.cornerRadius = edgeToEdge && !isSplit ? 0 : paneCornerRadius }
+            needsDisplay = true
+        }
+    }
 
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() {
@@ -106,6 +115,7 @@ final class ContentCard: NSView {
             layer?.borderWidth = 0.5
             layer?.borderColor = NSColor.black.withAlphaComponent(0.15).cgColor
         }
+        if edgeToEdge && !isSplit { layer?.borderWidth = 0 }
         let accent = NSColor.controlAccentColor
         dropHighlight.layer?.backgroundColor = accent.withAlphaComponent(0.18).cgColor
         dropHighlight.layer?.borderColor = accent.withAlphaComponent(0.8).cgColor
@@ -159,6 +169,7 @@ final class ContentCard: NSView {
         for p in panes {
             p.reclaimWebView()
             p.inSplit = panes.count > 1
+            p.layer?.cornerRadius = edgeToEdge && panes.count == 1 ? 0 : paneCornerRadius
             p.isFocused = p.webView === focusedView
         }
         self.stacked = stacked
@@ -456,6 +467,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var sidebarBottom: NSLayoutConstraint!
     private var sidebarWidth: NSLayoutConstraint!
     private var cardLeading: NSLayoutConstraint!
+    private var cardTop: NSLayoutConstraint!
+    private var cardBottom: NSLayoutConstraint!
+    private var cardTrailing: NSLayoutConstraint!
+    private var fullscreenLayout = false
+    private var windowedCornerRadius: CGFloat = 8
     private(set) var mode: SidebarMode = .pinned
     private var peekTimer: Timer?
     private var outsideSince: Date?
@@ -507,6 +523,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         sidebar.controller = self
         // Inner corners share a center with the window's own corners, so the gap stays even.
         let inner = max(6, window.outerCornerRadius - margin)
+        windowedCornerRadius = inner
+        card.paneCornerRadius = inner
         card.layer?.cornerRadius = inner
         sidebar.floatingBackground.cornerRadius = inner
 
@@ -535,6 +553,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         sidebarWidth = sidebar.widthAnchor.constraint(equalToConstant: width)
         cardLeading = card.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: width)
 
+        cardTop = card.topAnchor.constraint(equalTo: root.topAnchor, constant: margin)
+        cardTrailing = card.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -margin)
+        cardBottom = card.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -margin)
+
         NSLayoutConstraint.activate([
             background.topAnchor.constraint(equalTo: root.topAnchor),
             background.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -544,9 +566,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sidebarLeading, sidebarTop, sidebarBottom, sidebarWidth,
 
             cardLeading,
-            card.topAnchor.constraint(equalTo: root.topAnchor, constant: margin),
-            card.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -margin),
-            card.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -margin),
+            cardTop, cardTrailing, cardBottom,
 
             commandBar.topAnchor.constraint(equalTo: root.topAnchor),
             commandBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -803,25 +823,40 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func applyMode(animated: Bool) {
         downloadsCapsule.sidebarHidden = mode == .hidden
+        func set(_ constraint: NSLayoutConstraint, _ value: CGFloat) {
+            if animated { constraint.animator().constant = value } else { constraint.constant = value }
+        }
         let apply = {
+            let pageMargin: CGFloat = self.fullscreenLayout && self.mode != .pinned ? 0 : self.margin
+            let radius = self.fullscreenLayout ? self.margin : self.windowedCornerRadius
+            set(self.cardTop, pageMargin)
+            set(self.cardBottom, -pageMargin)
+            set(self.cardTrailing, -pageMargin)
+            self.card.layer?.cornerRadius = self.fullscreenLayout && self.mode != .pinned ? 0 : radius
+            self.card.paneCornerRadius = radius
+            self.card.edgeToEdge = self.fullscreenLayout && self.mode != .pinned
+            // Reapply radii even when only the window's shape changed.
+            for pane in self.card.panes {
+                pane.layer?.cornerRadius = self.card.edgeToEdge && !self.card.isSplit ? 0 : radius
+            }
             switch self.mode {
             case .pinned:
-                self.sidebarLeading.animator().constant = 0
-                self.sidebarTop.animator().constant = 0
-                self.sidebarBottom.animator().constant = 0
-                self.cardLeading.animator().constant = self.width
+                set(self.sidebarLeading, 0)
+                set(self.sidebarTop, 0)
+                set(self.sidebarBottom, 0)
+                set(self.cardLeading, self.width)
             case .hidden:
-                self.sidebarLeading.animator().constant = -(self.width + 40)
-                self.sidebarTop.animator().constant = self.margin
-                self.sidebarBottom.animator().constant = self.margin
-                self.cardLeading.animator().constant = self.margin
+                set(self.sidebarLeading, -(self.width + 40))
+                set(self.sidebarTop, self.margin)
+                set(self.sidebarBottom, self.margin)
+                set(self.cardLeading, pageMargin)
             case .peeking:
-                self.sidebarLeading.animator().constant = self.margin
-                self.sidebarTop.animator().constant = self.margin
-                self.sidebarBottom.animator().constant = self.margin
-                self.cardLeading.animator().constant = self.margin
+                set(self.sidebarLeading, self.margin)
+                set(self.sidebarTop, self.margin)
+                set(self.sidebarBottom, self.margin)
+                set(self.cardLeading, pageMargin)
             }
-            self.sidebar.setFloating(self.mode != .pinned)
+            self.sidebar.setFloating(self.mode != .pinned, fullscreen: self.fullscreenLayout, animated: animated)
             self.setWindowButtons(visible: self.mode != .hidden)
             self.root.layoutSubtreeIfNeeded()
         }
@@ -839,11 +874,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func setWindowButtons(visible: Bool) {
         guard let window else { return }
-        let inFullScreen = window.styleMask.contains(.fullScreen)
+        let inFullScreen = fullscreenLayout || window.styleMask.contains(.fullScreen)
         for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
             guard let b = window.standardWindowButton(kind) else { continue }
-            b.animator().alphaValue = (visible && !inFullScreen) ? 1 : 0
-            b.isEnabled = visible
+            // AppKit owns the auto-hiding fullscreen titlebar, including its exit control.
+            b.animator().alphaValue = (visible || inFullScreen) ? 1 : 0
+            b.isEnabled = visible || inFullScreen
         }
     }
 
@@ -927,8 +963,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         AppDelegate.shared.windowClosed(self)
     }
 
-    func windowDidEnterFullScreen(_ notification: Notification) { setWindowButtons(visible: mode != .hidden) }
-    func windowDidExitFullScreen(_ notification: Notification) { setWindowButtons(visible: mode != .hidden) }
+    private func setFullscreenLayout(_ fullscreen: Bool) {
+        fullscreenLayout = fullscreen
+        // A transient hover should not survive the window changing Spaces.
+        if mode == .peeking { setMode(.hidden, animated: false) }
+        applyMode(animated: false)
+    }
+
+    func windowWillEnterFullScreen(_ notification: Notification) { setFullscreenLayout(true) }
+    func windowDidEnterFullScreen(_ notification: Notification) { setFullscreenLayout(true) }
+    func windowDidExitFullScreen(_ notification: Notification) { setFullscreenLayout(false) }
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) { setFullscreenLayout(false) }
+    func windowDidFailToExitFullScreen(_ window: NSWindow) { setFullscreenLayout(true) }
 
     func windowDidResignKey(_ notification: Notification) {
         if !commandBar.isHidden { commandBar.dismiss() }
@@ -936,6 +982,67 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 }
 
 extension MainWindowController {
+    /// Layout regression checks only: native fullscreen transitions require an owner check.
+    func debugFullscreenTest(log: (String) -> Void) {
+        guard let window else { return }
+        func check(_ name: String, _ passed: Bool) { log("fullscreen: \(name) expected=true got=\(passed)") }
+        func settle() {
+            root.layoutSubtreeIfNeeded()
+            card.layoutSubtreeIfNeeded()
+            sidebar.layoutSubtreeIfNeeded()
+        }
+        let note = Notification(name: NSWindow.didEnterFullScreenNotification, object: window)
+        commandBar.dismiss()
+        debugSetSidebar("hidden")
+        settle()
+        let savedChoice = store.sidebarCollapsed
+        let normalFrame = card.frame
+        let normalRadius = card.layer?.cornerRadius
+        windowDidEnterFullScreen(note)
+        settle()
+        check("hidden page fills window", card.frame == root.bounds)
+        check("hidden page has square corners", card.layer?.cornerRadius == 0 && card.panes.allSatisfy { $0.layer?.cornerRadius == 0 })
+        check("sidebar choice preserved", mode == .hidden && store.sidebarCollapsed == savedChoice)
+        check("native exit control available", window.standardWindowButton(.zoomButton).map { $0.alphaValue == 1 && $0.isEnabled } ?? false)
+        let hiddenFrame = card.frame
+        debugSetSidebar("peek")
+        settle()
+        check("hover overlays without resizing page", card.frame == hiddenFrame && sidebar.frame.minX == 8)
+        debugSetSidebar("pinned")
+        settle()
+        check("pinned sidebar leaves page inset", card.frame.minX == CGFloat(store.sidebarWidth) && root.bounds.maxY - card.frame.maxY == 8)
+        check("compact fullscreen header", sidebar.bounds.height - sidebar.addressAnchor.frame.maxY == 36)
+        editAddress()
+        check("address editor stays anchored", commandBar.isAnchoredOpen)
+        commandBar.dismiss()
+        debugSetSidebar("hidden")
+        let a = store.newTab(url: "sorrel://welcome")
+        let b = store.newTab(url: "sorrel://welcome")
+        _ = store.makeSplit(a, with: b)
+        settle()
+        check("fullscreen split keeps pane frames", card.isSplit && card.frame == root.bounds && card.panes.allSatisfy { $0.layer?.cornerRadius == 8 && $0.bounds.width > 0 })
+        store.unsplit(store.unit(a))
+        settle()
+        check("single page after split has square corners", !card.isSplit && card.panes.allSatisfy { $0.layer?.cornerRadius == 0 })
+        windowDidFailToExitFullScreen(window)
+        settle()
+        check("failed exit retains fullscreen layout", card.frame == root.bounds)
+        windowDidExitFullScreen(Notification(name: NSWindow.didExitFullScreenNotification, object: window))
+        settle()
+        check("windowed layout restored", card.frame == normalFrame && card.layer?.cornerRadius == normalRadius)
+        check("windowed hidden buttons restored", window.standardWindowButton(.zoomButton).map { $0.alphaValue == 0 && !$0.isEnabled } ?? false)
+        debugSetSidebar("pinned")
+        settle()
+        check("windowed pinned buttons restored", window.standardWindowButton(.zoomButton).map { $0.alphaValue == 1 && $0.isEnabled } ?? false)
+        windowWillEnterFullScreen(note)
+        settle()
+        check("enter preserves pinned sidebar", mode == .pinned && sidebar.bounds.height - sidebar.addressAnchor.frame.maxY == 36)
+        windowDidFailToEnterFullScreen(window)
+        settle()
+        check("failed entry restores header", sidebar.bounds.height - sidebar.addressAnchor.frame.maxY == 44)
+        debugCursor = nil
+    }
+
     /// Test hook: a mouse-down in the middle of a split pane, through the same path as a real click.
     func debugClickPane(_ index: Int) {
         guard let window, card.panes.indices.contains(index) else { return }
