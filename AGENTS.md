@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Control+Tab popup (2026-11-17):** centered native frosted switcher follows existing recency/sidebar order, highlights the selection and scrolls overflow. Release or Escape dismisses it; cached icons only, no new network calls or saved state. `SORREL_TABSWITCHERTEST=1` covers 19 popup checks; existing 28 recency and 22 multi-window checks pass. Keyboard/mouse and animation feel await the owner. Merged from `tab-switcher`; task worktree removed.
+
 - **Control+Tab recency (2026-11-17, branch `recent-tab-shortcut`):** default quick toggling between recent tabs in the current space, stable held-Control cycling and Shift reversal. Settings ▸ Tabs can restore sidebar order. Recent selection state stays in memory per normal window. `SORREL_TABRECENCYTEST=1` covers shortcuts and settings; real keyboard feel needs the owner.
 
 - **Fullscreen polish (2026-11-17):** keeps the current sidebar choice, fills the window when hidden, keeps hover as an overlay, and uses compact pinned controls. Native fullscreen exit buttons remain available; windowed layout restores on exit. `SORREL_FULLSCREEN_TEST=1` checks layout callbacks without switching Spaces; actual macOS transitions/top-edge reveal and hover feel need the owner.
