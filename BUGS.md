@@ -24,13 +24,15 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 ## Open
 
 
-### Fullscreen retains windowed chrome (2026-11-17, branch `fullscreen-polish`)
+(none)
+
+## Fixed
+
+### Fullscreen retains windowed chrome (fixed 2026-11-17, branch `fullscreen-polish`)
 - **Repro:** enter fullscreen with the sidebar hidden, reveal it on hover, then pin it.
 - **Expected:** edge-to-edge page when hidden, compact pinned header, working native exit control, and restored windowed layout on exit.
 - **Actual:** fullscreen uses the same page insets, corner radius and header spacing as a normal window; window buttons are forced transparent.
-
-
-## Fixed
+- **Cause / fix:** fullscreen callbacks only changed button visibility and reused all windowed geometry. Added fullscreen layout state, edge-to-edge single pages, compact pinned controls, native button availability, transition failure recovery and direct constraint updates when animation is disabled. Verified before/after layout regression checks, hover and split hooks, and debug/release builds with the same two source warnings. Native macOS transitions/top-edge reveal and hover feel await the owner.
 
 ### Paused video resumed when reopening Picture in Picture (fixed 2026-11-17, branch `picture-in-picture`)
 - **Repro:** pause a video in PiP, return it to the tab, then open PiP again.

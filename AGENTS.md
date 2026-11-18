@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Fullscreen polish (2026-11-17):** keeps the current sidebar choice, fills the window when hidden, keeps hover as an overlay, and uses compact pinned controls. Native fullscreen exit buttons remain available; windowed layout restores on exit. `SORREL_FULLSCREEN_TEST=1` checks layout callbacks without switching Spaces; actual macOS transitions/top-edge reveal and hover feel need the owner.
+
 - **Optional brighter space colors (2026-11-17):** Customize Space has a per-space Brightness slider, including brighter dark-mode colors and live wheel/preset previews. Existing spaces retain the soft look. Preset selection keeps brightness. The owner's visual preference and slider feel still need a manual check.
 
 - **Picture in Picture is implemented (2026-11-17):** View ▸ Picture in Picture opens a movable/resizable floating video with hover playback, ±10-second skip, progress and remaining time. Top-level and same-origin videos use their existing WebKit view/store. Cross-origin embeds and shadow-root players may need the site’s own PiP control. Mouse feel and signed-in sites await owner verification.
