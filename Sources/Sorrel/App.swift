@@ -160,6 +160,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        let newWindow = item("window.new")
+        newWindow.keyEquivalent = ""
+        newWindow.keyEquivalentModifierMask = []
+        menu.addItem(newWindow)
+        return menu
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -749,6 +758,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let out = env["SORREL_SNAPSHOT"] else { return }
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
+
+        if env["SORREL_DOCKMENUTEST"] != nil {
+            // Exercise the Dock delegate and real menu action without showing the Dock menu.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                func check(_ name: String, _ passed: Bool) { log("dock: \(name) expected=true got=\(passed)") }
+                guard let menu = self.applicationDockMenu(NSApp), let item = menu.items.first else {
+                    check("menu available", false); return
+                }
+                check("new window entry", menu.items.count == 1 && item.title == "New Window")
+                check("explicit command target", item.target === self && item.representedObject as? String == "window.new")
+                check("no Dock shortcut", item.keyEquivalent.isEmpty && item.keyEquivalentModifierMask.isEmpty)
+                let first = self.main!
+                let selected = first.store.selected
+                let count = self.windows.count
+                menu.performActionForItem(at: 0)
+                let second = self.main!
+                check("creates another window", self.windows.count == count + 1 && second !== first)
+                check("preserves existing selection", first.store.selected === selected)
+                check("opens new tab bar", second.store.selected == nil && !second.commandBar.isHidden)
+                for controller in self.windows { controller.close() }
+                check("closed all windows", self.windows.isEmpty)
+                menu.performActionForItem(at: 0)
+                check("creates window after closing all", self.windows.count == 1 && self.main !== second)
+                check("new tab bar after closing all", self.main.store.selected == nil && !self.main.commandBar.isHidden)
+            }
+        }
 
         if env["SORREL_TABSWITCHERTEST"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
