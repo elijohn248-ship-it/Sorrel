@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Memory pressure handling (2026-11-18, branch `memory-efficiency`, not merged):** warning/critical macOS events trim disposable app caches and sleep eligible tabs after five/one idle minutes, preserving Never, shorter sleep intervals and existing safety guards. `SORREL_MEMORYTEST=1` covers 17 checks including real page/web-view release; multi-window and media/seek regressions pass. Actual OS notification delivery and signed-in memory savings are unverified. See PROGRESS.md.
+
 - **Control+Tab popup (2026-11-17):** centered native frosted switcher follows existing recency/sidebar order, highlights the selection and scrolls overflow. Release or Escape dismisses it; cached icons only, no new network calls or saved state. `SORREL_TABSWITCHERTEST=1` covers 19 popup checks; existing 28 recency and 22 multi-window checks pass. Keyboard/mouse and animation feel await the owner. Merged from `tab-switcher`; task worktree removed.
 
 - **Control+Tab recency (2026-11-17, branch `recent-tab-shortcut`):** default quick toggling between recent tabs in the current space, stable held-Control cycling and Shift reversal. Settings ▸ Tabs can restore sidebar order. Recent selection state stays in memory per normal window. `SORREL_TABRECENCYTEST=1` covers shortcuts and settings; real keyboard feel needs the owner.

@@ -175,7 +175,12 @@ Sorrel updates itself from the owner's GitHub releases, free and without Apple: 
 
 Measure with `footprint -p <pid>`, not resident size: WebKit leaves 1 GB+ of reclaimable pages that `ps` counts. With uBOL on, the main process was ~235 MB of true footprint from malloc fragmentation after rule loading; `MallocSpaceEfficient=1` brings it to ~45 MB. Things that did not help: `malloc_zone_pressure_relief`, `MallocAggressiveMadvise`, trimming uBOL's unused rule sets.
 
+`AppDelegate` retains a main-queue Dispatch memory-pressure source for warning/critical events. `Cleanup.relieveMemoryPressure` drops the favicon and URL response caches, then sleeps eligible background tabs idle for at least five minutes (warning) or one minute (critical), capped by the user's shorter `sleepTabsAfterMinutes`. A zero interval (Never) disables automatic tab sleeping even under pressure; caches may still be released. Normal pressure does nothing. Uses `Store.profile.sleepIdleTabs`, preserving every window's visible/split panes and the existing loading, playback, capture, PiP and extension-page exclusions. Private mini windows remain outside the normal tab store. Normal-pressure behavior and the default two-hour interval are unchanged. Sleeping releases the page/web view and keeps the existing interaction state for waking. This avoids waiting for the five-minute maintenance timer when memory is scarce.
+
+
 ## Testing
+
+`SORREL_MEMORYTEST=1` (`SORREL_DELAY=8`): local HTML fixtures test the registered pressure-source mask and directly exercise the production pressure handler without stressing the Mac. Logs `memory:` expected/got booleans for normal/warning/critical pressure, Never, shorter intervals, recent/visible/playing-tab protection, repeated/coalesced events, saved interaction state, actual Page/WKWebView release and waking (17 checks). Reports loaded fixture counts, not a claim about MB saved. Does not force an actual OS pressure notification or verify signed-in pages.
 
 There is no test target. Tests are the app itself, driven by environment variables read in `App.swift` (`runDebugHooks`). Pattern:
 

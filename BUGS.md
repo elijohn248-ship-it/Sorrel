@@ -23,10 +23,17 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-
 (none)
 
 ## Fixed
+
+### Idle tabs stay loaded during memory pressure (fixed 2026-11-18, branch `memory-efficiency`)
+- **Repro:** load background tabs, leave them idle for ten minutes with the default two-hour sleep setting, then receive a macOS memory warning.
+- **Expected:** reclaim eligible idle tabs early when the Mac needs memory, preserving active pages and playback.
+- **Actual:** only the five-minute timer checks the two-hour limit; there is no memory-pressure handler.
+- **Cause / fix:** maintenance only checked the configured age every five minutes; no macOS pressure source was registered. A retained Dispatch source now trims disposable app caches and sleeps eligible tabs after five idle minutes at warning or one at critical, respecting Never and shorter user intervals. Existing visible/split-pane, playback, capture, loading, extension and PiP guards are reused.
+- **Verified:** baseline fixture retained four background tabs; direct warning/critical handler calls now retain two, with Page/WKWebView deallocation confirmed. All 17 memory checks, 22 multi-window checks and silent-media/seek checks pass after merging main. Debug/release builds retain the same two source warnings. Actual OS notification delivery and signed-in browsing under pressure are not exercised; no MB saving is claimed.
+
 
 ### A downloaded release stays in Downloads and can't update (fixed 2026-11-17, branch `move-to-apps`)
 - **Repro:** download the release zip from GitHub, open Sorrel from Downloads (Open Anyway once).
