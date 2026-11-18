@@ -126,13 +126,13 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
         }
         let tail = lines[start...]
         func has(_ s: String) -> Bool { tail.contains { $0.contains(s) } }
-        if has("installer: refused") { return (true, "The update didn’t pass Sorrel’s safety check, so it wasn’t installed.") }
-        if has("still running after") { return (true, "Sorrel didn’t finish quitting in time, so the installer gave up.") }
+        if has("installer: refused") { return (true, "The update didn’t pass Birch’s safety check, so it wasn’t installed.") }
+        if has("still running after") { return (true, "Birch didn’t finish quitting in time, so the installer gave up.") }
         if has("ditto failed") || has("can't create") || has("no app bundle") { return (true, "The download couldn’t be unpacked.") }
-        if has("is not newer") || has("installer: archive is") { return (true, "The download wasn’t a newer copy of Sorrel.") }
+        if has("is not newer") || has("installer: archive is") { return (true, "The download wasn’t a newer copy of Birch.") }
         if has("codesign --verify failed") { return (true, "The new copy’s code signature didn’t check out.") }
-        if has("swap failed") { return (true, "Sorrel couldn’t replace itself where it’s kept. Moving it into Applications usually fixes this.") }
-        if has("installer: installed") { return (true, "A new copy was installed, but this copy of Sorrel is still the old one.") }
+        if has("swap failed") { return (true, "Birch couldn’t replace itself where it’s kept. Moving it into Applications usually fixes this.") }
+        if has("installer: installed") { return (true, "A new copy was installed, but this copy of Birch is still the old one.") }
         return (false, "The installer stopped before it finished.")
     }
 
@@ -234,18 +234,18 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
             }
             manifest = m
         }
-        guard let current else { fail("This copy of Sorrel has no version number"); return }
+        guard let current else { fail("This copy of Birch has no version number"); return }
         tlog("feed version=\(manifest.version) build=\(manifest.build) running=\(current.build)")
         if let f = failureNotice, manifest.build > f.build { failureNotice = nil }   // a newer release replaces it
         guard manifest.build > current.build else {
             failureNotice = nil
             retrying = false
             state = .upToDate
-            if manual { toast("Sorrel \(current.version) is up to date") }
+            if manual { toast("Birch \(current.version) is up to date") }
             return
         }
         guard manifest.runsOnThisMac() else {
-            fail("Sorrel \(manifest.version) needs macOS \(manifest.minimumSystemVersion ?? "")")
+            fail("Birch \(manifest.version) needs macOS \(manifest.minimumSystemVersion ?? "")")
             return
         }
         let zip = zipURL(for: manifest)
@@ -352,8 +352,8 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
         guard !isQuietTest else { return }
         if isTranslocated { explainTranslocation(); return }
         let a = NSAlert()
-        a.messageText = "Sorrel \(m.version) is ready"
-        a.informativeText = (m.notes.map { $0 + "\n\n" } ?? "") + "Relaunch now to update, or let it install the next time you quit Sorrel."
+        a.messageText = "Birch \(m.version) is ready"
+        a.informativeText = (m.notes.map { $0 + "\n\n" } ?? "") + "Relaunch now to update, or let it install the next time you quit Birch."
         a.addButton(withTitle: "Relaunch Now")
         a.addButton(withTitle: "Later")
         if a.runModal() == .alertFirstButtonReturn { relaunchToUpdate() }
@@ -361,8 +361,8 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
 
     private func explainTranslocation() {
         let a = NSAlert()
-        a.messageText = "Move Sorrel to your Applications folder first"
-        a.informativeText = "macOS runs an app straight from Downloads at a temporary address, where it can't be updated. Quit Sorrel, drag it into Applications, open it from there and the update will install."
+        a.messageText = "Move Birch to your Applications folder first"
+        a.informativeText = "macOS runs an app straight from Downloads at a temporary address, where it can't be updated. Quit Birch, drag it into Applications, open it from there and the update will install."
         a.runModal()
     }
 
@@ -448,11 +448,11 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
             }
             return "Not checked yet."
         case .checking: return "Checking…"
-        case .upToDate: return "Sorrel is up to date."
-        case .downloading(let m, let fraction): return "Downloading Sorrel \(m.version)… \(Int(fraction * 100))%"
+        case .upToDate: return "Birch is up to date."
+        case .downloading(let m, let fraction): return "Downloading Birch \(m.version)… \(Int(fraction * 100))%"
         case .ready(let m, _) where failures(of: m.build) >= 2:
-            return "Sorrel \(m.version) failed to install twice. Download it from GitHub instead."
-        case .ready(let m, _): return "Sorrel \(m.version) is ready. It installs when you quit Sorrel."
+            return "Birch \(m.version) failed to install twice. Download it from GitHub instead."
+        case .ready(let m, _): return "Birch \(m.version) is ready. It installs when you quit Birch."
         case .failed(let message): return message
         }
     }
@@ -482,7 +482,7 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
                     guard self.installing else { return }
                     self.installing = false
                     try? FileManager.default.removeItem(at: self.marker)
-                    self.recordFailure(build: m.build, version: m.version, reason: "Sorrel didn’t quit, so the update couldn’t install.")
+                    self.recordFailure(build: m.build, version: m.version, reason: "Birch didn’t quit, so the update couldn’t install.")
                 }
             }
         }
@@ -504,7 +504,7 @@ final class Updater: NSObject, URLSessionDownloadDelegate {
     /// Hands the verified archive to SorrelUpdater.xpc. The completion runs on the main thread.
     private func install(relaunch: Bool, logOverride: FileHandle? = nil, completion: @escaping (String?) -> Void) {
         guard case .ready(let m, let zip) = state else { completion("No update is ready"); return }
-        guard let id = Bundle.main.bundleIdentifier else { completion("Sorrel has no bundle id"); return }
+        guard let id = Bundle.main.bundleIdentifier else { completion("Birch has no bundle id"); return }
         // Both go to the service as open files: it isn't allowed into this app's container by path (UpdateCore).
         guard let zipHandle = try? FileHandle(forReadingFrom: zip) else { completion("The downloaded update is missing"); return }
         guard let logHandle = logOverride ?? Self.openForAppending(logFile) else { completion("Couldn’t open update.log"); return }

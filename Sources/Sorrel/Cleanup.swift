@@ -107,7 +107,7 @@ enum Cleanup {
         History.shared.remove(olderThan: Date().addingTimeInterval(-days * 86400))
     }
 
-    /// Settings ▸ Memory & Storage ▸ "Empty the cache when Sorrel quits". Calls back on the main thread, at the
+    /// Settings ▸ Memory & Storage ▸ "Empty the cache when Birch quits". Calls back on the main thread, at the
     /// latest after a few seconds so a stuck WebKit can never hold up quitting. Answers through the run loop, not
     /// the main dispatch queue: while the app waits in "terminate later", AppKit runs a nested run loop where
     /// main-queue blocks don't run (same as Updater.installOnQuit).

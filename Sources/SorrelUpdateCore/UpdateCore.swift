@@ -75,7 +75,7 @@ public enum UpdateSigning {
             throw Failure("The built-in update key is unusable")
         }
         guard let sig = Data(base64Encoded: signature), key.isValidSignature(sig, for: data) else {
-            throw Failure("The update's signature doesn't match Sorrel's key")
+            throw Failure("The update's signature doesn't match Birch's key")
         }
     }
 }

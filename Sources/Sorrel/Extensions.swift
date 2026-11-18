@@ -47,7 +47,7 @@ final class ExtensionEntry {
 
     var sourceText: String {
         switch source {
-        case .bundled: return "Included with Sorrel"
+        case .bundled: return "Included with Birch"
         case .safariApp(_, let app): return "From \(app)"
         case .folder(let url):
             return url.lastPathComponent.hasPrefix("chrome-") ? "From the Chrome Web Store" : "Added by you"
@@ -319,7 +319,7 @@ final class Extensions: NSObject {
             let prefix = "https://github.com/uBlockOrigin/uBOL-home/releases/download/"
             guard let link = assets.compactMap({ $0["browser_download_url"] as? String })
                     .first(where: { $0.hasPrefix(prefix) && $0.hasSuffix(".safari.zip") }), let url = URL(string: link) else {
-                finish("The new uBlock Origin Lite release has no build Sorrel can use yet")
+                finish("The new uBlock Origin Lite release has no build Birch can use yet")
                 return
             }
             session.downloadTask(with: url) { file, response, _ in
@@ -347,7 +347,7 @@ final class Extensions: NSObject {
                 try? fm.removeItem(at: final)
                 do {
                     try fm.moveItem(at: partial, to: final)
-                    finish("uBlock Origin Lite \(tag) is ready and will be used the next time Sorrel opens")
+                    finish("uBlock Origin Lite \(tag) is ready and will be used the next time Birch opens")
                 } catch {
                     try? fm.removeItem(at: partial)
                     finish("Couldn’t save the uBlock Origin Lite update")
@@ -514,7 +514,7 @@ final class Extensions: NSObject {
                     results.append("\(entry.name): \(error.localizedDescription)")
                 case .success(let got):
                     if Self.version(got, isNewerThan: newest) {
-                        results.append("\(entry.name) \(got) is ready and will be used the next time Sorrel opens")
+                        results.append("\(entry.name) \(got) is ready and will be used the next time Birch opens")
                         self.changed()
                     } else {
                         if got == have { try? FileManager.default.removeItem(at: pending) }
@@ -820,7 +820,7 @@ final class Extensions: NSObject {
         }
         return await withCheckedContinuation { done in
             ask("\(name) was updated and now wants more access",
-                "The new version asks for: \(Self.describe(added)).\n\nIf you don’t allow it, Sorrel switches the extension off. You can switch it back on in Settings ▸ Extensions to see this again.",
+                "The new version asks for: \(Self.describe(added)).\n\nIf you don’t allow it, Birch switches the extension off. You can switch it back on in Settings ▸ Extensions to see this again.",
                 completion: { done.resume(returning: $0) })
         }
     }
@@ -1219,6 +1219,6 @@ extension Extensions: WKWebExtensionControllerDelegate {
         }
         // Messages to a companion Mac app are not available outside Safari.
         replyHandler(nil, NSError(domain: "Sorrel", code: 10, userInfo: [NSLocalizedDescriptionKey:
-            "Sorrel can’t pass messages to the extension’s companion app."]))
+            "Birch can’t pass messages to the extension’s companion app."]))
     }
 }

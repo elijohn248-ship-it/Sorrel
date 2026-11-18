@@ -471,7 +471,7 @@ final class ImportOverlay: NSView {
         panel.prompt = s.kind == .bookmarksFile ? "Import" : "Allow"
         panel.message = s.kind == .bookmarksFile
             ? "Choose the bookmarks file you exported."
-            : "Sorrel needs your OK to read \(s.name)’s folder. It’s already open here: click Allow."
+            : "Birch needs your OK to read \(s.name)’s folder. It’s already open here: click Allow."
         if let dir = s.dataURL {
             panel.directoryURL = dir
         } else {
@@ -542,7 +542,7 @@ final class ImportOverlay: NSView {
         step = "choose"
         guard let s = source else { return NSView() }
         let v = NSView()
-        let header = headerView(icon: s.icon, title: "Here’s what Sorrel found", subtitle: foundLine())
+        let header = headerView(icon: s.icon, title: "Here’s what Birch found", subtitle: foundLine())
 
         let rows = NSStackView()
         rows.orientation = .vertical
@@ -618,8 +618,8 @@ final class ImportOverlay: NSView {
 
     private func foundLine() -> String {
         guard let s = source else { return "" }
-        if let url = pickedURL, s.kind == .bookmarksFile { return "From \(url.lastPathComponent). Pick what to bring; pages already in Sorrel are skipped." }
-        return "Pick what to bring. Pages already in Sorrel are skipped, so importing again adds only what’s new."
+        if let url = pickedURL, s.kind == .bookmarksFile { return "From \(url.lastPathComponent). Pick what to bring; pages already in Birch are skipped." }
+        return "Pick what to bring. Pages already in Birch are skipped, so importing again adds only what’s new."
     }
 
     /// Arc's spaces as small coloured coins with their emoji: a glimpse of the sidebar that's about to arrive.

@@ -58,7 +58,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private init() {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 470),
                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        w.title = "Sorrel Settings"
+        w.title = "Birch Settings"
         w.isReleasedWhenClosed = false
         super.init(window: w)
         w.delegate = self
@@ -257,7 +257,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         }
         defaultBrowserStatus.textColor = .secondaryLabelColor
         defaultBrowserStatus.font = .systemFont(ofSize: 11)
-        let makeDefault = button("Make Sorrel the Default Browser") { [weak self] in self?.makeDefaultBrowser() }
+        let makeDefault = button("Make Birch the Default Browser") { [weak self] in self?.makeDefaultBrowser() }
         updateStatus.font = .systemFont(ofSize: 11)
         updateStatus.textColor = .secondaryLabelColor
         updateStatus.preferredMaxLayoutWidth = 380
@@ -265,12 +265,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         check.controlSize = .small
         updateButton = check
         let info = Updater.shared.current
-        let versionLine = note("Sorrel \(info?.version ?? "?") (build \(info?.build ?? 0))")
+        let versionLine = note("Birch \(info?.version ?? "?") (build \(info?.build ?? 0))")
         versionLine.textColor = .labelColor
         let autoBox = checkbox("Install updates automatically, without asking", s.installUpdatesAutomatically) { on in
             Updater.shared.setInstallAutomatically(on)
         }
-        autoBox.toolTip = "A downloaded update installs quietly the next time you quit Sorrel, instead of showing a card at the bottom of the sidebar."
+        autoBox.toolTip = "A downloaded update installs quietly the next time you quit Birch, instead of showing a card at the bottom of the sidebar."
         autoInstallBox = autoBox
         refreshUpdateStatus()
 
@@ -305,7 +305,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 autoBox,
                 check,
                 updateStatus,
-                note("Updates come from Sorrel’s GitHub releases and are signed; one that fails the check is never installed. A downloaded update installs when you quit Sorrel."),
+                note("Updates come from Birch’s GitHub releases and are signed; one that fails the check is never installed. A downloaded update installs when you quit Birch."),
             ])),
         ])
     }
@@ -320,7 +320,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         return form([
             ("Ads and trackers:", column([
-                checkbox("Block ads and trackers with Sorrel’s built-in lists", s.blockAds) { [weak self] on in
+                checkbox("Block ads and trackers with Birch’s built-in lists", s.blockAds) { [weak self] on in
                     self?.mutate(blocking: true) { $0.blockAds = on }
                 },
                 blockerStatus,
@@ -345,7 +345,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                 checkbox("Always try a secure connection first (HTTPS-first)", s.httpsFirst) { [weak self] on in
                     self?.mutate { $0.httpsFirst = on }
                 },
-                note("Plain http:// sites are opened with encryption when they support it. If one doesn’t, Sorrel warns you before showing it."),
+                note("Plain http:// sites are opened with encryption when they support it. If one doesn’t, Birch warns you before showing it."),
             ])),
             ("Stored data:", column([
                 button("Clear Browsing Data…") { Commands.shared.run("data.clearRecent") },
@@ -404,7 +404,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             ("", button("Clear Browsing Data…") { Commands.shared.run("data.clearRecent") }),
             ("Remove history:", keep),
             ("When quitting:", column([
-                checkbox("Empty the cache when Sorrel quits", s.emptyCacheOnQuit) { [weak self] on in
+                checkbox("Empty the cache when Birch quits", s.emptyCacheOnQuit) { [weak self] on in
                     self?.mutate { $0.emptyCacheOnQuit = on }
                 },
                 note("Frees disk space each time; pages load a little slower the first time after. Cookies and logins are kept."),
@@ -499,7 +499,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             ("Slide speed:", slider(s.sidebarAnimationDuration, 0.05, 0.5, unit: " s", digits: 2) { [weak self] v in
                 self?.mutate { $0.sidebarAnimationDuration = (v * 100).rounded() / 100 }
             }),
-            ("In the background:", checkbox("Reveal on hover even when Sorrel isn’t the front app", s.sidebarHoverWhenInactive) { [weak self] on in
+            ("In the background:", checkbox("Reveal on hover even when Birch isn’t the front app", s.sidebarHoverWhenInactive) { [weak self] on in
                 self?.mutate { $0.sidebarHoverWhenInactive = on }
             }),
         ])
@@ -587,7 +587,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let update = button("Check for Updates") { Commands.shared.run("extensions.update") }
         let buttons = NSStackView(views: [store, add, update, reveal])
         buttons.spacing = 8
-        let hint = note("Safari extensions already on this Mac are listed here, switched off until you turn them on. Chrome extensions can be added by pasting their Web Store link; many work, but ones that lean on Chrome-only features may not. Extensions from the Web Store and uBlock Origin Lite are kept up to date automatically; an update is used the next time Sorrel opens. Extensions do not run in private windows.")
+        let hint = note("Safari extensions already on this Mac are listed here, switched off until you turn them on. Chrome extensions can be added by pasting their Web Store link; many work, but ones that lean on Chrome-only features may not. Extensions from the Web Store and uBlock Origin Lite are kept up to date automatically; an update is used the next time Birch opens. Extensions do not run in private windows.")
         hint.preferredMaxLayoutWidth = 560
 
         for v in [scroll, buttons, hint] as [NSView] {
@@ -628,7 +628,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             if entry.isLoading { detail += " · starting…" }
             else if entry.isLoaded { detail += " · on" }
             if !entry.summary.isEmpty, entry.isLoaded { detail += "\n" + entry.summary }
-            if ext.hasPendingUpdate(entry) { detail += "\nAn update is ready and will be used the next time Sorrel opens." }
+            if ext.hasPendingUpdate(entry) { detail += "\nAn update is ready and will be used the next time Birch opens." }
             // Its keyboard shortcuts, so they can be discovered (and clashes with Sorrel's own noticed).
             let shortcuts = ext.commands(for: entry).compactMap { c in Extensions.shortcutText(for: c).map { "\(c.title) \($0)" } }
             if !shortcuts.isEmpty { detail += "\nShortcuts: " + shortcuts.joined(separator: " · ") }
@@ -770,7 +770,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let handler = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!)
         let isDefault = handler.flatMap { Bundle(url: $0)?.bundleIdentifier } == Bundle.main.bundleIdentifier
         let name = handler?.deletingPathExtension().lastPathComponent ?? "another app"
-        defaultBrowserStatus.stringValue = isDefault ? "Sorrel is your default browser." : "Links currently open in \(name)."
+        defaultBrowserStatus.stringValue = isDefault ? "Birch is your default browser." : "Links currently open in \(name)."
     }
 
     private func makeDefaultBrowser() {

@@ -331,7 +331,7 @@ final class CommandBar: NSView, NSTextFieldDelegate, NSTableViewDataSource, NSTa
         // Suggestions from the last time the bar was open don't carry over.
         suggestions = []
         suggestionsFor = ""
-        if mode == .editCurrent, let u = controller?.store.selected?.url, !u.hasPrefix("sorrel://") {
+        if mode == .editCurrent, let u = controller?.store.selected?.url, !BundledPage.isBundled(u) {
             field.stringValue = u
         } else {
             field.stringValue = ""

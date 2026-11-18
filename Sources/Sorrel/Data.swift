@@ -56,7 +56,7 @@ final class FaviconStore {
     }
 
     func image(for item: Item) -> NSImage? {
-        if let u = item.url, u.hasPrefix("sorrel://") { return symbol("sparkles", size: 14) }
+        if let u = item.url, BundledPage.isBundled(u) { return symbol("sparkles", size: 14) }
         return item.page?.favicon ?? image(forHost: item.host)
     }
 
@@ -416,7 +416,7 @@ enum Resolver {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !text.contains(" ") else { return nil }
         let lower = text.lowercased()
-        for scheme in ["http://", "https://", "file://", "sorrel://", "about:"] where lower.hasPrefix(scheme) {
+        for scheme in ["http://", "https://", "file://", "birch://", "sorrel://", "about:"] where lower.hasPrefix(scheme) {
             return URL(string: text)
         }
         if lower.hasPrefix("localhost") || lower.range(of: #"^\d{1,3}(\.\d{1,3}){3}(:\d+)?(/.*)?$"#, options: .regularExpression) != nil {

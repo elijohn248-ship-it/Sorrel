@@ -8,7 +8,7 @@ import AppKit
 if !isTestBuild {
     let hooks = ProcessInfo.processInfo.environment.keys.filter { $0.hasPrefix("SORREL_") }
     if hooks.contains("SORREL_HOME") {
-        FileHandle.standardError.write("Sorrel: test runs (SORREL_HOME) use build/SorrelTest.app/Contents/MacOS/Sorrel, not Sorrel.app. See CLAUDE.md, Testing.\n".data(using: .utf8)!)
+        FileHandle.standardError.write("Birch: test runs (SORREL_HOME) use build/SorrelTest.app/Contents/MacOS/Sorrel, not Birch.app. See CLAUDE.md, Testing.\n".data(using: .utf8)!)
         exit(2)
     }
     hooks.forEach { unsetenv($0) }

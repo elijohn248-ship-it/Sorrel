@@ -163,7 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         isTerminating = true
-        // Settings ▸ Memory & Storage ▸ "Empty the cache when Sorrel quits" (Cleanup.swift), then the update.
+        // Settings ▸ Memory & Storage ▸ "Empty the cache when Birch quits" (Cleanup.swift), then the update.
         if Settings.current.emptyCacheOnQuit, !cacheEmptiedForQuit {
             cacheEmptiedForQuit = true
             Cleanup.emptyCacheBeforeQuitting { [weak self] in
@@ -644,8 +644,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return m
         }
 
-        _ = add("Sorrel", [
-            std("About Sorrel", "orderFrontStandardAboutPanel:", ""),
+        _ = add("Birch", [
+            std("About Birch", "orderFrontStandardAboutPanel:", ""),
             {
                 let mi = item("updates.check", title: Updater.shared.menuTitle)
                 updateMenuItem = mi
@@ -659,11 +659,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item("history.clear"),
             item("data.clear"),
             .separator(),
-            std("Hide Sorrel", "hide:", "h"),
+            std("Hide Birch", "hide:", "h"),
             std("Hide Others", "hideOtherApplications:", "h", [.command, .option]),
             std("Show All", "unhideAllApplications:", ""),
             .separator(),
-            std("Quit Sorrel", "terminate:", "q"),
+            std("Quit Birch", "terminate:", "q"),
         ])
         _ = add("File", [
             item("window.new"), item("tab.new"), item("mini.new"), item("private.new"), item("folder.new"), item("space.new"),
@@ -1634,7 +1634,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 log("diag: unsupported APIs=\(ctx.unsupportedAPIs.sorted())")
                 let asked = (ext.manifest["permissions"] as? [String] ?? [])
                 log("diag: permissions asked=\(asked) granted=\(ctx.currentPermissions.map { $0.rawValue }.sorted())")
-                log("diag: tabs opened so far=\(self.store.allTabs.compactMap { $0.item.url }.filter { !$0.hasPrefix("sorrel") })")
+                log("diag: tabs opened so far=\(self.store.allTabs.compactMap { $0.item.url }.filter { !BundledPage.isBundled($0) })")
                 let base = ctx.baseURL.absoluteString
                 let popup = ((ext.manifest["action"] as? [String: Any])?["default_popup"] as? String) ?? "popup.html"
                 let tab = self.store.newTab(url: base + popup)

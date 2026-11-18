@@ -171,7 +171,7 @@ struct BrowserSource: Equatable {
         case .safari:
             return "Safari’s folder will already be selected in the next window: just click Allow. If Safari won’t share it, export your bookmarks from Safari (File ▸ Export ▸ Bookmarks…) and choose that file instead."
         default:
-            return "\(name)’s folder will already be selected in the next window: just click Allow. Sorrel reads it once and copies nothing else."
+            return "\(name)’s folder will already be selected in the next window: just click Allow. Birch reads it once and copies nothing else."
         }
     }
 }
@@ -219,7 +219,7 @@ enum ImportReader {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let containers = (json["sidebar"] as? [String: Any])?["containers"] as? [Any],
               let c = containers.compactMap({ $0 as? [String: Any] }).first(where: { $0["spaces"] != nil }) else {
-            throw ImportError.unreadable("Arc’s sidebar file is in a format Sorrel doesn’t recognise.")
+            throw ImportError.unreadable("Arc’s sidebar file is in a format Birch doesn’t recognise.")
         }
         var items: [String: [String: Any]] = [:]
         for case let i as [String: Any] in c["items"] as? [Any] ?? [] {

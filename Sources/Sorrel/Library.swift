@@ -278,11 +278,11 @@ final class LibraryView: NSView {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Forget \(site)?"
-        alert.informativeText = "Sorrel removes its history, archived tabs, cookies, site data, cached files and zoom level, in every space. You will be signed out of it. Open tabs stay open."
+        alert.informativeText = "Birch removes its history, archived tabs, cookies, site data, cached files and zoom level, in every space. You will be signed out of it. Open tabs stay open."
         alert.addButton(withTitle: "Forget")
         alert.addButton(withTitle: "Cancel")
         let forget = {
-            Cleanup.forget(site: site) { AppDelegate.shared.main.showToast("Sorrel forgot \(site)") }
+            Cleanup.forget(site: site) { AppDelegate.shared.main.showToast("Birch forgot \(site)") }
         }
         if let w = AppDelegate.shared.main.window, w.isVisible {
             alert.beginSheetModal(for: w) { if $0 == .alertFirstButtonReturn { forget() } }

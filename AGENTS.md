@@ -1,6 +1,6 @@
-# AGENTS.md: how to work on Sorrel
+# AGENTS.md: how to work on Birch (formerly Sorrel)
 
-This file is for AI coding agents picking up Sorrel. Read all of it before you change anything. It is written as plain rules and checklists on purpose: follow them literally. When this file says "ask the owner", stop and ask. Do not guess.
+This file is for AI coding agents picking up Birch. **The app was renamed from Sorrel to Birch on 2026-11-17, but only what users see changed**: the bundle id (`app.sorrel.browser`), code names (`Sources/Sorrel`, `SORREL_*`, `SorrelTest.app`), the profile folder and `~/.config/sorrel` kept the old name on purpose (`CLAUDE.md` ▸ Name). So this file still says "Sorrel" for code; the built app is `build/Birch.app`. Read all of it before you change anything. It is written as plain rules and checklists on purpose: follow them literally. When this file says "ask the owner", stop and ask. Do not guess.
 
 Three other files matter:
 
@@ -17,7 +17,7 @@ If this file and `CLAUDE.md` seem to disagree about a **rule**, the stricter one
 
 ## 1. What Sorrel is (read this so your choices fit)
 
-Sorrel is a **web browser for the Mac**, written in **Swift** with **AppKit** and **WebKit** (`WKWebView`, the engine Safari uses). It was called **Drift** until 2026-11-14.
+Sorrel is a **web browser for the Mac**, written in **Swift** with **AppKit** and **WebKit** (`WKWebView`, the engine Safari uses). It was called **Drift** until 2026-11-14 and **Sorrel** until 2026-11-17; it is now **Birch**.
 
 It is the owner's **daily browser**. They are a former heavy user of the Arc browser (Arc shuts down on 2026-12-22) and a daily Safari user. The one-line goal, in the owner's words: **"a Safari version of Arc"** with the privacy and security of the **Helium** browser, plus Helium-style **bangs** (`!w wikipedia`, `!yt video`).
 
@@ -65,7 +65,7 @@ Break none of these. If a task seems to need breaking one, **stop and ask the ow
 5. **Every bug fix gets verified** (see section 6), and the build must pass before you say you're done.
 6. **Don't add compiler warnings.** The release build has a known baseline (see section 8). Keep it at that number or fewer.
 7. **Don't hand-edit `vendor/`.** It's third-party code (uBlock Origin Lite, Kagi bangs). Update it only by replacing it from upstream.
-8. **Don't run `./build.sh` in `~/sorrel` without asking.** Its first step deletes `build/Sorrel.app`, the copy the owner is usually running right now. In a task worktree it is fine. To check that code compiles, use `swift build`.
+8. **Don't run `./build.sh` in `~/sorrel` without asking.** Its first step deletes `build/Birch.app`, the copy the owner is usually running right now. In a task worktree it is fine. To check that code compiles, use `swift build`.
 
 ### 2.3 Security invariants (re-check whenever you touch related code)
 
@@ -81,7 +81,7 @@ Break none of these. If a task seems to need breaking one, **stop and ask the ow
 ### 2.4 Safety rules for the owner's data and machine
 
 - **Never touch the owner's real profile.** It lives in `~/Library/Containers/app.sorrel.browser/` (the live one, inside the sandbox container). There is also an old pre-sandbox copy in `~/Library/Application Support/Sorrel`, and Drift-era data (`Application Support/Drift`, `WebKit/app.drift.browser`, `HTTPStorages/app.drift.browser*`). **All of those are the owner's. Do not read, edit, move or delete them.** The Drift and pre-sandbox copies are the owner's backup: delete only if the owner explicitly says so.
-- **Never launch `build/Sorrel.app` yourself** (or the app without `SORREL_HOME`). That is the owner's real browser. You only ever launch `build/SorrelTest.app` with `SORREL_HOME` pointing at a scratch folder (section 7). The code enforces part of this: `Sorrel.app` refuses to start with `SORREL_HOME` set and ignores all `SORREL_*` test variables.
+- **Never launch `build/Birch.app` yourself** (or the app without `SORREL_HOME`). That is the owner's real browser. You only ever launch `build/SorrelTest.app` with `SORREL_HOME` pointing at a scratch folder (section 7). The code enforces part of this: `Birch.app` refuses to start with `SORREL_HOME` set and ignores all `SORREL_*` test variables.
 - **Secrets live in `~/.config/sorrel/`, outside the repo**: `update-signing-key` (Ed25519 private key for releases), `github-token`, `sync-relay-url`, `sync-house-key`, and (once created) `signing.keychain-db`. **Never print, copy, commit or paste their contents anywhere.** Don't `cat` them. Scripts read them; you don't need to.
   - **If `update-signing-key` is lost, no installed copy can ever update again.** Never delete, move, regenerate or overwrite it.
 - **The GitHub repo is public.** Everything committed and pushed (this file included) is visible to everyone. Never commit keys, tokens, the relay address, the owner's personal data, or anything read from their profile. Some audit reports are kept out of git on purpose (e.g. `SECURITY-AUDIT.md` in the `security-audit` worktree, `GAPS.md` in `sorrel-gap-audit`): don't commit them.
@@ -105,7 +105,7 @@ Break none of these. If a task seems to need breaking one, **stop and ask the ow
 
 The owner often runs several AI sessions at the same time. **Two sessions must never edit the same folder**: one session's half-finished edit breaks the other's build. This happened twice.
 
-- `~/sorrel` holds the `main` branch **and** the owner's running app (`build/Sorrel.app`). **Do not do feature or bug work directly in `~/sorrel`.**
+- `~/sorrel` holds the `main` branch **and** the owner's running app (`build/Birch.app`). **Do not do feature or bug work directly in `~/sorrel`.**
 - Every task gets **its own git worktree and branch**.
 
 ### 3.1 Start of every session (do all of these, in order)
@@ -210,6 +210,7 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 - **Multiple normal windows are implemented (2026-11-17):** ⌘N opens a new window with independent tab/space selection, shared normal logins, and session restore. Selecting an already visible tab focuses its window. Owner verification is still needed for signed-in extensions and window-switching feel.
 
 - **Updater fix (2026-11-16):** macOS's app-data protection (TCC `SystemPolicyAppDataDetailed`) blocks the unsandboxed updater service from any path inside the app's container. So the app now opens the zip and log itself and passes them to the service as `FileHandle`s. Real installs were most likely always refused before this.
+- **Renamed to Birch (2026-11-17, branch `birch`):** user-facing name, `birch://` pages (old `sorrel://` tabs still load), `build/Birch.app`, birch-leaf icon. Bundle id, profile, permissions, updater chain and code names unchanged (`CLAUDE.md` ▸ Name). Installed 0.3.x copies update to it by themselves but keep the file name `Sorrel.app`.
 - **Signing identity not created yet.** `build.sh` signs with a self-signed identity from `~/.config/sorrel/signing.keychain-db` if it exists; it **does not exist yet**, so builds are signed ad-hoc, and macOS re-asks for Downloads/camera/mic/location permission after every rebuild or update. The fix is for the **owner** to run `tools/make-signing-identity.sh` (an agent's attempt was blocked by the permission system). Don't run it yourself without the owner's explicit go-ahead in this session. After it exists: owner quits Sorrel, `./build.sh`, one last permission prompt.
 - **Proton Pass pop-up is fixed** (owner confirmed 2026-11-16, "It works!"). Cause was pop-up sizing (`applyDeclaredSize` set only `min-height`).
 - **`PROGRESS.md` on `main` is out of date in two places**: it still says Proton Pass is broken (fixed, see `BUGS.md` ▸ Fixed) and that browser import is unmerged (it is merged). If your task touches `PROGRESS.md`, correct those lines.
@@ -304,7 +305,7 @@ Check each candidate against the hard rules before proposing it, and tell the ow
 | Updater end-to-end test | `tools/update-test.sh` | Task worktrees |
 
 `./build.sh` makes **two apps from one compile**:
-- `build/Sorrel.app`: the real browser (bundle id `app.sorrel.browser`). **You never launch this.**
+- `build/Birch.app`: the real browser (bundle id `app.sorrel.browser`). **You never launch this.**
 - `build/SorrelTest.app`: for tests only (bundle id `app.sorrel.browser.test`, its own container and site data, may write to `/private/tmp`). **This is the only app you launch.**
 
 ### 7.3 How tests work
@@ -324,9 +325,9 @@ Rules for every test run:
 
 1. **Always** set `SORREL_HOME` to a **fresh** folder made with `mktemp -d /private/tmp/sorrel-test.XXXXXX`. It **must** be under `/private/tmp` (the only place the sandboxed test build can write). Make a new one each run; don't reuse or delete old ones.
 2. **Always** set `SORREL_SNAPSHOT=<path>.png`. This turns on **quiet test mode**: window opens behind others, no focus, no Dock icon. Without it, hooks don't run at all. Never set `SORREL_LOUD=1` (it makes the window take focus) unless the owner asks.
-3. **Always** run `build/SorrelTest.app/Contents/MacOS/Sorrel`, never `Sorrel.app`.
+3. **Always** run `build/SorrelTest.app/Contents/MacOS/Sorrel`, never `Birch.app`.
 4. **Batch checks** into as few launches as possible. Every launch shows a window on the owner's screen. Tell the owner beforehand that test windows will appear briefly and use a throwaway profile, not their tabs.
-5. **Never leave a test instance running** after your command ends. Hooks quit by themselves after `SORREL_DELAY`; if a run hangs, kill only that test process (by PID), never `Sorrel.app`.
+5. **Never leave a test instance running** after your command ends. Hooks quit by themselves after `SORREL_DELAY`; if a run hangs, kill only that test process (by PID), never `Birch.app`.
 6. Pipe output through `grep` for the hook's prefix so results stay short.
 
 ### 7.4 Things tests cannot show (don't keep trying)
@@ -513,7 +514,7 @@ All app code is in `Sources/Sorrel/`. Biggest files: `Sidebar.swift` (~2400 line
 11. **Plain `Timer`s pause during menus and drags**; use common run-loop mode when they must keep running.
 12. **User agent version** must be Safari's real version, not macOS's (macOS 26 even reports "16.x" to apps built against the 15.4 SDK).
 13. **Test windows are "hidden" to WebKit**: no animations, no location prompts, blank fades. Don't mistake that for a bug.
-14. **Name checks:** many nature names are taken by new Arc replacements (Wren, Cove, Lagoon, Tern, Fern, Flow, Breeze, Moss). Check before suggesting names for anything public.
+14. **Name checks:** many nature names are taken by new Arc replacements (Wren, Cove, Lagoon, Tern, Fern, Flow, Breeze, Moss). Birch was checked on 2026-11-17 (no browser found). Check before suggesting names for anything public.
 
 ---
 
@@ -525,7 +526,7 @@ Go through every line. If any answer is "no" or "not sure", fix it or tell the o
 - [ ] `swift build` passes. Release warnings are not above the baseline.
 - [ ] I reproduced the problem before fixing it (or told the owner I couldn't).
 - [ ] I ran the hooks covering what I changed, with a fresh `SORREL_HOME` under `/private/tmp`, in `SorrelTest.app`, in quiet mode. No test instance is still running.
-- [ ] I didn't launch `Sorrel.app`, read the owner's profile, or print anything from `~/.config/sorrel`.
+- [ ] I didn't launch `Birch.app`, read the owner's profile, or print anything from `~/.config/sorrel`.
 - [ ] No new entitlement, network call, telemetry, script message handler, permission auto-grant, or JavaScript built by pasting strings.
 - [ ] Settings changes have both the field and the decoder line; old data files still load.
 - [ ] I scanned my diff for the risky patterns below (the Claude Code security hook does this automatically; other agents must do it by hand):

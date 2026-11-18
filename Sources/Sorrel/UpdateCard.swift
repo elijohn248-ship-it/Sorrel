@@ -61,7 +61,7 @@ final class UpdateCard: NSView {
         auto.font = .systemFont(ofSize: 11)
         auto.target = self
         auto.action = #selector(toggledAuto)
-        auto.toolTip = "Install future updates quietly the next time you quit Sorrel, without this card."
+        auto.toolTip = "Install future updates quietly the next time you quit Birch, without this card."
 
         let iconHolder = NSView()
         iconHolder.translatesAutoresizingMaskIntoConstraints = false
@@ -148,36 +148,36 @@ final class UpdateCard: NSView {
         var closable = true
         switch card {
         case .ready(let v):
-            title.stringValue = "Sorrel \(v) is ready"
+            title.stringValue = "Birch \(v) is ready"
             detail.stringValue = Settings.current.installUpdatesAutomatically
-                ? "Future updates will install on their own when you quit Sorrel."
+                ? "Future updates will install on their own when you quit Birch."
                 : "Restart now, or it installs the next time you quit."
             action = "Update and Restart"
             showsAuto = true
         case .downloading(let v, let pct):
-            title.stringValue = "Getting Sorrel \(v) again…"
+            title.stringValue = "Getting Birch \(v) again…"
             detail.stringValue = pct > 0 ? "Downloading a fresh copy… \(pct)%" : "Downloading a fresh copy…"
             busy = true
             closable = false
         case .updating(let v):
-            title.stringValue = "Updating to Sorrel \(v)…"
-            detail.stringValue = "Sorrel will close and reopen in a moment."
+            title.stringValue = "Updating to Birch \(v)…"
+            detail.stringValue = "Birch will close and reopen in a moment."
             busy = true
             closable = false
         case .updated(let v):
-            title.stringValue = "Updated to Sorrel \(v)"
+            title.stringValue = "Updated to Birch \(v)"
             detail.stringValue = "You’re on the newest version."
             symbolName = "checkmark.circle.fill"
             tint = .systemGreen
         case .failed(_, let reason):
             title.stringValue = "Update didn’t install"
-            detail.stringValue = reason + " Sorrel is still on \(Updater.shared.current?.version ?? "the old version")."
+            detail.stringValue = reason + " Birch is still on \(Updater.shared.current?.version ?? "the old version")."
             symbolName = "exclamationmark.triangle.fill"
             tint = .systemOrange
             action = "Try Again"
         case .gaveUp(let v):
-            title.stringValue = "Sorrel \(v) couldn’t install"
-            detail.stringValue = "It failed twice on this Mac, so Sorrel won’t keep trying. Download it from GitHub and replace Sorrel by hand."
+            title.stringValue = "Birch \(v) couldn’t install"
+            detail.stringValue = "It failed twice on this Mac, so Birch won’t keep trying. Download it from GitHub and replace Birch by hand."
             symbolName = "exclamationmark.triangle.fill"
             tint = .systemOrange
             action = "Open Download Page"

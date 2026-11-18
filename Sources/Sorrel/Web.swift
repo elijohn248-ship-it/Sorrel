@@ -49,6 +49,23 @@ extension Notification.Name {
     static let sorrelDownloads = Notification.Name("sorrelDownloads")
 }
 
+// MARK: - Bundled pages
+
+/// Pages bundled with the app (the welcome page) are addressed birch://<name>. The app was Sorrel until
+/// 2026-11-17 and Drift before that, so tabs saved earlier still say sorrel:// or drift://: they load the same page.
+enum BundledPage {
+    static let prefix = "birch://"
+    static let oldPrefixes = ["sorrel://", "drift://"]
+    static func isBundled(_ address: String) -> Bool {
+        address.hasPrefix(prefix) || oldPrefixes.contains { address.hasPrefix($0) }
+    }
+    /// An old-named bundled address under its current name; anything else unchanged.
+    static func current(_ address: String) -> String {
+        for old in oldPrefixes where address.hasPrefix(old) { return prefix + address.dropFirst(old.count) }
+        return address
+    }
+}
+
 // MARK: - Page (one live web view)
 
 final class Page: NSObject {
@@ -78,11 +95,11 @@ final class Page: NSObject {
         ]
     }
 
-    /// The address to show and save. Bundled pages keep their sorrel:// name.
+    /// The address to show and save. Bundled pages keep their birch:// name.
     var displayURL: String? {
         guard let u = webView.url else { return nil }
         if u.isFileURL, let res = Bundle.main.resourceURL, u.path.hasPrefix(res.path) {
-            return "sorrel://" + u.deletingPathExtension().lastPathComponent
+            return BundledPage.prefix + u.deletingPathExtension().lastPathComponent
         }
         if u.absoluteString == "about:blank" { return nil }
         return u.absoluteString
@@ -333,10 +350,10 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     }
 
     func load(_ urlString: String, in page: Page) {
-        // Tabs saved before the rename still say drift://.
-        let urlString = urlString.hasPrefix("drift://") ? "sorrel://" + urlString.dropFirst("drift://".count) : urlString
-        if urlString.hasPrefix("sorrel://") {
-            let name = String(urlString.dropFirst("sorrel://".count))
+        // Tabs saved before the renames still say sorrel:// or drift://.
+        let urlString = BundledPage.current(urlString)
+        if urlString.hasPrefix(BundledPage.prefix) {
+            let name = String(urlString.dropFirst(BundledPage.prefix.count))
             // A plain name only: Bundle.url(forResource:) follows "../", which would reach files outside the app.
             if name.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil,
                let file = Bundle.main.url(forResource: name, withExtension: "html") {
@@ -713,7 +730,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         } else {
             crashTimes[id] = nil
             showError(NSError(domain: NSURLErrorDomain, code: NSURLErrorUnknown, userInfo: [
-                NSLocalizedDescriptionKey: "This page stopped working several times in a row, so Sorrel stopped reloading it."]),
+                NSLocalizedDescriptionKey: "This page stopped working several times in a row, so Birch stopped reloading it."]),
                 in: webView)
         }
     }
@@ -835,7 +852,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let top = webView.url?.host ?? origin.host
         alert.messageText = "Allow \(origin.host) to use your \(what)?"
         alert.informativeText = (top == origin.host ? "" : "It is part of \(top). ")
-            + (isPrivate ? "In a private window Sorrel asks every time." : "Sorrel remembers this choice until you quit.")
+            + (isPrivate ? "In a private window Birch asks every time." : "Birch remembers this choice until you quit.")
         alert.addButton(withTitle: "Allow")
         alert.addButton(withTitle: "Don’t Allow")
         sheet(alert, for: webView) { [weak self] response in
@@ -884,7 +901,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         let alert = NSAlert()
         alert.messageText = message
         alert.informativeText = (top == asker || top.isEmpty ? "" : "It is part of \(top). ")
-            + "It can use your location until you leave or reload the page. Sorrel will ask again next time."
+            + "It can use your location until you leave or reload the page. Birch will ask again next time."
         alert.addButton(withTitle: "Don’t Allow")   // first button = Return key: the safe answer
         alert.addButton(withTitle: "Allow")
         locationAsks[id] = [decisionHandler]
@@ -900,7 +917,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     private func warnIfMacLocationOff() {
         switch CLLocationManager().authorizationStatus {
         case .denied, .restricted:
-            onToast?("Location is off for Sorrel in System Settings ▸ Privacy & Security ▸ Location Services")
+            onToast?("Location is off for Birch in System Settings ▸ Privacy & Security ▸ Location Services")
         default:
             break
         }
@@ -1013,7 +1030,7 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
             FileHandle.standardError.write("download: quarantine already set before Sorrel=\(existing != nil)\n".data(using: .utf8)!)
         }
         var props = existing ?? [:]
-        props[kLSQuarantineAgentNameKey as String] = "Sorrel"
+        props[kLSQuarantineAgentNameKey as String] = "Birch"
         props[kLSQuarantineTypeKey as String] = kLSQuarantineTypeWebDownload as String
         if isPrivate {
             props[kLSQuarantineDataURLKey as String] = nil

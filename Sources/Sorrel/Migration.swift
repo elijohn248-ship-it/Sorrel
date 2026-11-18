@@ -60,8 +60,8 @@ enum Migration {
         guard unsandboxedCopyIsClosed() else { exit(0) }
         let report = copy(from: outside, to: container)
         if let failure = report.first(where: { $0.hasPrefix("FAILED") }) {
-            alert("Sorrel couldn’t bring over your data",
-                  "\(failure)\n\nNothing was changed: your tabs and logins are untouched. Quit, then try opening Sorrel again.",
+            alert("Birch couldn’t bring over your data",
+                  "\(failure)\n\nNothing was changed: your tabs and logins are untouched. Quit, then try opening Birch again.",
                   buttons: ["Quit"])
             exit(1)
         }
@@ -127,8 +127,8 @@ enum Migration {
         let me = ProcessInfo.processInfo.processIdentifier
         var running = NSRunningApplication.runningApplications(withBundleIdentifier: id).filter { $0.processIdentifier != me }
         if running.isEmpty { return true }
-        let choice = alert("Another Sorrel is still open",
-                           "This version of Sorrel keeps its data in a protected place. To bring over your tabs, logins and extensions, the older Sorrel needs to be closed first.",
+        let choice = alert("An older copy is still open",
+                           "This version of Birch keeps its data in a protected place. To bring over your tabs, logins and extensions, the older copy (Sorrel) needs to be closed first.",
                            buttons: ["Quit It and Continue", "Cancel"])
         guard choice == .alertFirstButtonReturn else { return false }
         running.forEach { $0.terminate() }
@@ -138,7 +138,7 @@ enum Migration {
             if running.isEmpty { return true }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
-        alert("The older Sorrel didn’t quit", "Quit it yourself (⌘Q), then open Sorrel again.", buttons: ["OK"])
+        alert("The older copy didn’t quit", "Quit it yourself (⌘Q), then open Birch again.", buttons: ["OK"])
         return false
     }
 

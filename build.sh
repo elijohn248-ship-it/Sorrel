@@ -1,5 +1,6 @@
 #!/bin/bash
-# Builds Sorrel.app into ./build.
+# Builds Birch.app into ./build. (Birch was called Sorrel until 2026-11-17; code names, the bundle id
+# and SorrelTest.app keep the old name. See CLAUDE.md, Name.)
 #   ./build.sh            build only
 #   ./build.sh run        build and open it
 #   ./build.sh install    build and copy to /Applications
@@ -24,7 +25,7 @@ if [ "${SIGN[1]}" = "-" ]; then
 fi
 
 # Two apps from one build:
-#   build/Sorrel.app      the owner's browser (bundle id app.sorrel.browser)
+#   build/Birch.app       the owner's browser (bundle id app.sorrel.browser, kept from before the rename)
 #   build/SorrelTest.app  for test runs only: bundle id app.sorrel.browser.test, so it gets its own sandbox
 #                         container, preferences and site data, and may also write to /private/tmp scratch folders.
 make_app() {   # $1 = app path, $2 = Info.plist, $3 = entitlements, $4 = updater service Info.plist
@@ -63,7 +64,7 @@ GEN=".build/test-bundle"
 mkdir -p "$GEN"
 PB=/usr/libexec/PlistBuddy
 cp Resources/Info.plist "$GEN/Info.plist"
-$PB -c "Set :CFBundleIdentifier app.sorrel.browser.test" -c "Set :CFBundleDisplayName Sorrel Test" \
+$PB -c "Set :CFBundleIdentifier app.sorrel.browser.test" -c "Set :CFBundleDisplayName Birch Test" \
     -c "Delete :CFBundleURLTypes" -c "Delete :CFBundleDocumentTypes" "$GEN/Info.plist" >/dev/null
 sed -e 's|app\.sorrel\.browser|app.sorrel.browser.test|g' \
     -e 's|Application Support/Sorrel/|Application Support/Sorrel Test/|g' Resources/Sorrel.entitlements > "$GEN/Sorrel.entitlements"
@@ -72,7 +73,9 @@ $PB -c "Add :com.apple.security.temporary-exception.files.absolute-path.read-wri
     "$GEN/Sorrel.entitlements" >/dev/null
 sed -e 's|app\.sorrel\.browser\.updater|app.sorrel.browser.test.updater|' Resources/SorrelUpdater.plist > "$GEN/SorrelUpdater.plist"
 
-APP="build/Sorrel.app"
+# A build from before the rename would be a second copy of the same app (same bundle id).
+rm -rf build/Sorrel.app
+APP="build/Birch.app"
 make_app "$APP" Resources/Info.plist Resources/Sorrel.entitlements Resources/SorrelUpdater.plist
 make_app build/SorrelTest.app "$GEN/Info.plist" "$GEN/Sorrel.entitlements" "$GEN/SorrelUpdater.plist"
 
@@ -83,8 +86,10 @@ case "${1:-}" in
     open "$APP"
     ;;
   install)
-    rm -rf /Applications/Sorrel.app /Applications/Sorrel.app
-    cp -R "$APP" /Applications/Sorrel.app
-    echo "Installed to /Applications/Sorrel.app"
+    # /Applications/Sorrel.app is the same app under its old name: replace it too, so there is one copy.
+    if [ -d /Applications/Sorrel.app ]; then rm -rf /Applications/Sorrel.app; echo "Removed the old /Applications/Sorrel.app"; fi
+    rm -rf /Applications/Birch.app
+    cp -R "$APP" /Applications/Birch.app
+    echo "Installed to /Applications/Birch.app"
     ;;
 esac

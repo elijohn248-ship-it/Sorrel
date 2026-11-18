@@ -493,7 +493,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: w)
         w.titlebarAppearsTransparent = true
         w.titleVisibility = .hidden
-        w.title = "Sorrel"
+        w.title = "Birch"
         // An empty toolbar gives the window buttons a taller, roomier strip.
         let toolbar = NSToolbar(identifier: "main")
         toolbar.showsBaselineSeparator = false
@@ -626,7 +626,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func showSelected() {
         guard let item = store.selected else {
             card.show(nil)
-            window?.title = "Sorrel"
+            window?.title = "Birch"
             return
         }
         let page = Engine.shared.ensurePage(for: item)

@@ -147,7 +147,7 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
             spaceChooser.isHidden = Store.shared.spaces.count < 2
         }
 
-        window.title = isPrivate ? "Private Window" : (page.webView.title?.nonEmpty ?? "Sorrel")
+        window.title = isPrivate ? "Private Window" : (page.webView.title?.nonEmpty ?? "Birch")
         if address.currentEditor() == nil {
             address.stringValue = Site.display(page.webView.url?.host) ?? ""
         }

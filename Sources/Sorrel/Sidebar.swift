@@ -1574,8 +1574,8 @@ final class SidebarView: NSView, NSOutlineViewDataSource, NSOutlineViewDelegate,
         backButton.isEnabled = wv?.canGoBack ?? false
         forwardButton.isEnabled = wv?.canGoForward ?? false
         reloadButton.isEnabled = item != nil
-        if let u = item?.url, u.hasPrefix("sorrel://") {
-            pill.set("Sorrel", canCopy: false)
+        if let u = item?.url, BundledPage.isBundled(u) {
+            pill.set("Birch", canCopy: false)
         } else {
             pill.set(Site.display(item?.host) ?? item?.url,
                      canCopy: item?.url?.hasPrefix("http") ?? false,

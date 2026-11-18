@@ -1,10 +1,12 @@
-# Sorrel
+# Birch
 
 A private, Arc-style web browser for the Mac, built on Safari's engine (WebKit).
 
+Birch was called **Sorrel** until version 0.3.1. Copies of Sorrel update to Birch by themselves and keep your tabs, logins and settings.
+
 - **Spaces and a sidebar** for your tabs, pinned tabs and favorites
 - **Ads and trackers blocked** out of the box, with uBlock Origin Lite built in
-- **No analytics, crash reporting or telemetry.** Sorrel never sends anything about you or your Mac.
+- **No analytics, crash reporting or telemetry.** Birch never sends anything about you or your Mac.
 - **Extensions** from the Chrome Web Store and Safari
 - **Bangs** (`!w`, `!yt`, …) in the command bar
 - **Import** your spaces, tabs, bookmarks and history from Arc, Chrome, Firefox, Zen, Safari and others
@@ -17,35 +19,35 @@ A private, Arc-style web browser for the Mac, built on Safari's engine (WebKit).
 ## Install
 
 1. Go to the [latest release](https://github.com/elijohn248-ship-it/sorrel/releases/latest) and download the `.zip` file under **Assets**.
-2. Open the downloaded zip. Your Mac unzips it into `Sorrel.app`.
-3. Drag **Sorrel** into your **Applications** folder.
-4. Open Sorrel from Applications.
-5. **The first time only**, macOS says it can't verify Sorrel. This is because Sorrel isn't notarized by Apple, which requires a paid developer account. To open it anyway:
+2. Open the downloaded zip. Your Mac unzips it into `Birch.app`.
+3. Drag **Birch** into your **Applications** folder.
+4. Open Birch from Applications.
+5. **The first time only**, macOS says it can't verify Birch. This is because Birch isn't notarized by Apple, which requires a paid developer account. To open it anyway:
    1. Click **Done** in the warning.
    2. Open **System Settings ▸ Privacy & Security**.
-   3. Scroll down to the message about Sorrel and click **Open Anyway**.
+   3. Scroll down to the message about Birch and click **Open Anyway**.
    4. Confirm with your password or Touch ID.
 
-After that, Sorrel opens normally.
+After that, Birch opens normally.
 
 > **Run it from Applications, not Downloads.** macOS won't let an app running from the Downloads folder update itself.
 
-### Make Sorrel your default browser (optional)
+### Make Birch your default browser (optional)
 
-Go to **Settings ▸ General** in Sorrel and click **Make Sorrel the Default Browser**.
+Go to **Settings ▸ General** in Birch and click **Make Birch the Default Browser**.
 
 ## Updates
 
-Sorrel updates itself. It checks for a new version every few hours and installs it the next time you quit. To check right away, choose **Sorrel ▸ Check for Updates…**.
+Birch updates itself. It checks for a new version every few hours and installs it the next time you quit. To check right away, choose **Birch ▸ Check for Updates…**.
 
-Every update is signed, and Sorrel installs only updates that pass the signature check. You can turn automatic checks off in **Settings ▸ General ▸ Updates**.
+Every update is signed, and Birch installs only updates that pass the signature check. You can turn automatic checks off in **Settings ▸ General ▸ Updates**.
 
 After an update, websites may ask again for your camera or microphone.
 
 ## Uninstall
 
-1. Quit Sorrel and drag it from Applications to the Trash.
-2. To also delete your tabs, history, cookies and settings, delete the folder `~/Library/Containers/app.sorrel.browser`.
+1. Quit Birch and drag it from Applications to the Trash.
+2. To also delete your tabs, history, cookies and settings, delete the folder `~/Library/Containers/app.sorrel.browser`. (The folder keeps Birch's earlier name.)
    - In Finder, choose **Go ▸ Go to Folder…** and paste that path.
 
 ## Build from source
@@ -55,7 +57,7 @@ You need Xcode 16.3 or later, or its Command Line Tools.
 ```sh
 git clone https://github.com/elijohn248-ship-it/sorrel.git
 cd sorrel
-./build.sh            # builds build/Sorrel.app
+./build.sh            # builds build/Birch.app
 ./build.sh install    # builds and copies it to /Applications
 ```
 
@@ -63,6 +65,6 @@ cd sorrel
 
 Copyright © 2026 Eli Johnson
 
-Sorrel is free software under the [GNU General Public License v3.0](LICENSE). You may use, change and share it, but any version you share must stay open under the same license.
+Birch is free software under the [GNU General Public License v3.0](LICENSE). You may use, change and share it, but any version you share must stay open under the same license.
 
-Sorrel includes [uBlock Origin Lite](vendor/ubol) (GPL-3.0) and [Kagi's bangs list](vendor/kagi-bangs) (MIT); their licenses are in their folders.
+Birch includes [uBlock Origin Lite](vendor/ubol) (GPL-3.0) and [Kagi's bangs list](vendor/kagi-bangs) (MIT); their licenses are in their folders.

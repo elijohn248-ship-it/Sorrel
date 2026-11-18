@@ -261,7 +261,7 @@ final class Store {
     /// people add their own spaces (the + by the space icons) or bring them over with Import.
     private static func seed() -> AppState {
         let home = Space(name: "Home", icon: "🏠", theme: Theme.presets[0])
-        let welcome = Item(url: "sorrel://welcome", title: "Welcome to Sorrel")
+        let welcome = Item(url: "birch://welcome", title: "Welcome to Birch")
         home.today = [welcome]
         home.selectedID = welcome.id
         return AppState(spaces: [home], favorites: [], currentSpaceID: home.id)
