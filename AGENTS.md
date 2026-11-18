@@ -197,6 +197,10 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Memory pressure handling (2026-11-18, included through `webkit-memory-comparison`):** warning/critical macOS events trim disposable app caches and sleep eligible tabs after five/one idle minutes, preserving Never, shorter sleep intervals and existing safety guards. `SORREL_MEMORYTEST=1` covers 17 checks including real page/web-view release; multi-window and media/seek regressions pass. Actual OS notification delivery and signed-in memory savings are unverified. See PROGRESS.md.
+
+- **WebKit memory comparison (2026-11-18):** external numeric-only sampler and `docs/webkit-memory-comparison.md` record owner-prepared YouTube/UWorld mixed sessions against Safari. Both had individual content-process footprints above 1 GiB; Birch's main process was about 68–71 MiB versus Safari's 183–185 MiB. Both released substantial content memory after YouTube closed. No additional active-tab optimization or exact per-tab claim. Exact initial loads and UWorld closure remain owner checks; extension/store/visibility differences limit attribution. No real profile files read.
+
 - **Control+Tab popup (2026-11-17):** centered native frosted switcher follows existing recency/sidebar order, highlights the selection and scrolls overflow. Release or Escape dismisses it; cached icons only, no new network calls or saved state. `SORREL_TABSWITCHERTEST=1` covers 19 popup checks; existing 28 recency and 22 multi-window checks pass. Keyboard/mouse and animation feel await the owner. Merged from `tab-switcher`; task worktree removed.
 
 - **Control+Tab recency (2026-11-17, branch `recent-tab-shortcut`):** default quick toggling between recent tabs in the current space, stable held-Control cycling and Shift reversal. Settings ▸ Tabs can restore sidebar order. Recent selection state stays in memory per normal window. `SORREL_TABRECENCYTEST=1` covers shortcuts and settings; real keyboard feel needs the owner.

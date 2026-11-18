@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launched = false
     private var keyMonitor: Any?
     private var archiveTimer: Timer?
+    private var memoryPressureSource: DispatchSourceMemoryPressure?
     private let archivedMenu = NSMenu(title: "Archived Tabs")
     private let historyMenu = NSMenu(title: "History")
     private var updateMenuItem: NSMenuItem?
@@ -139,6 +140,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Put away long-unused tabs shortly after launch, then keep checking.
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.archiveStaleTabs() }
         Cleanup.applyAutomaticRules()
+        let pressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+        pressure.setEventHandler { [weak self] in
+            guard let self, !self.isTerminating, let event = self.memoryPressureSource?.data else { return }
+            Cleanup.relieveMemoryPressure(event)
+        }
+        memoryPressureSource = pressure
+        pressure.resume()
         archiveTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             self?.archiveStaleTabs()
             Store.shared.sleepIdleTabs(olderThanMinutes: Settings.current.sleepTabsAfterMinutes)
@@ -2236,6 +2244,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                             }
                         }
                     }
+                }
+            }
+        }
+        if env["SORREL_MEMORYTEST"] != nil {
+            // Local pages only. Simulates pressure without putting the owner's Mac under load.
+            let original = Settings.current.sleepTabsAfterMinutes
+            Settings.current.sleepTabsAfterMinutes = 120
+            let ages: [Double] = [600, 120, 30, 600]
+            let tabs = ages.map { _ in self.store.newTab(url: "https://memory.test/", select: false) }
+            let visible = self.store.newTab(url: "https://memory.test/")
+            for tab in tabs + [visible] {
+                Engine.shared.ensurePage(for: tab).webView.loadHTMLString("<html><body>Memory fixture</body></html>", baseURL: URL(string: "https://memory.test/"))
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                func check(_ name: String, _ value: Bool) { log("memory: \(name) expected=true got=\(value)") }
+                for (tab, age) in zip(tabs, ages) { tab.lastActive = Date().addingTimeInterval(-age) }
+                self.store.select(visible)
+                visible.lastActive = Date().addingTimeInterval(-600)
+                check("pressure listener registered", self.memoryPressureSource?.mask == [.warning, .critical])
+                check("visible fixture otherwise sleepable", self.store.canSleep(visible))
+                tabs[3].page?.mediaIsPlaying = true
+                check("fixtures ready", (tabs + [visible]).allSatisfy { $0.page?.webView.isLoading == false && $0.page?.webView.url?.scheme == "https" })
+                check("normal pressure leaves tabs alone", Cleanup.relieveMemoryPressure(.normal) == 0 && tabs.allSatisfy { $0.page != nil })
+                log("memory: before awake=\(tabs.filter { $0.page != nil }.count)")
+                Settings.current.sleepTabsAfterMinutes = 0
+                check("disabled sleep respected", Cleanup.relieveMemoryPressure(.critical) == 0 && tabs.allSatisfy { $0.page != nil })
+                Settings.current.sleepTabsAfterMinutes = 120
+                let pageReleased = { [weak page = tabs[0].page] in page == nil }
+                let viewReleased = { [weak view = tabs[0].page?.webView] in view == nil }
+                _ = Cleanup.relieveMemoryPressure(.warning)
+                check("warning unloads old idle tab", tabs[0].page == nil)
+                check("warning keeps recent tabs", tabs[1].page != nil && tabs[2].page != nil)
+                check("playing tab protected", tabs[3].page != nil)
+                _ = Cleanup.relieveMemoryPressure(.critical)
+                check("critical unloads older background tab", tabs[1].page == nil)
+                check("critical keeps just-used tab", tabs[2].page != nil)
+                check("visible tab protected", self.store.selected === visible && visible.page != nil)
+                log("memory: after awake=\(tabs.filter { $0.page != nil }.count)")
+                check("repeated pressure is harmless", Cleanup.relieveMemoryPressure([.warning, .critical]) == 0)
+                check("history state retained", tabs[0].savedState != nil)
+                check("page released", pageReleased())
+                Settings.current.sleepTabsAfterMinutes = 0.25
+                check("shorter sleep interval respected", Cleanup.relieveMemoryPressure(.warning) == 1 && tabs[2].page == nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    check("web view released", viewReleased())
+                    _ = Engine.shared.ensurePage(for: tabs[0])
+                    check("wake restores live page", tabs[0].page != nil && tabs[0].savedState == nil)
+                    Settings.current.sleepTabsAfterMinutes = original
                 }
             }
         }

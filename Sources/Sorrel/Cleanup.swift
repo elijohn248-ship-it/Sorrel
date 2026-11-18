@@ -283,6 +283,21 @@ enum Cleanup {
         return (used, ProcessInfo.processInfo.physicalMemory)
     }
 
+    /// Reclaim idle background pages when macOS needs memory, rather than waiting for the normal timer.
+    /// Keep recently used pages warm: five minutes at warning, one minute at critical. The user's shorter
+    /// sleep interval still wins, and "Never" still disables automatic sleeping. Store applies the same
+    /// visible-pane, playback, capture, loading and extension protections as ordinary idle sleeping.
+    @discardableResult
+    static func relieveMemoryPressure(_ event: DispatchSource.MemoryPressureEvent) -> Int {
+        guard event.contains(.warning) || event.contains(.critical) else { return 0 }
+        FaviconStore.shared.trimMemory()
+        URLCache.shared.removeAllCachedResponses()
+        let configured = Settings.current.sleepTabsAfterMinutes
+        guard configured > 0 else { return 0 }
+        let minutes = min(configured, event.contains(.critical) ? 1 : 5)
+        return Store.profile.sleepIdleTabs(olderThanMinutes: minutes)
+    }
+
     /// Zen's "unload all tabs", plus emptying the caches WebKit keeps in memory: every tab not on screen goes
     /// to sleep (tabs playing sound, in a call or loading are left alone; they all wake where they were).
     /// Calls back with how many tabs slept and how far the Mac's memory use fell once their processes exited
