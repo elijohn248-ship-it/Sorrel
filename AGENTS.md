@@ -197,6 +197,8 @@ This section goes stale. Always confirm with `git worktree list`, `git log` and 
 
 ### 4.3 Recent important facts
 
+- **Control+Tab recency (2026-11-17, branch `recent-tab-shortcut`):** default quick toggling between recent tabs in the current space, stable held-Control cycling and Shift reversal. Settings ▸ Tabs can restore sidebar order. Recent selection state stays in memory per normal window. `SORREL_TABRECENCYTEST=1` covers shortcuts and settings; real keyboard feel needs the owner.
+
 - **Fullscreen polish (2026-11-17):** keeps the current sidebar choice, fills the window when hidden, keeps hover as an overlay, and uses compact pinned controls. Native fullscreen exit buttons remain available; windowed layout restores on exit. `SORREL_FULLSCREEN_TEST=1` checks layout callbacks without switching Spaces; actual macOS transitions/top-edge reveal and hover feel need the owner.
 
 - **Optional brighter space colors (2026-11-17):** Customize Space has a per-space Brightness slider, including brighter dark-mode colors and live wheel/preset previews. Existing spaces retain the soft look. Preset selection keeps brightness. The owner's visual preference and slider feel still need a manual check.
