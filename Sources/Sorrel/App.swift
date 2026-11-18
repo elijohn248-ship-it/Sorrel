@@ -915,7 +915,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     let before = space.theme
                     editor.debugSetBrightness(0.75)
                     check("slider saves", space.theme.brightnessAmount == 0.75)
-                    check("other controls unchanged", space.theme.colors == before.colors && space.theme.intensity == before.intensity && space.theme.grain == before.grain && space.theme.angle == before.angle)
+                    check("other controls unchanged", space.theme.colors == before.colors && space.theme.intensity == before.intensity && space.theme.grainAmount == before.grainAmount && space.theme.angle == before.angle)
                     editor.debugPickPreset(1)
                     check("preset keeps brightness", space.theme.brightnessAmount == 0.75 && space.theme.colors == Theme.presets[1].colors)
                     editor.debugSetGrain(0.9)
