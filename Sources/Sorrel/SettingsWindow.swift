@@ -467,7 +467,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
                         self?.mutate { $0.sleepTabsAfterMinutes = minutes[i] }
                     }
                 }(),
-                note("A sleeping tab stays in the sidebar and uses no memory. It reloads where you left it when you open it. Tabs playing sound or in a call are left alone."),
+                note("A sleeping tab stays in the sidebar and uses no memory. It reloads where you left it when you open it. Tabs playing sound or in a call are left alone. When your Mac runs low on memory, idle tabs sleep sooner unless you choose Never."),
             ])),
             ("Preview links to other sites:", column([
                 previews,
