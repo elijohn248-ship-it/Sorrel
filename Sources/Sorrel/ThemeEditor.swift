@@ -108,8 +108,10 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
     private var theme: Theme
     private let wellStack = NSStackView()
     private var wells: [NSColorWell] = []
+    private var swatches: [Swatch] = []
     private let angle = NSSlider(value: 0, minValue: 0, maxValue: 360, target: nil, action: nil)
     private let intensity = NSSlider(value: 0.5, minValue: 0.1, maxValue: 1, target: nil, action: nil)
+    private let brightness = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let grain = NSSlider(value: Theme.defaultGrain, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let wheel = ColorWheel()
     private var addButton: IconButton!
@@ -158,7 +160,9 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
             row.orientation = .horizontal
             row.spacing = 8
             for preset in Theme.presets[start..<min(start + perRow, Theme.presets.count)] {
-                row.addArrangedSubview(Swatch(theme: preset) { [weak self] t in self?.load(t) })
+                let swatch = Swatch(theme: preset) { [weak self] t in self?.pickPreset(t) }
+                swatches.append(swatch)
+                row.addArrangedSubview(swatch)
             }
             stack.addArrangedSubview(row)
         }
@@ -197,6 +201,15 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         intensity.action = #selector(sliderChanged)
         intensity.widthAnchor.constraint(equalToConstant: 190).isActive = true
         stack.addArrangedSubview(intensity)
+
+        stack.addArrangedSubview(caption("BRIGHTNESS"))
+        brightness.target = self
+        brightness.action = #selector(sliderChanged)
+        brightness.isContinuous = true
+        brightness.toolTip = "Move right for brighter, more vivid colors, including in dark mode. Move left for the soft look."
+        brightness.setAccessibilityLabel("Space color brightness")
+        brightness.widthAnchor.constraint(equalToConstant: 190).isActive = true
+        stack.addArrangedSubview(brightness)
 
         stack.addArrangedSubview(caption("GRAIN"))
         grain.target = self
@@ -328,6 +341,9 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         angle.doubleValue = t.angle
         intensity.doubleValue = t.intensity
         grain.doubleValue = t.grainAmount
+        brightness.doubleValue = t.brightnessAmount
+        wheel.brightness = t.brightnessAmount
+        refreshSwatches()
         wheel.colors = wells.map(\.color)
         addButton.isEnabled = wells.count < 3
         removeButton.isEnabled = wells.count > 1
@@ -339,7 +355,23 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
         theme.angle = angle.doubleValue
         theme.intensity = intensity.doubleValue
         theme.grain = grain.doubleValue
+        theme.brightness = brightness.doubleValue
+        wheel.brightness = theme.brightnessAmount
+        refreshSwatches()
         Store.shared.setTheme(theme, for: space)
+    }
+
+    private func refreshSwatches() {
+        for swatch in swatches {
+            swatch.theme.brightness = theme.brightness
+            swatch.needsDisplay = true
+        }
+    }
+
+    private func pickPreset(_ preset: Theme) {
+        var t = preset
+        t.brightness = theme.brightness
+        load(t)
     }
 
     @objc private func wellChanged() {
@@ -372,6 +404,15 @@ final class ThemeEditor: NSViewController, NSTextFieldDelegate {
     func debugSetGrain(_ v: Double) {
         grain.doubleValue = v
         sliderChanged()
+    }
+
+    func debugSetBrightness(_ v: Double) {
+        brightness.doubleValue = v
+        brightness.sendAction(brightness.action, to: brightness.target)
+    }
+
+    func debugPickPreset(_ i: Int) {
+        swatches[i].performClick(nil)
     }
 
     private func wheelChanged(_ colors: [NSColor]) {
