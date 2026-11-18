@@ -52,8 +52,8 @@ final class Keybindings {
         ("cmd+shift+d", "tab.toggleFavorite"),
         ("cmd+shift+c", "tab.copyURL"),
         ("cmd+shift+o", "tab.openInFallback"),
-        ("ctrl+tab", "tab.next"),
-        ("ctrl+shift+tab", "tab.previous"),
+        ("ctrl+tab", "tab.cycleNext"),
+        ("ctrl+shift+tab", "tab.cyclePrevious"),
         ("alt+cmd+down", "tab.next"),
         ("alt+cmd+up", "tab.previous"),
         ("cmd+[", "nav.back"),
@@ -88,6 +88,8 @@ final class Keybindings {
     private var map: [[String]: String] = [:]
     private var pending: [String] = []
     private var pendingExpiry = Date.distantPast
+    /// True only while dispatching a physical Control shortcut, never a menu or command-bar action.
+    private(set) var isHandlingControlShortcut = false
 
     private init() { reload() }
 
@@ -184,6 +186,8 @@ final class Keybindings {
 
     /// Returns true when the event was a shortcut (or part of a chord) and has been handled.
     func handle(_ event: NSEvent) -> Bool {
+        isHandlingControlShortcut = event.modifierFlags.contains(.control)
+        defer { isHandlingControlShortcut = false }
         guard let stroke = Self.stroke(for: event) else { return false }
         if Date() > pendingExpiry { pending = [] }
 

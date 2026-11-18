@@ -977,6 +977,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowDidFailToExitFullScreen(_ window: NSWindow) { setFullscreenLayout(true) }
 
     func windowDidResignKey(_ notification: Notification) {
+        store.endTabCycle()
         if !commandBar.isHidden { commandBar.dismiss() }
     }
 }

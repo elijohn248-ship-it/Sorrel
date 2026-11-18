@@ -115,6 +115,8 @@ struct Settings: Codable {
     var extensionApproved: [String: [String]] = [:]
     /// Unpinned tabs untouched for this many hours are archived. 0 = never.
     var archiveAfterHours = 24.0
+    /// Control+Tab visits recent tabs first. On by default so a quick press returns to the last tab.
+    var controlTabUsesRecency = true
     /// Pages not visited for this many days are dropped from history, as in Safari. 0 = keep them until cleared.
     var removeHistoryAfterDays = 0.0
     /// Empty WebKit's cache of images and files each time Sorrel quits. Cookies and logins are kept.
@@ -160,6 +162,7 @@ struct Settings: Codable {
         blockCookieNotices = try c.decodeIfPresent(Bool.self, forKey: .blockCookieNotices) ?? d.blockCookieNotices
         blockingDisabledSites = try c.decodeIfPresent([String].self, forKey: .blockingDisabledSites) ?? d.blockingDisabledSites
         archiveAfterHours = try c.decodeIfPresent(Double.self, forKey: .archiveAfterHours) ?? d.archiveAfterHours
+        controlTabUsesRecency = try c.decodeIfPresent(Bool.self, forKey: .controlTabUsesRecency) ?? d.controlTabUsesRecency
         removeHistoryAfterDays = try c.decodeIfPresent(Double.self, forKey: .removeHistoryAfterDays) ?? d.removeHistoryAfterDays
         emptyCacheOnQuit = try c.decodeIfPresent(Bool.self, forKey: .emptyCacheOnQuit) ?? d.emptyCacheOnQuit
         extensionStates = try c.decodeIfPresent([String: Bool].self, forKey: .extensionStates) ?? d.extensionStates

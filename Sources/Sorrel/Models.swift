@@ -164,6 +164,12 @@ final class Store {
     let windowID: UUID
     private var currentSpaceID: UUID
     private var selections: [UUID: UUID]
+    // Window-local and memory-only: private windows never contribute to this list.
+    private var recentTabIDs: [UUID] = []
+    private var tabCycleIDs: [UUID] = []
+    private var selectingInTabCycle = false
+
+    func endTabCycle() { tabCycleIDs = [] }
     var windowState: BrowserWindowState {
         BrowserWindowState(id: windowID, currentSpaceID: currentSpace.id, selections: selections)
     }
@@ -409,6 +415,7 @@ final class Store {
     // MARK: Selection
 
     func select(_ item: Item?) {
+        if !selectingInTabCycle { endTabCycle() }
         // Selecting a split view focuses the pane used most recently.
         if let sv = item, sv.isSplit {
             select(sv.children.max { $0.lastActive < $1.lastActive })
@@ -419,6 +426,12 @@ final class Store {
             setCurrentSpace(sp)
         }
         let previous = selected
+        let liveIDs = Set(allTabs.map { $0.item.id })
+        recentTabIDs.removeAll { !liveIDs.contains($0) }
+        for tab in [previous, item].compactMap({ $0 }) {
+            recentTabIDs.removeAll { $0 == tab.id }
+            recentTabIDs.insert(tab.id, at: 0)
+        }
         let oldWindow = item?.extensionTab.owner
         let oldIndex = oldWindow.flatMap { window in item.flatMap { tab in window.extensionWindow.items.firstIndex { $0 === tab } } }
         item?.browserWindowID = windowID
@@ -452,6 +465,39 @@ final class Store {
             select(order[0]); return
         }
         select(order[(idx + offset + order.count) % order.count])
+    }
+
+    /// A held Control key keeps one stable order, while separate presses toggle back and forth.
+    func cycleTab(_ offset: Int, holdingControl: Bool = false) {
+        if !holdingControl { endTabCycle() }
+        guard Settings.current.controlTabUsesRecency else {
+            endTabCycle()
+            selectRelative(offset)
+            return
+        }
+        // A tab already on screen in another window belongs to that window's cycle.
+        let eligible = cycleOrder.filter { tab in
+            !sessions.contains { $0 !== self && $0.displays(tab) }
+        }
+        let liveIDs = Set(eligible.map { $0.id })
+        tabCycleIDs.removeAll { !liveIDs.contains($0) }
+        if tabCycleIDs.isEmpty {
+            let fallback = eligible.enumerated().sorted {
+                if $0.element.lastActive == $1.element.lastActive { return $0.offset < $1.offset }
+                return $0.element.lastActive > $1.element.lastActive
+            }.map { $0.element.id }
+            var seen: Set<UUID> = []
+            tabCycleIDs = ([selected?.id].compactMap { $0 } + recentTabIDs + fallback)
+                .filter { liveIDs.contains($0) && seen.insert($0).inserted }
+        }
+        guard !tabCycleIDs.isEmpty else { return }
+        let index = selected.flatMap { tabCycleIDs.firstIndex(of: $0.id) }
+        let next = index.map { (($0 + offset) % tabCycleIDs.count + tabCycleIDs.count) % tabCycleIDs.count } ?? 0
+        guard let target = eligible.first(where: { $0.id == tabCycleIDs[next] }) else { return }
+        selectingInTabCycle = true
+        select(target)
+        selectingInTabCycle = false
+        if !holdingControl { endTabCycle() }
     }
 
     // MARK: Tabs
@@ -1046,6 +1092,7 @@ final class Store {
     // MARK: Spaces
 
     private func setCurrentSpace(_ space: Space) {
+        endTabCycle()
         let oldIdx = state.spaces.firstIndex { $0.id == currentSpaceID } ?? 0
         let newIdx = state.spaces.firstIndex { $0 === space } ?? 0
         lastSwitchDirection = newIdx >= oldIdx ? 1 : -1

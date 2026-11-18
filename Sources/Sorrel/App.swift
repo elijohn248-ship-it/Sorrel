@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func focus(_ controller: MainWindowController) {
+        if controller !== main { main?.store.endTabCycle() }
         focusedMain = controller
         if isQuietTest {
             controller.window?.orderBack(nil)
@@ -36,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func windowFocused(_ controller: MainWindowController) {
+        if controller !== main { main?.store.endTabCycle() }
         focusedMain = controller
         Extensions.shared.controller.didFocusWindow(controller.extensionWindow)
     }
@@ -90,10 +92,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         buildMenu()
 
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            if !event.modifierFlags.contains(.control) {
+                for controller in self.windows { controller.store.endTabCycle() }
+            }
+            guard event.type == .keyDown else { return event }
             guard let w = event.window,
                   w.windowController is MainWindowController || w.windowController is MiniWindowController,
-                  w.attachedSheet == nil else { return event }
+                  w.attachedSheet == nil else {
+                for controller in self.windows { controller.store.endTabCycle() }
+                return event
+            }
             if let controller = w.windowController as? MainWindowController, controller !== self.main {
                 self.windowFocused(controller)
             }
@@ -311,6 +320,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         c.register("tab.openInFallback", "Open Page in \(Settings.current.fallbackBrowser)") { [unowned self] in
             self.openInFallbackBrowser()
+        }
+        c.register("tab.cycleNext", "Switch to Next Tab in Control+Tab Order") { [unowned self] in
+            self.store.cycleTab(1, holdingControl: Keybindings.shared.isHandlingControlShortcut)
+        }
+        c.register("tab.cyclePrevious", "Switch to Previous Tab in Control+Tab Order") { [unowned self] in
+            self.store.cycleTab(-1, holdingControl: Keybindings.shared.isHandlingControlShortcut)
         }
         c.register("tab.next", "Next Tab") { [unowned self] in self.store.selectRelative(1) }
         c.register("tab.previous", "Previous Tab") { [unowned self] in self.store.selectRelative(-1) }
@@ -726,6 +741,138 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let out = env["SORREL_SNAPSHOT"] else { return }
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
+
+        if env["SORREL_TABRECENCYTEST"] != nil {
+            // Synthetic shortcuts in a background window; real keyboard feel still needs the owner.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                func check(_ name: String, _ passed: Bool) { log("recency: \(name) expected=true got=\(passed)") }
+                let original = Settings.current
+                defer { Settings.current = original; original.save() }
+                let legacy = try? JSONDecoder().decode(Settings.self, from: Data("{}".utf8))
+                check("legacy-default", legacy?.controlTabUsesRecency == true)
+                Settings.current.controlTabUsesRecency = false
+                Settings.current.save()
+                check("saved-off", !Settings.load().controlTabUsesRecency)
+                Settings.current.controlTabUsesRecency = true
+                Settings.current.save()
+                check("saved-on", Settings.load().controlTabUsesRecency)
+
+                let window = self.main!
+                let store = window.store
+                let space = store.addSpace(name: "Shortcut test")
+                let a = store.newTab(url: "sorrel://welcome", select: false)
+                let b = store.newTab(url: "sorrel://welcome", select: false)
+                let c = store.newTab(url: "sorrel://welcome", select: false)
+                let sidebar = store.cycleOrder
+                let first = sidebar[0], middle = sidebar[1], last = sidebar[2]
+                func visit() { store.select(first); store.select(last); store.select(middle) }
+                func key(_ reverse: Bool = false) {
+                    let flags: NSEvent.ModifierFlags = reverse ? [.control, .shift] : [.control]
+                    if let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags,
+                                               timestamp: 0, windowNumber: window.window!.windowNumber,
+                                               context: nil, characters: "\t", charactersIgnoringModifiers: "\t",
+                                               isARepeat: false, keyCode: 48) { NSApp.sendEvent(e) }
+                }
+                func release() {
+                    if let e = NSEvent.keyEvent(with: .flagsChanged, location: .zero, modifierFlags: [],
+                                               timestamp: 0, windowNumber: window.window!.windowNumber,
+                                               context: nil, characters: "", charactersIgnoringModifiers: "",
+                                               isARepeat: false, keyCode: 59) { NSApp.sendEvent(e) }
+                }
+                visit()
+                key(); check("recent-rather-than-sidebar", store.selected === last)
+                release(); key(); check("release-toggles-back", store.selected === middle)
+                release()
+                visit()
+                key(); key(); check("held-walks-to-older", store.selected === first)
+                key(); check("held-wraps", store.selected === middle)
+                key(true); check("held-reverse", store.selected === first)
+                release(); key(); check("release-commits-final-tab", store.selected === middle)
+                release()
+                visit(); key(); store.select(first); key()
+                check("mouse-selection-resets-cycle", store.selected === last)
+                release()
+                Settings.current.controlTabUsesRecency = false
+                store.select(first); key(); check("sidebar-forward", store.selected === middle)
+                key(true); check("sidebar-reverse", store.selected === first)
+                store.select(last); key(); check("sidebar-wrap", store.selected === first)
+                release()
+                Settings.current.controlTabUsesRecency = true
+                visit()
+                Commands.shared.run("tab.next")
+                check("next-command-keeps-sidebar-order", store.selected === last)
+                Commands.shared.run("tab.previous")
+                check("previous-command-keeps-sidebar-order", store.selected === middle)
+                Keybindings.shared.setShortcut("ctrl+alt+j", for: "tab.cycleNext")
+                check("remapping-removes-default", Keybindings.shared.command(onStroke: "ctrl+tab") == nil)
+                Keybindings.shared.resetAll()
+                check("reset-restores-default", Keybindings.shared.command(onStroke: "ctrl+tab") == "tab.cycleNext")
+
+                visit(); key(); store.close(first); key()
+                check("closed-tab-skipped", store.selected === middle)
+                release()
+                let remaining = store.cycleOrder
+                let folder = store.addFolder(named: "Shortcut folder")
+                store.move(remaining[0], to: .pinned(space, folder))
+                store.select(remaining[0]); store.select(remaining[1]); folder.expanded = false
+                key(); check("folder-tab-selected-and-revealed", store.selected === remaining[0] && folder.expanded)
+                release()
+                store.toggleFavorite(remaining[0])
+                store.select(remaining[0]); store.select(remaining[1]); key()
+                check("favorite-in-cycle", store.selected === remaining[0])
+                release()
+                store.toggleFavorite(remaining[0])
+                let d = store.newTab(url: "sorrel://welcome", select: false)
+                let split = store.makeSplit(remaining[0], with: d, focus: remaining[0])
+                store.select(d); store.select(remaining[1]); key()
+                check("split-pane-recency", split != nil && store.selected === d)
+                release()
+                let otherSpace = store.addSpace(name: "Other shortcut space")
+                let otherTab = store.newTab(url: "sorrel://welcome")
+                key(); check("single-tab-noop", store.selected === otherTab)
+                store.switchSpace(to: space); key()
+                check("space-switch-resets-cycle", store.selected === remaining[1])
+                release()
+                let second = self.newWindow(present: false)
+                second.store.switchSpace(to: otherSpace)
+                second.store.select(otherTab)
+                self.focus(window)
+                store.switchSpace(to: otherSpace)
+                let local = store.newTab(url: "sorrel://welcome")
+                store.cycleTab(1)
+                check("other-window-tab-excluded", store.selected === local && self.main === window && second.store.selected === otherTab)
+                second.window?.close()
+                store.switchSpace(to: space)
+                store.select(nil); store.cycleTab(1)
+                check("no-selection-recovers", store.selected != nil)
+                store.switchSpace(to: store.addSpace(name: "Empty shortcut space"))
+                store.cycleTab(1); check("empty-space-noop", store.selected == nil)
+
+                // Exercise the actual checkbox without showing or focusing the Settings window.
+                func findBox(_ view: NSView) -> NSButton? {
+                    if let b = view as? NSButton, b.title == "Switch tabs in most recently used order" { return b }
+                    for child in view.subviews { if let b = findBox(child) { return b } }
+                    return nil
+                }
+                let settings = SettingsWindowController.shared
+                let settingsTabs = settings.window?.contentView?.subviews.compactMap { $0 as? NSTabView }.first
+                settingsTabs?.selectTabViewItem(withIdentifier: "Tabs")
+                let box = settings.window?.contentView.flatMap { findBox($0) }
+                box?.performClick(nil)
+                check("settings-checkbox-off", box != nil && !Settings.current.controlTabUsesRecency && !Settings.load().controlTabUsesRecency)
+                box?.performClick(nil)
+                check("settings-checkbox-on", Settings.current.controlTabUsesRecency && Settings.load().controlTabUsesRecency)
+                if let view = settings.window?.contentView {
+                    view.layoutSubtreeIfNeeded()
+                    if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                        view.cacheDisplay(in: view.bounds, to: rep)
+                        let shot = URL(fileURLWithPath: out).deletingLastPathComponent().appendingPathComponent("tabs-settings.png")
+                        try? rep.representation(using: .png, properties: [:])?.write(to: shot)
+                    }
+                }
+                _ = [a, b, c]
+            }
+        }
 
         if env["SORREL_FULLSCREEN_TEST"] != nil {
             // Exercise fullscreen layout callbacks without switching the owner's macOS Space.

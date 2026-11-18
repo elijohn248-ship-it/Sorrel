@@ -449,6 +449,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             self?.mutate { $0.peekLinksFromAllTabs = i == 0; $0.peekLinksFromPinnedTabs = i <= 1 }
         }
         return form([
+            ("Control+Tab:", column([
+                checkbox("Switch tabs in most recently used order", s.controlTabUsesRecency) { [weak self] on in
+                    self?.mutate { $0.controlTabUsesRecency = on }
+                },
+                note("Press and release to return to your last tab. Hold Control and press Tab to visit older tabs; add Shift to go back. Turn off to follow sidebar order."),
+            ])),
             ("Archive unpinned tabs:", column([
                 archive,
                 note("Unpinned tabs you haven’t touched are put away. Find them under Tabs ▸ Archived Tabs. Pinned tabs and favorites are never archived."),
