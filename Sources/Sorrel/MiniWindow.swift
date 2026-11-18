@@ -201,6 +201,11 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
         close()
     }
 
+    /// Same as the main window: in fullscreen the empty toolbar shows only at the top edge.
+    func window(_ window: NSWindow, willUseFullScreenPresentationOptions proposedOptions: NSApplication.PresentationOptions = []) -> NSApplication.PresentationOptions {
+        proposedOptions.union([.fullScreen, .autoHideMenuBar, .autoHideToolbar])
+    }
+
     func windowWillClose(_ notification: Notification) {
         if !expanded { page.teardown() }
         Self.all.removeAll { $0 === self }

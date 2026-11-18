@@ -980,6 +980,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         applyMode(animated: false)
     }
 
+    /// The empty toolbar (kept for roomier window buttons) would otherwise stay pinned across the top
+    /// of a fullscreen window as an opaque bar; auto-hiding it reveals it only at the top edge, with the menu bar.
+    func window(_ window: NSWindow, willUseFullScreenPresentationOptions proposedOptions: NSApplication.PresentationOptions = []) -> NSApplication.PresentationOptions {
+        proposedOptions.union([.fullScreen, .autoHideMenuBar, .autoHideToolbar])
+    }
+
     func windowWillEnterFullScreen(_ notification: Notification) { setFullscreenLayout(true) }
     func windowDidEnterFullScreen(_ notification: Notification) { setFullscreenLayout(true) }
     func windowDidExitFullScreen(_ notification: Notification) { setFullscreenLayout(false) }
@@ -1015,6 +1021,7 @@ extension MainWindowController {
         check("hidden page has square corners", card.layer?.cornerRadius == 0 && card.panes.allSatisfy { $0.layer?.cornerRadius == 0 })
         check("sidebar choice preserved", mode == .hidden && store.sidebarCollapsed == savedChoice)
         check("native exit control available", window.standardWindowButton(.zoomButton).map { $0.alphaValue == 1 && $0.isEnabled } ?? false)
+        check("toolbar auto-hides in fullscreen", self.window(window, willUseFullScreenPresentationOptions: [.fullScreen, .autoHideMenuBar]).contains(.autoHideToolbar))
         let hiddenFrame = card.frame
         debugSetSidebar("peek")
         settle()

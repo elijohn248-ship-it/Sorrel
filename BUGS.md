@@ -28,6 +28,12 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### White bar across the top in fullscreen (fixed 2026-11-17, branch `fullscreen-toolbar`)
+- **Repro:** enter fullscreen (⌃⌘F) in a main or mini window.
+- **Expected:** the top of the screen is page/sidebar; the titlebar strip (window buttons) appears only when the cursor reaches the top edge, like the menu bar.
+- **Actual:** an opaque white strip stays across the top the whole time.
+- **Cause / fix:** the windows carry an empty `NSToolbar` (for roomier window buttons); AppKit keeps a toolbar permanently visible, on an opaque material, in fullscreen unless the window asks otherwise (`titlebarAppearsTransparent` doesn't apply there). Both window delegates now return `.autoHideToolbar` from `window(_:willUseFullScreenPresentationOptions:)`. `SORREL_FULLSCREEN_TEST` checks the option is requested; the real fullscreen look needs the owner.
+
 ### Fullscreen retains windowed chrome (fixed 2026-11-17, branch `fullscreen-polish`)
 - **Repro:** enter fullscreen with the sidebar hidden, reveal it on hover, then pin it.
 - **Expected:** edge-to-edge page when hidden, compact pinned header, working native exit control, and restored windowed layout on exit.
