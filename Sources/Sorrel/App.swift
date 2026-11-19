@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import ScreenTime
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     static var shared: AppDelegate!
@@ -771,6 +772,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             log("launch: services expected=\(mode != "direct") got=\(launchedByLaunchServices)")
             log("launch: sandbox expected=true got=\(Sandbox.isOn)")
             log("launch: scratch profile expected=true got=\(isTestBuild && isTestProfile)")
+        }
+
+        if env["SORREL_SCREENPAGETEST"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                guard let webView = self.main.store.selected?.page?.webView else {
+                    log("screenpage: webview=false"); return
+                }
+                let selector = NSSelectorFromString("_screenTimeWebpageController")
+                log("screenpage: controller getter=\(webView.responds(to: selector))")
+                guard webView.responds(to: selector),
+                      let controller = webView.perform(selector)?.takeUnretainedValue() as? STWebpageController else {
+                    log("screenpage: controller=false"); return
+                }
+                log("screenpage: controller=true blocked=\(controller.urlIsBlocked)")
+                log("screenpage: automatically bound expected=true got=\(webView.screenTimeBundleIdentifier == Bundle.main.bundleIdentifier)")
+                let store = webView.configuration.websiteDataStore
+                let suppressed = controller.suppressUsageRecording
+                let profile = controller.profileIdentifier
+                log("screenpage: own identity accepted expected=true got=\(webView.bindScreenTimeIdentity() == true)")
+                log("screenpage: own bundle expected=true got=\(webView.screenTimeBundleIdentifier == Bundle.main.bundleIdentifier)")
+                log("screenpage: repeated assignment expected=true got=\(webView.bindScreenTimeIdentity() == true)")
+                log("screenpage: store preserved expected=true got=\(webView.configuration.websiteDataStore === store)")
+                log("screenpage: recording preserved expected=true got=\(controller.suppressUsageRecording == suppressed)")
+                log("screenpage: profile preserved expected=true got=\(controller.profileIdentifier == profile)")
+                let blank = Engine.shared.makePage(profileID: nil, isPrivate: true)
+                log("screenpage: lazy controller safe expected=true got=\(blank.webView.bindScreenTimeIdentity() == nil)")
+                log("screenpage: private store preserved expected=true got=\(!blank.webView.configuration.websiteDataStore.isPersistent)")
+                blank.teardown()
+            }
         }
 
         if env["SORREL_DOCKMENUTEST"] != nil {
