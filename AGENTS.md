@@ -51,9 +51,9 @@ Break none of these. If a task seems to need breaking one, **stop and ask the ow
 
 ### 2.1 Product rules
 
-1. **WebKit only. Never Chromium, CEF or Electron.** Do not suggest them. The owner values battery life and low upkeep.
+1. **One Birch, with WebKit and Chromium editions.** The owner approved this direction on 2026-11-19, including availability beyond macOS. Keep the existing WebKit browser supported; share browser behavior and design across engines wherever possible. Start with separate builds, not live engine switching. See `docs/dual-engine-plan.md` for proposed platforms, milestones and unresolved choices. This approval replaces the former WebKit-only prohibition; it does not waive security/privacy rules or permission requirements for protected files. Battery life and upkeep still matter.
 2. **Free to run.** No paid Apple developer account ($99/yr), no paid services, no paid tiers. The app is self-signed. Online pieces (tab sync relay) run on **Cloudflare's free tier**. Do not suggest the App Store, notarization, CloudKit/iCloud sync or anything that costs money unless the owner asks.
-3. **Sites see this Mac's Safari.** The user agent's `Version/` is the installed Safari's version (`Engine.safariVersion`), never the macOS version. The only exception: sites that a Chrome-store extension lists under `externally_connectable` (today only Proton's `account.proton.me` and `pass.proton.me`) see a Chrome user agent and get a `chrome.runtime` bridge.
+3. **The existing macOS WebKit edition shows sites this Mac's Safari.** The user agent's `Version/` is the installed Safari's version (`Engine.safariVersion`), never the macOS version. The only exception: sites that a Chrome-store extension lists under `externally_connectable` (today only Proton's `account.proton.me` and `pass.proton.me`) see a Chrome user agent and get a `chrome.runtime` bridge. Identity policies for new engines/platforms must be reviewed before implementation; do not copy Safari spoofing into Chromium by assumption.
 4. **As private as Helium.** No analytics, no crash reporting, no telemetry, ever. Ads and trackers blocked by default.
 
 ### 2.2 Hard rules for code (the owner wrote these)
