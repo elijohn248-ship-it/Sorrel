@@ -23,7 +23,13 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-(none)
+### Screen Time attributes Birch to VS Code (reported 2026-11-19, branch `screen-time-identity`)
+- **Repro:** owner opens Birch through Finder, Dock or Spotlight and reports it is grouped with VS Code in macOS Screen Time. Compared a direct executable launch with Launch Services using SorrelTest.app and scratch profiles; normal-launch symptom not reproduced.
+- **Expected:** macOS identifies Birch independently, with existing Screen Time restrictions respected.
+- **Actual:** reported attribution to VS Code. Owner cannot verify the result interactively.
+- **Investigation:** owner confirms Finder/Dock/Spotlight launches. With identical fresh scratch profiles and local welcome pages, direct SorrelTest executable launch inherits VS Code as its responsible process; `open -n -g` through Launch Services gives SorrelTest its own responsible PID. Both runs produce snapshots and exit normally. The responsibility query is an external, read-only diagnostic (`responsibility_get_pid_responsible_for_pid` from libSystem), not an app dependency. App metadata uses `app.sorrel.browser` / `app.sorrel.browser.test`, not VS Code's identifier.
+- **Status:** unresolved for the reported normal-launch path; no speculative app patch. These checks measure process attribution, not Screen Time's displayed history or scheduled enforcement. Existing direct test launches are a possible source of VS Code-attributed activity, but this does not establish the cause of the owner's report. No real profile, Screen Time database or restriction settings accessed. Owner cannot verify interactively; do not mark fixed or ask them to test. Further diagnosis needs evidence from an affected normal launch and authorization before any protected-file changes.
+
 
 ## Fixed
 

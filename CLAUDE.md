@@ -182,6 +182,20 @@ Measure with `footprint -p <pid>` or an external `proc_pid_rusage` physical-foot
 
 ## Testing
 
+**macOS app attribution / Screen Time (2026-11-19):** direct executable launches from a VS Code terminal inherit VS Code's responsible-process identity, even though the bundle identifier belongs to SorrelTest. This was verified externally with a read-only libSystem responsibility query; an equivalent Launch Services launch gives SorrelTest its own responsible PID. This is not proof of what Screen Time displays or enforces. Do not diagnose normal Finder/Dock/Spotlight launches from a direct-executable test, change bundle IDs, or reset Screen Time history/settings to hide the symptom. The reported normal-launch attribution bug remains open in BUGS.md.
+
+For attribution-sensitive tests, use Launch Services with an explicit test bundle path and a fresh scratch profile (still quiet; no real app):
+
+```sh
+S=$(mktemp -d /private/tmp/sorrel-test.XXXXXX)
+mkdir "$S/p1"
+open -n -g --env "SORREL_HOME=$S/p1" --env "SORREL_SNAPSHOT=$S/shot.png" \
+  --env SORREL_DELAY=10 --env SORREL_OPEN=birch://welcome \
+  --stderr "$S/test.log" "$PWD/build/SorrelTest.app"
+```
+
+`open` returns before the test exits. Wait for its delay and verify that the specific test process has exited; inspect only its scratch log. Do not use this recipe with Birch.app or omit SORREL_HOME/SORREL_SNAPSHOT. Ordinary direct-launch hooks below remain useful for app behavior, but cannot establish macOS attribution.
+
 `SORREL_MEMORYTEST=1` (`SORREL_DELAY=8`): local HTML fixtures test the registered pressure-source mask and directly exercise the production pressure handler without stressing the Mac. Logs `memory:` expected/got booleans for normal/warning/critical pressure, Never, shorter intervals, recent/visible/playing-tab protection, repeated/coalesced events, saved interaction state, actual Page/WKWebView release and waking (17 checks). Reports loaded fixture counts, not a claim about MB saved. Does not force an actual OS pressure notification or verify signed-in pages.
 
 There is no test target. Tests are the app itself, driven by environment variables read in `App.swift` (`runDebugHooks`). Pattern:
