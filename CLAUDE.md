@@ -67,6 +67,8 @@ Only Command Line Tools are installed (no Xcode), so this is a SwiftPM build tha
 open build/Birch.app  # open the current build
 ```
 
+**Launch identity (2026-11-19):** the daily browser must start through Launch Services (Finder, Dock, Spotlight or `open Birch.app`). `main.swift` checks public `NSRunningApplication.current.launchDate` metadata before allocator restart, migration or profile access; direct shell/editor execution quits with exit 2 and launch instructions, since it inherits the editor's macOS responsibility. This does not reset Screen Time history or change its restrictions. Direct isolated SorrelTest hooks remain supported. This protects the reproduced direct-launch path; the reported normal-launch Screen Time symptom remains open in BUGS.md.
+
 Minimum macOS is 15.4 (needed for `WKWebExtension`). The owner runs the build from `build/`; after a rebuild they must quit and reopen Sorrel to get it. Say so every time.
 
 `Info.plist` sets `MallocSpaceEfficient=1` (see Memory). `main.swift` re-execs once with it if a launch lacks it.
@@ -195,6 +197,8 @@ open -n -g --env "SORREL_HOME=$S/p1" --env "SORREL_SNAPSHOT=$S/shot.png" \
 ```
 
 `open` returns before the test exits. Wait for its delay and verify that the specific test process has exited; inspect only its scratch log. Do not use this recipe with Birch.app or omit SORREL_HOME/SORREL_SNAPSHOT. Ordinary direct-launch hooks below remain useful for app behavior, but cannot establish macOS attribution.
+
+`SORREL_LAUNCHTEST=direct|guard` (local `birch://welcome`, fresh `SORREL_HOME`, quiet mode): `direct` reports pre-AppKit Launch Services metadata with false expected, plus sandbox/scratch-profile booleans; `guard` opts SorrelTest into the normal-app startup guard. Direct `guard` execution exits 2 before writing profile files or showing a window; Launch Services `guard` execution starts normally and reports true. Run `python3 tools/launch-identity-test.py` after building: it creates a new scratch profile per launch, checks both paths and the actual responsible PID externally, batches the 22 window regressions into the normal launch, and checks process exit. The libSystem responsibility query is read-only, external test tooling only. No Screen Time access/passcode needed; this cannot verify Screen Time history or scheduled enforcement.
 
 `SORREL_MEMORYTEST=1` (`SORREL_DELAY=8`): local HTML fixtures test the registered pressure-source mask and directly exercise the production pressure handler without stressing the Mac. Logs `memory:` expected/got booleans for normal/warning/critical pressure, Never, shorter intervals, recent/visible/playing-tab protection, repeated/coalesced events, saved interaction state, actual Page/WKWebView release and waking (17 checks). Reports loaded fixture counts, not a claim about MB saved. Does not force an actual OS pressure notification or verify signed-in pages.
 
