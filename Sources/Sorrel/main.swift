@@ -14,6 +14,18 @@ if !isTestBuild {
     hooks.forEach { unsetenv($0) }
 }
 
+// Capture Launch Services metadata before AppKit registers a directly executed process.
+// A shell/editor launch inherits that app's responsibility (including Screen Time attribution).
+// Refuse it before migration or any profile access; Finder, Dock, Spotlight and `open Birch.app`
+// launch through Launch Services. Keep direct test hooks available, with an opt-in to test this guard.
+let launchedByLaunchServices = NSRunningApplication.current.launchDate != nil
+let testLaunchGuard = isTestBuild && isTestProfile && isQuietTest &&
+    ProcessInfo.processInfo.environment["SORREL_LAUNCHTEST"] == "guard"
+if (!isTestBuild || testLaunchGuard) && !launchedByLaunchServices {
+    FileHandle.standardError.write("Birch: open Birch.app through Finder, Dock, Spotlight or the open command. Direct executable launches inherit the launching app's macOS identity and are refused.\n".data(using: .utf8)!)
+    exit(2)
+}
+
 // Memory: Sorrel runs with macOS's space-efficient allocator mode.
 // Loading an extension's blocking rules allocates heavily for a moment and then frees it; in the default
 // mode the freed pages stay charged to the app (about 235 MB with uBlock Origin Lite), in this mode they

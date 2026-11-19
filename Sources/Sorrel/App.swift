@@ -767,6 +767,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let delay = Double(env["SORREL_DELAY"] ?? "") ?? 2.5
         func log(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
 
+        if let mode = env["SORREL_LAUNCHTEST"] {
+            log("launch: services expected=\(mode != "direct") got=\(launchedByLaunchServices)")
+            log("launch: sandbox expected=true got=\(Sandbox.isOn)")
+            log("launch: scratch profile expected=true got=\(isTestBuild && isTestProfile)")
+        }
+
         if env["SORREL_DOCKMENUTEST"] != nil {
             // Exercise the Dock delegate and real menu action without showing the Dock menu.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
