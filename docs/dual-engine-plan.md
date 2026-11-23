@@ -2,6 +2,8 @@
 
 Planning checkpoint: 2026-11-19. No second engine has been implemented.
 
+**Update 2026-11-23 (owner):** the Chromium edition targets **Windows first, then Linux**; the Mac keeps its WebKit edition and no Mac Chromium build is needed for now. The agent waves and prompts that carry this plan out are in `docs/chromium-agents.md`.
+
 ## What the owner approved
 
 Birch will keep its WebKit edition and gain a Chromium edition, with availability beyond the Mac. Both should feel like the same browser: the same spaces, sidebar, tabs, commands, settings and privacy expectations wherever the platforms allow. Start with two builds; switching engines inside a running browser is outside the initial scope.
