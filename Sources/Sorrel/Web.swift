@@ -1,9 +1,47 @@
 import AppKit
 import WebKit
 import CoreLocation
+import ScreenTime
 
 final class SorrelWebView: WKWebView {
     weak var page: Page?
+    private weak var identifiedScreenTimeController: STWebpageController?
+    private(set) var screenTimeBundleIdentifier: String?
+
+    /// WebKit creates its own Screen Time controller lazily. Explicitly identify its browser,
+    /// rather than relying on inferred identity left over from an editor/helper launch.
+    /// Keep WebKit's shield, URL, profile, recording and blocking decisions untouched.
+    @discardableResult
+    func bindScreenTimeIdentity() -> Bool? {
+        let selector = NSSelectorFromString("_screenTimeWebpageController")
+        guard responds(to: selector),
+              let controller = perform(selector)?.takeUnretainedValue() as? STWebpageController,
+              let identifier = Bundle.main.bundleIdentifier else { return nil }
+        if identifiedScreenTimeController === controller { return screenTimeBundleIdentifier == identifier }
+        identifiedScreenTimeController = controller
+        screenTimeBundleIdentifier = nil
+        do {
+            try controller.setBundleIdentifier(identifier)
+            screenTimeBundleIdentifier = identifier
+            return true
+        } catch {
+            // Some systems do not register third-party browsers with Screen Time. Preserve the
+            // original controller and its restrictions if macOS refuses the identity assignment.
+            return false
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        bindScreenTimeIdentity()
+    }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        // Screen Time configuration arrives asynchronously, sometimes after the last navigation
+        // callback. Its native shield is then added here; bind after WebKit finishes installing it.
+        DispatchQueue.main.async { [weak self] in self?.bindScreenTimeIdentity() }
+    }
 
     /// Sorrel has tabs, not extra windows, so the page menu should say so.
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
@@ -106,6 +144,7 @@ final class Page: NSObject {
     }
 
     func changed() {
+        webView.bindScreenTimeIdentity()
         if let item {
             if let u = displayURL { item.url = u }
             if let t = webView.title, !t.isEmpty { item.title = t }
