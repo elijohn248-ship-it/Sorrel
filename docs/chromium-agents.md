@@ -25,6 +25,8 @@ Waves 1 and 3 are the parallel ones. If a prototype fails its gate (section "Gat
 
 ## Things to know up front
 
+- **One repository for everything.** The Chromium edition lives in the existing GitHub repository (`elijohn248-ship-it/Sorrel`) in its own `chromium/` folder, beside the Mac app. Its Windows and Linux downloads go on the same Releases page as the Mac zip and disk image, each with its own file names and update feed.
+
 - **No paid code signing.** Windows will show "Windows protected your PC" on first run (More info ▸ Run anyway), like Gatekeeper's Open Anyway on the Mac. A free option for open-source projects (SignPath Foundation) exists; agent 9 may propose it, you decide.
 - **Video codecs:** ready-made CEF and Qt WebEngine builds leave out H.264/AAC and have no Widevine (Netflix-style DRM). Most of YouTube works; some sites won't. The prototypes must report this.
 - **Updates must never cross editions.** The Mac's `updates.json` must never offer a Windows build, and a Mac-only release must not break Windows updates. Agent 9 designs this; the update signing key stays on this Mac and never goes into CI.
