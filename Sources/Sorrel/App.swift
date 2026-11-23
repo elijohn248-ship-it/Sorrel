@@ -774,6 +774,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             log("launch: scratch profile expected=true got=\(isTestBuild && isTestProfile)")
         }
 
+        if env["SORREL_UATEST"] != nil {
+            let r = Engine.resolveSafariVersion()
+            let os = ProcessInfo.processInfo.operatingSystemVersion
+            log("ua: version=\(r.version) source=\(r.source) webkit=\(Engine.loadedWebKitVersion() ?? "none") os=\(os.majorVersion).\(os.minorVersion)")
+            // The floor rule on its own: a Safari 26+ engine never reads as 18.x.
+            let floors: [(String?, String?)] = [("622.1.22", "26.0"), ("625.2.8", "26.0"), ("621.3.11", nil),
+                                               ("20622.1.22", "26.0"), ("19618.3.11", nil), (nil, nil), ("5", nil)]
+            for (webKit, want) in floors {
+                let got = Engine.safariFloor(webKitVersion: webKit)
+                log("ua: floor \(webKit ?? "nil") expected=\(want ?? "nil") got=\(got ?? "nil")")
+            }
+            log("ua: compare expected=-1 got=\(Engine.compareVersions("18.7", "26.0")) expected=0 got=\(Engine.compareVersions("26", "26.0"))")
+        }
+
         if env["SORREL_SCREENPAGETEST"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 guard let webView = self.main.store.selected?.page?.webView else {

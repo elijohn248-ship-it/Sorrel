@@ -34,6 +34,13 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Fixed
 
+### D2L Brightspace says "Safari version 18 is no longer supported" on a Mac with Safari 26+ (fixed 2026-11-23, branch `safari-ua`)
+- **Repro:** Birch on another Mac (macOS 15, Safari 26 or newer per About Safari) opens a D2L Brightspace home page. Simulated here with `SORREL_FAKE_OS=15.7` (Safari unreadable): the user agent said `Version/18.7`.
+- **Expected:** the same Safari version as that Mac's Safari (26+), no outdated-browser warning.
+- **Actual:** "Your browser is looking a little retro… Apple Safari version 18 is no longer supported".
+- **Cause / fix:** when Birch can't read Safari's version, it guessed from macOS (15.x = 18.x), but Safari and the system WebKit update separately from macOS 14/15. Birch now tries Safari's Info.plist at `/Applications/Safari.app`, the two cryptex paths and Launch Services' location, and never reports a version older than the loaded WebKit implies: the in-memory WebKit version (`NSVersionOfRunTimeLibrary`, no file read) is branch 622+ for every Safari 26+ engine, so the floor is 26.0. Why the read failed on that Mac isn't known (it works under the sandbox here, macOS 27).
+- **Verified:** `SORREL_UATEST=1`: real Mac `Version/27.2` read from `/Applications/Safari.app`; `SORREL_FAKE_OS=15.7` now `Version/26.0` (was 18.7); with `SORREL_FAKE_WEBKIT=621.3.11` (a real Safari 18 engine) still `18.7`; floor-rule checks all pass. Release build has the same two source warnings. Not verified on the other Mac or on D2L itself (needs a sign-in).
+
 ### Direct executable launches inherit the editor's app identity (fixed 2026-11-19, branch `screen-time-identity`)
 - **Repro:** launch a browser executable directly from a VS Code terminal. The isolated SorrelTest reproduction has VS Code as its responsible process; a Launch Services launch is responsible for itself.
 - **Expected:** the daily browser starts with its own macOS app identity.

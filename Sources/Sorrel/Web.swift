@@ -293,15 +293,23 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
     /// like the Safari on this Mac. It is read from the installed Safari, which always runs on the same
     /// system WebKit as Sorrel. It is NOT the macOS version: before macOS 26 the two differ (macOS 15.4
     /// ships Safari 18.4), and "Safari 15.4" got outdated-browser warnings (claude.ai wants Safari 17+).
-    static let safariVersion: String = {
+    ///
+    /// Safari (and with it the system WebKit) updates separately from macOS 14/15: a macOS 15 Mac can run
+    /// Safari 26. So when Safari can't be read, the macOS-based guess is only a starting point, raised to
+    /// what the WebKit actually loaded in this process implies (it never reports an older engine).
+    static let safariVersion: String = resolveSafariVersion().version
+
+    /// Where `safariVersion` came from, for the `SORREL_UATEST` hook.
+    static func resolveSafariVersion() -> (version: String, source: String) {
         let env = ProcessInfo.processInfo.environment
-        // Test builds only: pretend to be another macOS whose Safari can't be read (checks the fallback).
+        // Test builds only: pretend to be another macOS whose Safari can't be read (checks the fallback),
+        // and optionally another loaded WebKit (`SORREL_FAKE_WEBKIT=20622.1.22`).
         let fakeOS = isTestProfile ? env["SORREL_FAKE_OS"].map { $0.split(separator: ".").compactMap { Int($0) } } : nil
-        if fakeOS == nil,
-           let v = Bundle(path: "/Applications/Safari.app")?.infoDictionary?["CFBundleShortVersionString"] as? String,
-           v.range(of: #"^[0-9]{2,3}(\.[0-9]+){0,2}$"#, options: .regularExpression) != nil,
-           let major = Int(v.prefix { $0 != "." }), major >= 18 {
-            return v
+        let fakeWebKit = isTestProfile ? env["SORREL_FAKE_WEBKIT"] : nil
+        let floor = safariFloor(webKitVersion: fakeWebKit ?? loadedWebKitVersion())
+        if fakeOS == nil, let (v, path) = installedSafariVersion() {
+            if let floor, compareVersions(v, floor) < 0 { return (floor, "webkit (Safari read \(v) at \(path))") }
+            return (v, path)
         }
         let os = ProcessInfo.processInfo.operatingSystemVersion
         var major = fakeOS?.first ?? os.majorVersion
@@ -310,8 +318,58 @@ final class Engine: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDele
         // records for Sorrel (Package.swift's 15.4 minimum). That made "Safari 16.0", below claude.ai's 17.
         if major == 16 { (major, minor) = (26, 0) }
         // macOS 26 and later share Safari's number; macOS 15.x shipped Safari 18.x.
-        return "\(major >= 26 ? major : major + 3).\(minor)"
-    }()
+        let guess = "\(major >= 26 ? major : major + 3).\(minor)"
+        if let floor, compareVersions(guess, floor) < 0 { return (floor, "webkit (macOS guess \(guess))") }
+        return (guess, "macOS")
+    }
+
+    /// The installed Safari's version and where it was read. `/Applications/Safari.app` is a symlink into
+    /// the Safari cryptex, so the cryptex paths and Launch Services' answer are tried as well.
+    private static func installedSafariVersion() -> (String, String)? {
+        var paths = ["/Applications/Safari.app",
+                     "/System/Cryptexes/App/System/Applications/Safari.app",
+                     "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app"]
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+            paths.append(url.path)
+        }
+        for path in paths {
+            let plist = URL(fileURLWithPath: path).appendingPathComponent("Contents/Info.plist")
+            guard let data = try? Data(contentsOf: plist),
+                  let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+                  let v = info["CFBundleShortVersionString"] as? String,
+                  v.range(of: #"^[0-9]{2,3}(\.[0-9]+){0,2}$"#, options: .regularExpression) != nil,
+                  let major = Int(v.prefix { $0 != "." }), major >= 18 else { continue }
+            return (v, path)
+        }
+        return nil
+    }
+
+    /// The loaded WebKit's version (e.g. 22625.2.8), straight from the framework's Mach-O header in
+    /// memory, so no file read the sandbox could refuse.
+    static func loadedWebKitVersion() -> String? {
+        let packed = NSVersionOfRunTimeLibrary("WebKit")
+        guard packed > 0 else { return nil }
+        return "\(packed >> 16).\((packed >> 8) & 0xFF).\(packed & 0xFF)"
+    }
+
+    /// The lowest Safari version a WebKit build belongs to. The loaded framework reports its branch
+    /// (625.2.8); its Info.plist adds a platform prefix (22625 = macOS 27 + branch 625). Branch 622
+    /// shipped with Safari 26.0 on every macOS; later branches are left at 26.0 rather than guessed.
+    static func safariFloor(webKitVersion: String?) -> String? {
+        guard let first = webKitVersion?.split(separator: ".").first, let n = Int(first) else { return nil }
+        let branch = n >= 1000 ? n % 1000 : n
+        return (622..<1000).contains(branch) ? "26.0" : nil
+    }
+
+    /// Numeric comparison of dotted versions ("26.0" > "18.7").
+    static func compareVersions(_ a: String, _ b: String) -> Int {
+        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(x.count, y.count) {
+            let p = i < x.count ? x[i] : 0, q = i < y.count ? y[i] : 0
+            if p != q { return p < q ? -1 : 1 }
+        }
+        return 0
+    }
 
     // MARK: Creating pages
 
