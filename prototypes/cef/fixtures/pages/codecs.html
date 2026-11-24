@@ -1,0 +1,49 @@
+<!doctype html><meta charset="utf-8"><title>Codecs fixture</title>
+<p>Plays each CI-generated media file and checks Encrypted Media key systems.</p>
+<script>
+var FILES = [
+  ['h264', 'video', 'h264.mp4', 'video/mp4; codecs="avc1.42E01E"'],
+  ['aac', 'audio', 'aac.m4a', 'audio/mp4; codecs="mp4a.40.2"'],
+  ['vp9', 'video', 'vp9.webm', 'video/webm; codecs="vp9"'],
+  ['av1', 'video', 'av1.webm', 'video/webm; codecs="av01.0.04M.08"'],
+  ['opus', 'audio', 'opus.webm', 'audio/webm; codecs="opus"']
+];
+function playOne(f) {
+  return new Promise(function (resolve) {
+    var el = document.createElement(f[1]);
+    var r = { codec: f[0], canPlayType: el.canPlayType(f[3]) || 'no',
+              mse: !!(window.MediaSource && MediaSource.isTypeSupported(f[3])) };
+    var done = false;
+    function finish(state) {
+      if (done) return; done = true;
+      r.played = state; r.time = Math.round(el.currentTime * 10) / 10;
+      if (el.error) r.error = el.error.code;
+      el.pause(); el.remove(); resolve(r);
+    }
+    el.muted = true; el.preload = 'auto';
+    el.addEventListener('timeupdate', function () { if (el.currentTime > 0.3) finish('yes'); });
+    el.addEventListener('error', function () { finish('no'); });
+    setTimeout(function () { finish(el.currentTime > 0 ? 'yes' : 'no'); }, 8000);
+    el.src = '/media/' + f[2];
+    document.body.appendChild(el);
+    var p = el.play(); if (p && p.catch) p.catch(function () {});
+  });
+}
+function keySystem(name) {
+  var cfg = [{ initDataTypes: ['cenc'],
+               videoCapabilities: [{ contentType: 'video/webm; codecs="vp9"' }] }];
+  if (!navigator.requestMediaKeySystemAccess) return Promise.resolve('no-eme');
+  return navigator.requestMediaKeySystemAccess(name, cfg).then(
+    function () { return 'yes'; }, function (e) { return 'no (' + e.name + ')'; });
+}
+window.runCodecTests = function () {
+  var out = [];
+  return FILES.reduce(function (p, f) {
+    return p.then(function () { return playOne(f).then(function (r) { out.push(r); }); });
+  }, Promise.resolve()).then(function () {
+    return Promise.all([keySystem('com.widevine.alpha'), keySystem('org.w3.clearkey')]);
+  }).then(function (k) {
+    return JSON.stringify({ media: out, widevine: k[0], clearkey: k[1] });
+  });
+};
+</script>

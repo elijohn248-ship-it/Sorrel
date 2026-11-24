@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Ad blocking fixture</title>
+<p>Loads one ad script, one analytics script and a control script from a non-ad host.</p>
+<script>
+window.__birch_ads = {};
+(function () {
+  var port = location.port;
+  function load(key, url) {
+    var s = document.createElement('script');
+    s.src = url;
+    s.onload = function () { window.__birch_ads[key] = 'loaded'; };
+    s.onerror = function () { window.__birch_ads[key] = 'blocked'; };
+    document.head.appendChild(s);
+  }
+  // EasyList: ||googlesyndication.com/pagead/  EasyPrivacy: ||google-analytics.com/ (third-party script)
+  load('adsense', 'http://pagead2.googlesyndication.com:' + port + '/pagead/js/adsbygoogle.js');
+  load('analytics', 'http://www.google-analytics.com:' + port + '/analytics.js');
+  load('control', 'http://cdn.birch.test:' + port + '/pagead/js/adsbygoogle.js');
+})();
+</script>

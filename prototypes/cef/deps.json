@@ -1,0 +1,26 @@
+{
+  "cef": {
+    "version": "158.0.3+g8c29be2+chromium-158.0.8127.18",
+    "channel": "stable",
+    "source": "https://cef-builds.spotifycdn.com/index.html (CEF automated builds)",
+    "files": {
+      "windows64": {
+        "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_windows64_minimal.tar.bz2",
+        "size": 180772981,
+        "sha1": "a8634573a10fb514fb9e8bc9fcf39016a2fb17bd"
+      },
+      "linux64": {
+        "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_linux64_minimal.tar.bz2",
+        "size": 338967910,
+        "sha1": "620b80a02dfe93ed7884a9eb1b265ff34f799024"
+      }
+    }
+  },
+  "ubol": {
+    "version": "2026.1122.1948",
+    "name": "uBOLite_2026.1122.1948.chromium.zip",
+    "url": "https://github.com/uBlockOrigin/uBOL-home/releases/download/2026.1122.1948/uBOLite_2026.1122.1948.chromium.zip",
+    "size": 9192442,
+    "sha256": "7cd72ae78fe6fa007193de633d2dec085a0da50f53283e821918a77978d105fb"
+  }
+}

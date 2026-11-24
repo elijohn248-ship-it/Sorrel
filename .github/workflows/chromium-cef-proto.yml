@@ -1,0 +1,143 @@
+# Birch CEF prototype (wave 1). Builds prototypes/cef on Windows x64 and
+# Linux x64 against the pinned CEF distribution and runs the gate tests
+# against local fixtures. Never runs on main, publishes nothing, uses no
+# repository secrets. Downloads are verified against prototypes/cef/deps.json.
+name: chromium-cef-proto
+
+on:
+  push:
+    branches: [chromium-cef-proto]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chromium-cef-proto
+  cancel-in-progress: true
+
+jobs:
+  media:
+    if: github.ref == 'refs/heads/chromium-cef-proto'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate media fixtures
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          ffmpeg -version | head -1
+          prototypes/cef/tools/make_media.sh media
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: media
+          path: media
+          retention-days: 3
+
+  windows:
+    if: github.ref == 'refs/heads/chromium-cef-proto'
+    needs: media
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Runner
+        shell: pwsh
+        run: |
+          (Get-CimInstance Win32_OperatingSystem).Caption
+          python --version
+          cmake --version | Select-Object -First 1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: cef-deps-windows64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
+      - name: Fetch and verify CEF + uBOL
+        run: python -I prototypes/cef/tools/fetch_deps.py --platform windows64 --dest deps
+      - name: List bootstrap files
+        shell: pwsh
+        run: Get-ChildItem deps/cef/Release | Select-Object Name,Length | Format-Table -AutoSize
+      - name: Configure
+        run: cmake -S prototypes/cef -B out -A x64 -DCEF_ROOT=${{ github.workspace }}/deps/cef
+      - name: Build
+        shell: pwsh
+        run: |
+          $t = Measure-Command { cmake --build out --config Release --parallel 2>&1 | Tee-Object -FilePath build.log | Out-Host }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "build: seconds=$([int]$t.TotalSeconds)"
+          "build: warnings in prototypes/cef/src: $((Select-String -Path build.log -Pattern 'prototypes[\\/]cef[\\/]src.*warning' | Measure-Object).Count)"
+          "build: warning lines in third-party code: $((Select-String -Path build.log -Pattern ': warning ' | Measure-Object).Count)"
+          Get-ChildItem out/Release | Select-Object Name,Length | Format-Table -AutoSize
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: media
+          path: media
+      - name: Gates
+        run: python -I prototypes/cef/tools/gates.py --app out/Release/birch_cef.exe --platform windows --media media --ubol deps/ubol --out results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-windows
+          path: |
+            results
+            build.log
+          retention-days: 14
+
+  linux:
+    if: github.ref == 'refs/heads/chromium-cef-proto'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libnss3 libgbm1 libxkbcommon0 libxcomposite1 \
+            libxdamage1 libxrandr2 libasound2t64 libatk-bridge2.0-0t64 libcups2t64 \
+            libpango-1.0-0 libgtk-3-0t64 >/dev/null
+          gcc --version | head -1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: cef-deps-linux64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
+      - name: Fetch and verify CEF + uBOL
+        run: python3 -I prototypes/cef/tools/fetch_deps.py --platform linux64 --dest deps
+      - name: Configure
+        run: cmake -S prototypes/cef -B out -DCMAKE_BUILD_TYPE=Release -DCEF_ROOT=$GITHUB_WORKSPACE/deps/cef
+      - name: Build
+        run: |
+          start=$(date +%s)
+          cmake --build out --parallel 2>&1 | tee build.log
+          test ${PIPESTATUS[0]} -eq 0
+          echo "build: seconds=$(( $(date +%s) - start ))"
+          echo "build: warnings in prototypes/cef/src: $(grep -c 'prototypes/cef/src.*warning' build.log || true)"
+          echo "build: warning lines in third-party code: $(grep -c 'warning:' build.log || true)"
+          ls -la out/Release
+      - name: Sandbox without an AppArmor profile (expected to refuse on Ubuntu 24.04)
+        continue-on-error: true
+        run: |
+          echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo absent)"
+          ls -la out/Release/chrome-sandbox
+          S=$(mktemp -d /tmp/birch-test.XXXXXX)
+          BIRCH_HOME=$S/profile BIRCH_TEST=idle BIRCH_HOLD=3 BIRCH_DELAY=20 timeout 40 xvfb-run -a out/Release/birch_cef > $S/out.txt 2>&1; echo "exit=$?"
+          grep -iE 'sandbox|namespace|apparmor|FATAL' $S/out.txt | head -20 || true
+      - name: Install an AppArmor profile that allows user namespaces for birch_cef only
+        run: |
+          APP=$GITHUB_WORKSPACE/out/Release/birch_cef
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile birch_cef "%s" flags=(unconfined) {\n  userns,\n  include if exists <local/birch_cef>\n}\n' "$APP" > birch_cef.apparmor
+          cat birch_cef.apparmor
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = "1" ]; then
+            sudo install -m 644 birch_cef.apparmor /etc/apparmor.d/birch_cef
+            sudo apparmor_parser -r /etc/apparmor.d/birch_cef
+            echo "apparmor: profile loaded"
+          else
+            echo "apparmor: restriction not active on this runner; no profile needed"
+          fi
+      - name: Gates
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" python3 -I prototypes/cef/tools/gates.py --app out/Release/birch_cef --platform linux --out results --only tabs,storage,netlog,sandbox,cost
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-linux
+          path: |
+            results
+            build.log
+          retention-days: 14
