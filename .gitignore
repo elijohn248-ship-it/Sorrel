@@ -2,3 +2,6 @@
 build/
 dist/
 .DS_Store
+
+# Qt WebEngine prototype: CI downloads and local results
+prototypes/qt/results/

@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Birch fixture: codecs</title>
+<body>
+<script>
+// Each file is generated in CI with ffmpeg (never committed). Reports whether it decodes and plays.
+const FILES = [
+  ['h264-aac', 'h264_aac.mp4', 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"', 'video'],
+  ['hevc', 'hevc.mp4', 'video/mp4; codecs="hvc1.1.6.L93.B0"', 'video'],
+  ['vp8-vorbis', 'vp8_vorbis.webm', 'video/webm; codecs="vp8, vorbis"', 'video'],
+  ['vp9-opus', 'vp9_opus.webm', 'video/webm; codecs="vp9, opus"', 'video'],
+  ['av1-opus-webm', 'av1_opus.webm', 'video/webm; codecs="av01.0.01M.08, opus"', 'video'],
+  ['av1-mp4', 'av1.mp4', 'video/mp4; codecs="av01.0.01M.08"', 'video'],
+  ['aac', 'aac.m4a', 'audio/mp4; codecs="mp4a.40.2"', 'audio'],
+  ['opus', 'opus.webm', 'audio/webm; codecs="opus"', 'audio'],
+  ['mp3', 'mp3.mp3', 'audio/mpeg', 'audio'],
+  ['flac', 'flac.flac', 'audio/flac', 'audio'],
+];
+async function testOne(f) {
+  const [name, file, mime, kind] = f;
+  const el = document.createElement(kind);
+  el.muted = true;
+  el.preload = 'auto';
+  const r = { name: name, canplay: el.canPlayType(mime) || 'no',
+              mse: (window.MediaSource && MediaSource.isTypeSupported(mime)) ? 'yes' : 'no' };
+  r.load = await new Promise(res => {
+    const to = setTimeout(() => res('timeout'), 10000);
+    el.onloadeddata = () => { clearTimeout(to); res('loaded'); };
+    el.onerror = () => { clearTimeout(to); res('error' + (el.error ? el.error.code : '')); };
+    el.src = '/media/' + file;
+    document.body.appendChild(el);
+  });
+  r.width = el.videoWidth || 0;
+  r.duration = isFinite(el.duration) ? Math.round(el.duration * 10) / 10 : -1;
+  if (r.load === 'loaded') {
+    try {
+      await el.play();
+      await new Promise(z => setTimeout(z, 1500));
+      r.played = el.currentTime > 0.3;
+    } catch (e) { r.played = 'error:' + e.name; }
+    el.pause();
+  } else {
+    r.played = false;
+  }
+  el.remove();
+  return r;
+}
+async function drm(keySystem, mime) {
+  try {
+    await navigator.requestMediaKeySystemAccess(keySystem, [{ initDataTypes: ['cenc', 'webm'],
+      videoCapabilities: [{ contentType: mime }] }]);
+    return 'supported';
+  } catch (e) { return e.name; }
+}
+async function runCodecTests() {
+  const files = [];
+  for (const f of FILES) files.push(await testOne(f));
+  window.__codec = { done: true, files: files,
+    widevine_mp4: await drm('com.widevine.alpha', 'video/mp4; codecs="avc1.42E01E"'),
+    widevine_webm: await drm('com.widevine.alpha', 'video/webm; codecs="vp9"'),
+    clearkey: await drm('org.w3.clearkey', 'video/webm; codecs="vp9"') };
+}
+</script>

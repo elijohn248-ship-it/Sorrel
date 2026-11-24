@@ -1,0 +1,212 @@
+# Wave 1: Qt WebEngine prototype (prototypes/qt). Builds a throwaway test browser
+# on Windows x64 and Linux x64 and runs the 12 engine gates against local fixtures.
+# Runs only on the chromium-qt-proto branch or by hand: never on main, no
+# releases, no repository secrets. Artifacts hold logs, screenshots and host
+# summaries only (no NetLogs, profiles or Qt binaries).
+name: chromium-qt-proto
+
+on:
+  push:
+    branches: [chromium-qt-proto]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chromium-qt-proto
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.12.0"
+  WEBENGINE_VERSION: "6.140.0"
+
+jobs:
+  media:
+    name: Codec fixtures (ffmpeg)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate synthetic media
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          bash prototypes/qt/tests/make_media.sh "$RUNNER_TEMP/media"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: media-fixtures
+          path: ${{ runner.temp }}/media
+          retention-days: 3
+
+  windows:
+    name: Windows x64
+    needs: media
+    runs-on: windows-2025
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Cache Qt
+        id: qtcache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/qt
+          key: qt-${{ env.QT_VERSION }}-we-${{ env.WEBENGINE_VERSION }}-win64-msvc-${{ hashFiles('prototypes/qt/ci/pins.json', 'prototypes/qt/ci/requirements-aqt.txt', 'prototypes/qt/ci/fetch_deps.py') }}
+      - name: Install Qt (pinned aqtinstall + pinned archive hashes)
+        if: steps.qtcache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --quiet --require-hashes --no-deps --only-binary=:all: -r prototypes/qt/ci/requirements-aqt.txt
+          python -I prototypes/qt/ci/fetch_deps.py qt windows "$RUNNER_TEMP/qt" "$RUNNER_TEMP/qt-archives"
+      - name: Fetch uBlock Origin Lite (pinned, unmodified)
+        run: python -I prototypes/qt/ci/fetch_deps.py ubol "$RUNNER_TEMP/ubol"
+      - name: Build (MSVC /W4 /WX)
+        run: |
+          start=$(date +%s)
+          QT="$RUNNER_TEMP/qt/$QT_VERSION/msvc2022_64"
+          cmake -S prototypes/qt -B "$RUNNER_TEMP/build" -DCMAKE_PREFIX_PATH="$QT" 2>&1 | tee "$RUNNER_TEMP/configure.log"
+          cmake --build "$RUNNER_TEMP/build" --config Release 2>&1 | tee "$RUNNER_TEMP/build.log"
+          test "${PIPESTATUS[0]}" = 0
+          echo "build: seconds=$(( $(date +%s) - start ))" | tee "$RUNNER_TEMP/build-time.txt"
+          echo "build: warning lines:"; grep -ci "warning" "$RUNNER_TEMP/build.log" || true
+      - name: Deploy (windeployqt) and measure size
+        run: |
+          QT="$RUNNER_TEMP/qt/$QT_VERSION/msvc2022_64"
+          mkdir -p "$RUNNER_TEMP/deploy"
+          cp "$RUNNER_TEMP/build/Release/birch-qt-proto.exe" "$RUNNER_TEMP/deploy/"
+          "$QT/bin/windeployqt.exe" --release --compiler-runtime "$RUNNER_TEMP/deploy/birch-qt-proto.exe" > "$RUNNER_TEMP/deploy.log" 2>&1 || { cat "$RUNNER_TEMP/deploy.log"; exit 1; }
+          python - "$RUNNER_TEMP/deploy" <<'EOF'
+          import os, shutil, sys, tempfile
+          d = sys.argv[1]
+          size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(d) for f in fs)
+          z = shutil.make_archive(os.path.join(tempfile.gettempdir(), "birch-qt-size"), "zip", d)
+          print(f"cost: installed-mb={size/1048576:.1f} zip-download-mb={os.path.getsize(z)/1048576:.1f} files={sum(len(fs) for _, _, fs in os.walk(d))}")
+          os.remove(z)
+          EOF
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: media-fixtures
+          path: ${{ runner.temp }}/media
+      - name: Run the gates
+        run: |
+          mkdir -p results
+          cp "$RUNNER_TEMP/build-time.txt" results/ || true
+          grep -i "warning" "$RUNNER_TEMP/build.log" > results/build-warnings.txt || true
+          python -I prototypes/qt/tests/run_gates.py --app "$RUNNER_TEMP/deploy/birch-qt-proto.exe" \
+            --out results --media "$RUNNER_TEMP/media" --ubol-zip "$(cat "$RUNNER_TEMP/ubol/ubol-zip-path.txt")" \
+            --label windows-x64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-windows
+          path: results
+          retention-days: 14
+
+  linux:
+    name: Linux x64
+    needs: media
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: System packages (Qt runtime, Xvfb, strace)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth strace libgl1-mesa-dev libegl1 libopengl0 libgl1-mesa-dri \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcb-xfixes0 libxcb-util1 \
+            libnss3 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1 libxshmfence1 libgbm1 \
+            libasound2t64 libfontconfig1 libdbus-1-3 libxss1 libpci3 fonts-dejavu-core > /dev/null
+      - name: Cache Qt
+        id: qtcache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/qt
+          key: qt-${{ env.QT_VERSION }}-we-${{ env.WEBENGINE_VERSION }}-linux-gcc64-${{ hashFiles('prototypes/qt/ci/pins.json', 'prototypes/qt/ci/requirements-aqt.txt', 'prototypes/qt/ci/fetch_deps.py') }}
+      - name: Install Qt (pinned aqtinstall + pinned archive hashes)
+        if: steps.qtcache.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --quiet --require-hashes --no-deps --only-binary=:all: -r prototypes/qt/ci/requirements-aqt.txt
+          python -I prototypes/qt/ci/fetch_deps.py qt linux "$RUNNER_TEMP/qt" "$RUNNER_TEMP/qt-archives"
+      - name: Fetch uBlock Origin Lite (pinned, unmodified)
+        run: python -I prototypes/qt/ci/fetch_deps.py ubol "$RUNNER_TEMP/ubol"
+      - name: Build (GCC -Wall -Wextra -Werror)
+        run: |
+          start=$(date +%s)
+          QT="$RUNNER_TEMP/qt/$QT_VERSION/gcc_64"
+          cmake -S prototypes/qt -B "$RUNNER_TEMP/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT" 2>&1 | tee "$RUNNER_TEMP/configure.log"
+          cmake --build "$RUNNER_TEMP/build" -j4 2>&1 | tee "$RUNNER_TEMP/build.log"
+          test "${PIPESTATUS[0]}" = 0
+          echo "build: seconds=$(( $(date +%s) - start ))" | tee "$RUNNER_TEMP/build-time.txt"
+          echo "missing libraries:"; ldd "$RUNNER_TEMP/build/birch-qt-proto" "$QT/libexec/QtWebEngineProcess" | grep "not found" || true
+          python - "$QT" <<'EOF'
+          import os, sys
+          q = sys.argv[1]
+          parts = ["lib", "libexec", "resources", "translations/qtwebengine_locales", "plugins/platforms", "plugins/xcbglintegrations", "plugins/imageformats"]
+          libs = ("libQt6Core", "libQt6Gui", "libQt6Widgets", "libQt6WebEngineCore", "libQt6WebEngineWidgets", "libQt6Quick", "libQt6Qml", "libQt6QmlModels", "libQt6QmlMeta", "libQt6QmlWorkerScript", "libQt6QuickWidgets", "libQt6Network", "libQt6OpenGL", "libQt6WebChannel", "libQt6Positioning", "libQt6DBus", "libQt6XcbQpa", "libQt6OpenGLWidgets", "libicu")
+          size = 0
+          for p in parts:
+              d = os.path.join(q, p)
+              for r, _, fs in os.walk(d):
+                  for f in fs:
+                      if p == "lib" and (not f.startswith(libs) or ".so" not in f or os.path.islink(os.path.join(r, f))):
+                          continue
+                      size += os.path.getsize(os.path.join(r, f))
+          print(f"cost: linux-installed-mb-estimate={size/1048576:.1f} (Qt libraries the prototype loads + WebEngine resources)")
+          EOF
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: media-fixtures
+          path: ${{ runner.temp }}/media
+      - name: Sandbox before an AppArmor profile (Ubuntu 24.04 user-namespace restriction)
+        continue-on-error: true
+        run: |
+          mkdir -p results/no-apparmor-profile
+          sysctl kernel.apparmor_restrict_unprivileged_userns kernel.unprivileged_userns_clone 2>&1 | tee results/no-apparmor-profile/sysctl.txt || true
+          xvfb-run -a -s "-screen 0 1400x900x24" python -I prototypes/qt/tests/run_gates.py \
+            --app "$RUNNER_TEMP/build/birch-qt-proto" --out results/no-apparmor-profile --scenarios sandbox --label linux-no-apparmor-profile || true
+      - name: Install an AppArmor profile granting user namespaces to the prototype only
+        run: |
+          QT="$RUNNER_TEMP/qt/$QT_VERSION/gcc_64"
+          cat > /tmp/birch-qt-proto.apparmor <<EOF
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile birch-qt-proto $RUNNER_TEMP/build/birch-qt-proto flags=(unconfined) {
+            userns,
+          }
+          profile birch-qtwebengineprocess $QT/libexec/QtWebEngineProcess flags=(unconfined) {
+            userns,
+          }
+          EOF
+          sudo install -m 0644 /tmp/birch-qt-proto.apparmor /etc/apparmor.d/birch-qt-proto
+          sudo apparmor_parser -r /etc/apparmor.d/birch-qt-proto
+          mkdir -p results && cp /tmp/birch-qt-proto.apparmor results/apparmor-profile.txt
+      - name: Run the gates
+        run: |
+          mkdir -p results
+          cp "$RUNNER_TEMP/build-time.txt" results/ || true
+          grep -i "warning" "$RUNNER_TEMP/build.log" > results/build-warnings.txt || true
+          xvfb-run -a -s "-screen 0 1400x900x24" python -I prototypes/qt/tests/run_gates.py \
+            --app "$RUNNER_TEMP/build/birch-qt-proto" --out results --media "$RUNNER_TEMP/media" \
+            --ubol-zip "$(cat "$RUNNER_TEMP/ubol/ubol-zip-path.txt")" \
+            --scenarios refuse,main,baseline,ubol,private,cost,strace --strace --label linux-x64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-linux
+          path: results
+          retention-days: 14

@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Birch fixture: permissions</title>
+<p>Asks for camera + microphone, location and notifications. Birch must refuse all three.</p>
+<script>
+window.__perm = { done: false };
+async function runPermTests(round) {
+  const r = { round: round, done: false };
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    r.cam = 'granted';
+    s.getTracks().forEach(t => t.stop());
+  } catch (e) { r.cam = e.name; }
+  r.geo = await new Promise(res => {
+    if (!navigator.geolocation) { res('unavailable'); return; }
+    navigator.geolocation.getCurrentPosition(() => res('granted'),
+      e => res(e.code === 1 ? 'denied' : 'error' + e.code), { timeout: 8000 });
+  });
+  try { r.notif = await Notification.requestPermission(); } catch (e) { r.notif = 'error:' + e.name; }
+  r.done = true;
+  window.__perm = r;
+}
+</script>
