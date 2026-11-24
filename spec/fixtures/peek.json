@@ -1,0 +1,1009 @@
+{
+  "area" : "behaviour",
+  "cases" : [
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/x",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "other site from an unpinned tab",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://news.a.example/x",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://www.a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "same site, other subdomain",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://news.bbc.co.uk/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://www.bbc.co.uk/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "same site, co.uk",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "http://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "http link to another site",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://a.example/2",
+        "modifier" : "shift",
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "shift-click on the same site",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "background tab"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : "cmd",
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "cmd-click opens a background tab",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "background tab"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : "middle",
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "middle-click opens a background tab",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "typed or redirect",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "typed address",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "form submit",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "form submit",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "script",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "script window.open",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://www.google.com/search?q=x",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from Google results",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://www.google.co.uk/search?q=x",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from google.co.uk",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://html.duckduckgo.com/html?q=x",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from DuckDuckGo html",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://kagi.com/search?q=x",
+        "peekExcludedSites" : [
+
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://kagi.com/search?q=%s",
+        "settings" : "engine kagi.com, empty list",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from the custom search engine",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://googleblog.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from a site merely named like Google",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : false,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "pinned tabs and favorites only",
+        "tab_location" : "unpinned"
+      },
+      "name" : "pinned-only setting, unpinned tab",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : false,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "pinned tabs and favorites only",
+        "tab_location" : "pinned"
+      },
+      "name" : "pinned-only setting, pinned tab",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : false,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "pinned tabs and favorites only",
+        "tab_location" : "favorite"
+      },
+      "name" : "pinned-only setting, favorite",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : false,
+        "peekLinksFromPinnedTabs" : false,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "never",
+        "tab_location" : "pinned"
+      },
+      "name" : "never setting",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : "shift",
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : false,
+        "peekLinksFromPinnedTabs" : false,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "never",
+        "tab_location" : "pinned"
+      },
+      "name" : "never setting, shift-click still previews",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : null,
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : "https://a.example/home",
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "pinned"
+      },
+      "name" : "page without an address falls back to pinnedURL",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : null,
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "no page address, no pinnedURL",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : false,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "none"
+      },
+      "name" : "mini or private window page (not a tab)",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "ask to open another app"
+      },
+      "input" : {
+        "link" : "mailto:a@b.example",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "mailto link",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "javascript:void(0)",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "javascript: link",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "navigate"
+      },
+      "input" : {
+        "link" : "https:///nohost",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "https://a.example/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "link with no host",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "birch://welcome",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "from a bundled page",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    },
+    {
+      "expected" : {
+        "outcome" : "peek"
+      },
+      "input" : {
+        "link" : "https://b.example/",
+        "modifier" : null,
+        "navigation" : "link click",
+        "page_is_a_tab" : true,
+        "page_url" : "http://192.168.1.1/",
+        "peekExcludedSites" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "peekLinksFromAllTabs" : true,
+        "peekLinksFromPinnedTabs" : true,
+        "pinnedURL" : null,
+        "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+        "settings" : "all tabs (default)",
+        "tab_location" : "unpinned"
+      },
+      "name" : "IP address to a name",
+      "source" : "transcribed: Engine.shouldPeek + link branch of decidePolicyFor (Web.swift); real Site.host(_:isIn:), Site.same"
+    }
+  ],
+  "fixture" : "peek",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "outcome: peek | navigate (in the tab) | background tab | ask to open another app."
+  ],
+  "sources" : [
+    "transcribed Engine.shouldPeek (WKNavigationAction can't be built outside WebKit); real Site helpers and Settings defaults"
+  ],
+  "spec_version" : "1.0.0"
+}

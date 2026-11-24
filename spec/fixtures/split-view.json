@@ -1,0 +1,936 @@
+{
+  "area" : "behaviour",
+  "cases" : [
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : false,
+        "operation" : "eight unpinned tabs a…h"
+      },
+      "name" : "start"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "b",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "b"
+              ],
+              "stacked" : false
+            },
+            "c",
+            "d",
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        },
+        "result" : true
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(a, with: b)"
+      },
+      "name" : "split two tabs"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "c",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b"
+              ],
+              "stacked" : false
+            },
+            "d",
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        },
+        "result" : true
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(a, with: c)"
+      },
+      "name" : "third pane joins after the base"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        },
+        "result" : true
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(b, with: d)"
+      },
+      "name" : "fourth pane"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        },
+        "result" : false
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(a, with: e)"
+      },
+      "name" : "a fifth pane is refused"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "f",
+            "g",
+            "h"
+          ]
+        },
+        "result" : false
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(e, with: e)"
+      },
+      "name" : "a tab can't split with itself"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "toggleFavorite(f)"
+      },
+      "name" : "favorite made"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        },
+        "result" : false
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(f, with: e)"
+      },
+      "name" : "favorites never go in a split (as base)"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        },
+        "result" : false
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(e, with: f)"
+      },
+      "name" : "favorites never go in a split (as other)"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            {
+              "children" : [
+
+              ],
+              "folder" : "Box"
+            }
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "c",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        },
+        "result" : false
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "canSplit(folder)"
+      },
+      "name" : "folders can't split"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "a",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "b",
+                "d"
+              ],
+              "stacked" : false
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "select(c); close(c)"
+      },
+      "name" : "closing a pane of an unpinned split closes that tab"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "a",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "a",
+                "b"
+              ],
+              "stacked" : false
+            },
+            "d",
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "removeFromSplit(d)"
+      },
+      "name" : "remove from split puts the tab right after the split"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "a",
+          "today" : [
+            "a",
+            "d",
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "close(b)"
+      },
+      "name" : "one tab left dissolves the split"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "d",
+                "a"
+              ],
+              "stacked" : true
+            },
+            "e",
+            "g",
+            "h"
+          ]
+        },
+        "result" : true
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(a, with: d, otherFirst: true, stacked: true)"
+      },
+      "name" : "stacked split, other first"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "d",
+                "a"
+              ],
+              "stacked" : true
+            }
+          ],
+          "selected" : "d",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        },
+        "pinnedURL" : {
+          "a" : "birch://spec-a",
+          "d" : "birch://spec-d"
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "togglePin(a)"
+      },
+      "name" : "pinning a pane pins the whole split"
+    },
+    {
+      "expected" : {
+        "a_has_page" : true,
+        "a_url" : "birch://spec-a",
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "d",
+                "a"
+              ],
+              "stacked" : true
+            }
+          ],
+          "selected" : "d",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "select(a); a navigated to https://moved.example/; close(a)"
+      },
+      "name" : "closing an on-screen pane of a pinned split returns it to its pinned address"
+    },
+    {
+      "expected" : {
+        "a_has_page" : false,
+        "a_url" : "birch://spec-a",
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "d",
+                "a"
+              ],
+              "stacked" : true
+            }
+          ],
+          "selected" : "e",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "select(e); a navigated to https://moved.example/; close(a)"
+      },
+      "name" : "closing a pane of a pinned split that is off screen puts it to sleep"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f",
+            "d"
+          ],
+          "pinned" : [
+            "a"
+          ],
+          "selected" : "e",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "toggleFavorite(d)"
+      },
+      "name" : "a pane made a favorite leaves the split first"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "e",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "toggleFavorite(d)"
+      },
+      "name" : "favorite back to pinned"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "g",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "e",
+                "g"
+              ],
+              "stacked" : false
+            },
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(e, with: g); move(split, to: favorites)"
+      },
+      "name" : "a split can't become a favorite"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "g",
+          "today" : [
+            "e",
+            "g",
+            "h"
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "unsplit(split e|g)"
+      },
+      "name" : "separate"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "h",
+          "today" : [
+            {
+              "fractions" : [
+                0.5,
+                0.29999999999999999,
+                0.20000000000000001
+              ],
+              "split" : [
+                "e",
+                "g",
+                "h"
+              ],
+              "stacked" : false
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(e, g); makeSplit(g, h); setSplitFractions([0.5, 0.3, 0.2])"
+      },
+      "name" : "pane sizes"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "h",
+          "today" : [
+            {
+              "fractions" : [
+                0.5,
+                0.29999999999999999,
+                0.20000000000000001
+              ],
+              "split" : [
+                "e",
+                "g",
+                "h"
+              ],
+              "stacked" : false
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "setSplitFractions([0.5, 0.5])"
+      },
+      "name" : "sizes with the wrong count are ignored"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "h",
+          "today" : [
+            {
+              "fractions" : [
+                0.29999999999999999,
+                0.20000000000000001,
+                0.5
+              ],
+              "split" : [
+                "g",
+                "h",
+                "e"
+              ],
+              "stacked" : false
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "rotatePanes"
+      },
+      "name" : "rotate panes"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "h",
+          "today" : [
+            {
+              "fractions" : [
+                0.29999999999999999,
+                0.20000000000000001,
+                0.5
+              ],
+              "split" : [
+                "g",
+                "h",
+                "e"
+              ],
+              "stacked" : false
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "select(g); focusPane(+1)"
+      },
+      "name" : "focus next pane"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "e",
+          "today" : [
+            {
+              "fractions" : [
+                0.29999999999999999,
+                0.20000000000000001,
+                0.5
+              ],
+              "split" : [
+                "g",
+                "h",
+                "e"
+              ],
+              "stacked" : false
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "focusPane(+1)"
+      },
+      "name" : "focus next pane wraps"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "g",
+          "today" : [
+            {
+              "fractions" : [
+                0.29999999999999999,
+                0.20000000000000001,
+                0.5
+              ],
+              "split" : [
+                "g",
+                "h",
+                "e"
+              ],
+              "stacked" : true
+            }
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "makeSplit(e, with: g, stacked: true)"
+      },
+      "name" : "splitting two panes already together only changes the layout"
+    },
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "f"
+          ],
+          "pinned" : [
+            "a",
+            "d"
+          ],
+          "selected" : "d",
+          "today" : [
+
+          ]
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "operation" : "togglePin(e); closeAndUnpin(split)"
+      },
+      "name" : "× on a pinned split removes it from the sidebar"
+    }
+  ],
+  "fixture" : "split-view",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "Cases are one sequence: each starts from the previous case's `after`. Labels are tab titles."
+  ],
+  "sources" : [
+    "Models.swift Store makeSplit/close/removeFromSplit/unsplit/togglePin/toggleFavorite/move/setSplitFractions/rotatePanes/focusPane/closeAndUnpin (real, live scratch store)"
+  ],
+  "spec_version" : "1.0.0"
+}

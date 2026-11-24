@@ -1,0 +1,239 @@
+{
+  "area" : "address-and-search",
+  "cases" : [
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?id=5"
+      },
+      "input" : {
+        "url" : "https://a.example/?utm_source=x&utm_medium=y&id=5"
+      },
+      "name" : "https://a.example/?utm_source=x&utm_medium=y&id=5"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://a.example/?id=5"
+      },
+      "name" : "https://a.example/?id=5"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://a.example/"
+      },
+      "name" : "https://a.example/"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/"
+      },
+      "input" : {
+        "url" : "https://a.example/?fbclid=abc"
+      },
+      "name" : "https://a.example/?fbclid=abc"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?Keep=1"
+      },
+      "input" : {
+        "url" : "https://a.example/?UTM_Source=x&Keep=1"
+      },
+      "name" : "https://a.example/?UTM_Source=x&Keep=1"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/"
+      },
+      "input" : {
+        "url" : "https://a.example/?gclid"
+      },
+      "name" : "https://a.example/?gclid"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/"
+      },
+      "input" : {
+        "url" : "https://a.example/?fbclid="
+      },
+      "name" : "https://a.example/?fbclid="
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?a=1&&b=2"
+      },
+      "input" : {
+        "url" : "https://a.example/?a=1&&b=2&gclid=3"
+      },
+      "name" : "https://a.example/?a=1&&b=2&gclid=3"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/p#frag"
+      },
+      "input" : {
+        "url" : "https://a.example/p?utm_x=1#frag"
+      },
+      "name" : "https://a.example/p?utm_x=1#frag"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://a.example/?utm%5Fsource=x"
+      },
+      "name" : "https://a.example/?utm%5Fsource=x"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/"
+      },
+      "input" : {
+        "url" : "https://a.example/?pk_campaign=1&mtm_x=2&piwik_y=3&_hsenc=4&mc_eid=5"
+      },
+      "name" : "https://a.example/?pk_campaign=1&mtm_x=2&piwik_y=3&_hsenc=4&mc_eid=5"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://www.youtube.com/watch?v=abc"
+      },
+      "input" : {
+        "url" : "https://www.youtube.com/watch?v=abc&si=xyz"
+      },
+      "name" : "https://www.youtube.com/watch?v=abc&si=xyz"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://youtu.be/abc"
+      },
+      "input" : {
+        "url" : "https://youtu.be/abc?si=xyz"
+      },
+      "name" : "https://youtu.be/abc?si=xyz"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://open.spotify.com/track/1"
+      },
+      "input" : {
+        "url" : "https://open.spotify.com/track/1?si=xyz"
+      },
+      "name" : "https://open.spotify.com/track/1?si=xyz"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://music.youtube.com/watch?v=1"
+      },
+      "input" : {
+        "url" : "https://music.youtube.com/watch?v=1&si=2"
+      },
+      "name" : "https://music.youtube.com/watch?v=1&si=2"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://notyoutube.com/"
+      },
+      "input" : {
+        "url" : "https://notyoutube.com/?si=1"
+      },
+      "name" : "https://notyoutube.com/?si=1"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://a.example/?si=1"
+      },
+      "name" : "https://a.example/?si=1"
+    },
+    {
+      "expected" : {
+        "cleaned" : "http://a.example/"
+      },
+      "input" : {
+        "url" : "http://a.example/?utm_source=x"
+      },
+      "name" : "http://a.example/?utm_source=x"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "ftp://a.example/?utm_source=x"
+      },
+      "name" : "ftp://a.example/?utm_source=x"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?q=a%20b"
+      },
+      "input" : {
+        "url" : "https://a.example/?q=a%20b&utm_source=x"
+      },
+      "name" : "https://a.example/?q=a%20b&utm_source=x"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?q=a+b"
+      },
+      "input" : {
+        "url" : "https://a.example/?q=a+b&fbclid=1"
+      },
+      "name" : "https://a.example/?q=a+b&fbclid=1"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/"
+      },
+      "input" : {
+        "url" : "https://a.example/?srsltid=1&li_fat_id=2&igshid=3"
+      },
+      "name" : "https://a.example/?srsltid=1&li_fat_id=2&igshid=3"
+    },
+    {
+      "expected" : {
+        "cleaned" : "https://a.example/?x=1"
+      },
+      "input" : {
+        "url" : "https://a.example/?utm_source=1&utm_source=2&x=1"
+      },
+      "name" : "https://a.example/?utm_source=1&utm_source=2&x=1"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://A.EXAMPLE/?SI=1&Si=2"
+      },
+      "name" : "https://A.EXAMPLE/?SI=1&Si=2"
+    },
+    {
+      "expected" : {
+        "cleaned" : null
+      },
+      "input" : {
+        "url" : "https://a.example/?ref=hn"
+      },
+      "name" : "https://a.example/?ref=hn"
+    }
+  ],
+  "fixture" : "url-cleaner",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "cleaned null = nothing to remove (Birch then loads the address unchanged)."
+  ],
+  "sources" : [
+    "Data.swift URLCleaner.clean (real)"
+  ],
+  "spec_version" : "1.0.0"
+}

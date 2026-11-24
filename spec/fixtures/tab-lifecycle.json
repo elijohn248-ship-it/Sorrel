@@ -1,0 +1,955 @@
+{
+  "area" : "behaviour",
+  "cases" : [
+    {
+      "expected" : {
+        "after" : {
+          "favorites" : [
+            "old-favorite"
+          ],
+          "pinned" : [
+            "old-pinned",
+            {
+              "children" : [
+                "old-in-folder"
+              ],
+              "folder" : "Folder"
+            }
+          ],
+          "selected" : "old-selected",
+          "today" : [
+            "recent",
+            "old-selected",
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "s3",
+                "s4"
+              ],
+              "stacked" : false
+            }
+          ]
+        },
+        "archive_entries_added_newest_first" : [
+          {
+            "space_is_lab" : true,
+            "title" : "s2",
+            "url" : "https://s2.example/"
+          },
+          {
+            "space_is_lab" : true,
+            "title" : "s1",
+            "url" : "https://s1.example/"
+          },
+          {
+            "space_is_lab" : true,
+            "title" : "old",
+            "url" : "https://old.example/"
+          }
+        ],
+        "archived_count" : 4,
+        "never_setting_0_archives" : 0
+      },
+      "input" : {
+        "before" : {
+          "favorites" : [
+            "old-favorite"
+          ],
+          "pinned" : [
+            "old-pinned",
+            {
+              "children" : [
+                "old-in-folder"
+              ],
+              "folder" : "Folder"
+            }
+          ],
+          "selected" : "old-selected",
+          "today" : [
+            "old",
+            "old-birch",
+            "recent",
+            "old-selected",
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "s1",
+                "s2"
+              ],
+              "stacked" : false
+            },
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "s3",
+                "s4"
+              ],
+              "stacked" : false
+            }
+          ]
+        },
+        "hours_idle" : {
+          "old" : 25,
+          "old-birch" : 25,
+          "old-favorite" : 25,
+          "old-in-folder" : 25,
+          "old-pinned" : 25,
+          "old-selected" : 25,
+          "recent" : 1,
+          "s1" : 25,
+          "s2" : 25,
+          "s3" : 25,
+          "s4" : 1
+        },
+        "selected" : "old-selected",
+        "setting_archiveAfterHours" : 24
+      },
+      "name" : "archive after 24 hours"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 0.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 0.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 0.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0.25,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 0.25 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a"
+        ],
+        "slept_count" : 5
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0.25,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 0.25 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a"
+        ],
+        "slept_count" : 5
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0.25,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 0.25 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 1,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 1.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 1,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 1.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 1,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 1.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 3,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 3.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c"
+        ],
+        "slept_count" : 3
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 3,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 3.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 3,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 3.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 5,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 5.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "slept_count" : 2
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 5,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 5.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 5,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 5.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 10,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 10.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "slept_count" : 2
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 10,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 10.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 10,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 10.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure normal"
+      },
+      "name" : "memory pressure normal, sleep setting 120.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "slept_count" : 2
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure warning"
+      },
+      "name" : "memory pressure warning, sleep setting 120.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "memory pressure critical, sleep setting 120.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure warning+critical"
+      },
+      "name" : "memory pressure warning+critical together"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "slept_count" : 0
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 0,
+        "trigger" : "maintenance timer"
+      },
+      "name" : "maintenance timer, sleep setting 0.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b"
+        ],
+        "slept_count" : 4
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 1,
+        "trigger" : "maintenance timer"
+      },
+      "name" : "maintenance timer, sleep setting 1.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "e",
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "slept_count" : 2
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 5,
+        "trigger" : "maintenance timer"
+      },
+      "name" : "maintenance timer, sleep setting 5.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "f"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e"
+        ],
+        "slept_count" : 1
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "maintenance timer"
+      },
+      "name" : "maintenance timer, sleep setting 120.0 min"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "f"
+        ],
+        "slept_count" : 3
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "on_screen" : [
+          "f"
+        ],
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "tab on screen never sleeps"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "e",
+          "f"
+        ],
+        "slept_count" : 2
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "on_screen" : [
+          "f",
+          "e"
+        ],
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "every pane of the split on screen stays awake"
+    },
+    {
+      "expected" : {
+        "asleep" : [
+          "c",
+          "d",
+          "e"
+        ],
+        "awake" : [
+          "a",
+          "b",
+          "f"
+        ],
+        "slept_count" : 3
+      },
+      "input" : {
+        "minutes_idle" : {
+          "a" : 0.10000000000000001,
+          "b" : 0.5,
+          "c" : 2,
+          "d" : 4,
+          "e" : 6,
+          "f" : 200
+        },
+        "playing_media" : "f",
+        "setting_sleepTabsAfterMinutes" : 120,
+        "trigger" : "memory pressure critical"
+      },
+      "name" : "playing media never sleeps"
+    }
+  ],
+  "fixture" : "tab-lifecycle",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "Sleep cases use tabs with a page created but nothing loaded; canSleep also refuses pages that are loading, capturing camera/mic, in Picture in Picture or showing a non-http(s) address (see tab-lifecycle.md)."
+  ],
+  "sources" : [
+    "Models.swift Store.archiveStaleTabs/sleepIdleTabs/canSleep, Cleanup.swift relieveMemoryPressure (real, live scratch store)"
+  ],
+  "spec_version" : "1.0.0"
+}
