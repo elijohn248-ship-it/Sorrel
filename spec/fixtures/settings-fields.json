@@ -1,0 +1,401 @@
+{
+  "area" : "saved-data",
+  "cases" : [
+    {
+      "expected" : {
+        "decoded_when_missing" : "DuckDuckGo",
+        "default" : "DuckDuckGo",
+        "swift_type" : "String"
+      },
+      "input" : {
+        "field" : "searchEngineName"
+      },
+      "name" : "searchEngineName"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : "https://duckduckgo.com/?q=%s",
+        "default" : "https://duckduckgo.com/?q=%s",
+        "swift_type" : "String"
+      },
+      "input" : {
+        "field" : "searchEngineURL"
+      },
+      "name" : "searchEngineURL"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "stripTrackingParameters"
+      },
+      "name" : "stripTrackingParameters"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "httpsFirst"
+      },
+      "name" : "httpsFirst"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "blockAds"
+      },
+      "name" : "blockAds"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : false,
+        "default" : false,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "blockCookieNotices"
+      },
+      "name" : "blockCookieNotices"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : [
+
+        ],
+        "default" : [
+
+        ],
+        "swift_type" : "Array<String>"
+      },
+      "input" : {
+        "field" : "blockingDisabledSites"
+      },
+      "name" : "blockingDisabledSites"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 120,
+        "default" : 120,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sleepTabsAfterMinutes"
+      },
+      "name" : "sleepTabsAfterMinutes"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : false,
+        "default" : false,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "searchSuggestions"
+      },
+      "name" : "searchSuggestions"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "autoUpdateBlocker"
+      },
+      "name" : "autoUpdateBlocker"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "checkForUpdates"
+      },
+      "name" : "checkForUpdates"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : false,
+        "default" : false,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "installUpdatesAutomatically"
+      },
+      "name" : "installUpdatesAutomatically"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : {
+
+        },
+        "default" : {
+
+        },
+        "swift_type" : "Dictionary<String, Bool>"
+      },
+      "input" : {
+        "field" : "extensionStates"
+      },
+      "name" : "extensionStates"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : {
+
+        },
+        "default" : {
+
+        },
+        "swift_type" : "Dictionary<String, Array<String>>"
+      },
+      "input" : {
+        "field" : "extensionGrants"
+      },
+      "name" : "extensionGrants"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : {
+
+        },
+        "default" : {
+
+        },
+        "swift_type" : "Dictionary<String, Array<String>>"
+      },
+      "input" : {
+        "field" : "extensionApproved"
+      },
+      "name" : "extensionApproved"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 24,
+        "default" : 24,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "archiveAfterHours"
+      },
+      "name" : "archiveAfterHours"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "controlTabUsesRecency"
+      },
+      "name" : "controlTabUsesRecency"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 0,
+        "default" : 0,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "removeHistoryAfterDays"
+      },
+      "name" : "removeHistoryAfterDays"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : false,
+        "default" : false,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "emptyCacheOnQuit"
+      },
+      "name" : "emptyCacheOnQuit"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : "Helium",
+        "default" : "Helium",
+        "swift_type" : "String"
+      },
+      "input" : {
+        "field" : "fallbackBrowser"
+      },
+      "name" : "fallbackBrowser"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "externalLinksOpenInMiniWindow"
+      },
+      "name" : "externalLinksOpenInMiniWindow"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "peekLinksFromAllTabs"
+      },
+      "name" : "peekLinksFromAllTabs"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "peekLinksFromPinnedTabs"
+      },
+      "name" : "peekLinksFromPinnedTabs"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "default" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu"
+        ],
+        "swift_type" : "Array<String>"
+      },
+      "input" : {
+        "field" : "peekExcludedSites"
+      },
+      "name" : "peekExcludedSites"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 14,
+        "default" : 14,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sidebarHoverEdgeWidth"
+      },
+      "name" : "sidebarHoverEdgeWidth"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 90,
+        "default" : 90,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sidebarOvershootReach"
+      },
+      "name" : "sidebarOvershootReach"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 1,
+        "default" : 2,
+        "swift_type" : "Int"
+      },
+      "input" : {
+        "field" : "settingsVersion"
+      },
+      "name" : "settingsVersion"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 0.12,
+        "default" : 0.12,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sidebarHideDelay"
+      },
+      "name" : "sidebarHideDelay"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 14,
+        "default" : 14,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sidebarExitTolerance"
+      },
+      "name" : "sidebarExitTolerance"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : 0.20000000000000001,
+        "default" : 0.20000000000000001,
+        "swift_type" : "Double"
+      },
+      "input" : {
+        "field" : "sidebarAnimationDuration"
+      },
+      "name" : "sidebarAnimationDuration"
+    },
+    {
+      "expected" : {
+        "decoded_when_missing" : true,
+        "default" : true,
+        "swift_type" : "Bool"
+      },
+      "input" : {
+        "field" : "sidebarHoverWhenInactive"
+      },
+      "name" : "sidebarHoverWhenInactive"
+    }
+  ],
+  "fixture" : "settings-fields",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "default = a new profile's value; decoded_when_missing = what a settings.json without the key decodes to (before Settings.load's migration)."
+  ],
+  "sources" : [
+    "Support.swift Settings() and Settings.init(from:) (real)"
+  ],
+  "spec_version" : "1.0.0"
+}

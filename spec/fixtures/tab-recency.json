@@ -1,0 +1,868 @@
+{
+  "area" : "behaviour",
+  "cases" : [
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "press",
+            "switcher" : [
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        },
+        "steps" : [
+          "press",
+          "release",
+          "press",
+          "release",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "d",
+          "b"
+        ]
+      },
+      "name" : "quick press and release toggles between the last two tabs"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        },
+        "steps" : [
+          "press",
+          "press",
+          "press",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "d",
+          "b"
+        ]
+      },
+      "name" : "holding Control walks a stable order and wraps"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "shift-press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "shift-press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "shift-press",
+            "switcher" : [
+              "b",
+              "d",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        },
+        "steps" : [
+          "press",
+          "press",
+          "shift-press",
+          "shift-press",
+          "shift-press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "d",
+          "b"
+        ]
+      },
+      "name" : "Shift walks back"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "e",
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "press",
+            "switcher" : [
+              "e",
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "e",
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "e",
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "e",
+            "step" : "press",
+            "switcher" : [
+              "e",
+              "d",
+              "b",
+              "a",
+              "c"
+            ]
+          },
+          {
+            "selected" : "e",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+          "a" : 30,
+          "b" : 10,
+          "c" : 30,
+          "d" : 5,
+          "e" : 30
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d",
+            "e"
+          ]
+        },
+        "steps" : [
+          "press",
+          "press",
+          "press",
+          "press",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "e"
+        ]
+      },
+      "name" : "tabs never visited follow by last use, ties in sidebar order"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "c",
+              "a"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "click a",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "c",
+              "b"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c"
+          ]
+        },
+        "steps" : [
+          "press",
+          "click a",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "c",
+          "b"
+        ]
+      },
+      "name" : "a click ends the held cycle"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "c",
+              "a"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "close d",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "press",
+            "switcher" : [
+              "c",
+              "b",
+              "a"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        },
+        "steps" : [
+          "press",
+          "close d",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "c",
+          "d",
+          "b"
+        ]
+      },
+      "name" : "a tab closed mid-cycle is skipped"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "e",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "e",
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "e",
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "e",
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "e",
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "e",
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+            "a"
+          ],
+          "pinned" : [
+            "b",
+            {
+              "children" : [
+                "c"
+              ],
+              "folder" : "F"
+            }
+          ],
+          "selected" : "d",
+          "today" : [
+            {
+              "fractions" : [
+
+              ],
+              "split" : [
+                "d",
+                "e"
+              ],
+              "stacked" : false
+            }
+          ]
+        },
+        "steps" : [
+          "press",
+          "press",
+          "press",
+          "press",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "c",
+          "a",
+          "e",
+          "b"
+        ]
+      },
+      "name" : "favorites, pinned tabs, folders and split panes all take part"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "a"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a"
+          ]
+        },
+        "steps" : [
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a"
+        ]
+      },
+      "name" : "a single tab: nothing happens"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "c",
+            "step" : "menu-next",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "b",
+            "step" : "menu-next",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c"
+          ]
+        },
+        "steps" : [
+          "menu-next",
+          "menu-next"
+        ],
+        "visits_in_order" : [
+          "a",
+          "c",
+          "b"
+        ]
+      },
+      "name" : "menu Next Tab uses recency without holding"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "shift-press",
+            "switcher" : [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "click d",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "b",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : false,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        },
+        "steps" : [
+          "press",
+          "press",
+          "shift-press",
+          "release",
+          "click d",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "d",
+          "a",
+          "c"
+        ]
+      },
+      "name" : "recency off: sidebar order, wrapping"
+    }
+  ],
+  "fixture" : "tab-recency",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "press = Control+Tab key down (holdingControl true), shift-press = Control+Shift+Tab, release = Control let go,",
+    "menu-next = tab.cycleNext from a menu or the command bar (holdingControl false).",
+    "switcher = the order the Control+Tab switcher shows after the step ([] = hidden).",
+    "Each case is its own space; favorites are shared, so the favorites row may hold other cases' favorites only while that case runs."
+  ],
+  "sources" : [
+    "Models.swift Store.cycleTab/endTabCycle/select/cycleOrder (real, live scratch store)"
+  ],
+  "spec_version" : "1.0.0"
+}

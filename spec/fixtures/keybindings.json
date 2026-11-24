@@ -1,0 +1,1011 @@
+{
+  "area" : "saved-data",
+  "cases" : [
+    {
+      "expected" : {
+        "file" : {
+          "alt+cmd+down" : "tab.next",
+          "alt+cmd+l" : "downloads.show",
+          "alt+cmd+left" : "space.previous",
+          "alt+cmd+n" : "mini.new",
+          "alt+cmd+right" : "space.next",
+          "alt+cmd+up" : "tab.previous",
+          "cmd+-" : "view.zoomOut",
+          "cmd+," : "settings.open",
+          "cmd+[" : "nav.back",
+          "cmd+]" : "nav.forward",
+          "cmd+=" : "view.zoomIn",
+          "cmd+0" : "view.zoomReset",
+          "cmd+1" : "tab.select.1",
+          "cmd+2" : "tab.select.2",
+          "cmd+3" : "tab.select.3",
+          "cmd+4" : "tab.select.4",
+          "cmd+5" : "tab.select.5",
+          "cmd+6" : "tab.select.6",
+          "cmd+7" : "tab.select.7",
+          "cmd+8" : "tab.select.8",
+          "cmd+9" : "tab.select.9",
+          "cmd+d" : "tab.togglePin",
+          "cmd+f" : "find.show",
+          "cmd+k cmd+r" : "config.reload",
+          "cmd+k cmd+t" : "theme.edit",
+          "cmd+l" : "tab.editURL",
+          "cmd+n" : "window.new",
+          "cmd+o" : "mini.expand",
+          "cmd+p" : "tab.print",
+          "cmd+r" : "tab.reload",
+          "cmd+s" : "sidebar.toggle",
+          "cmd+shift+c" : "tab.copyURL",
+          "cmd+shift+d" : "tab.toggleFavorite",
+          "cmd+shift+delete" : "data.clearRecent",
+          "cmd+shift+n" : "private.new",
+          "cmd+shift+o" : "tab.openInFallback",
+          "cmd+shift+r" : "tab.hardReload",
+          "cmd+shift+t" : "tab.reopen",
+          "cmd+shift+w" : "window.close",
+          "cmd+t" : "tab.new",
+          "cmd+w" : "tab.close",
+          "cmd+y" : "history.show",
+          "ctrl+1" : "space.1",
+          "ctrl+2" : "space.2",
+          "ctrl+3" : "space.3",
+          "ctrl+4" : "space.4",
+          "ctrl+5" : "space.5",
+          "ctrl+6" : "space.6",
+          "ctrl+7" : "space.7",
+          "ctrl+8" : "space.8",
+          "ctrl+9" : "space.9",
+          "ctrl+cmd+n" : "folder.new",
+          "ctrl+shift+-" : "split.separate",
+          "ctrl+shift+[" : "split.focusPrevious",
+          "ctrl+shift+]" : "split.focusNext",
+          "ctrl+shift+=" : "split.add",
+          "ctrl+shift+tab" : "tab.cyclePrevious",
+          "ctrl+tab" : "tab.cycleNext"
+        },
+        "user_file_created" : "{\n}\n"
+      },
+      "input" : {
+        "launch" : "fresh profile"
+      },
+      "name" : "keybindings.default.json"
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd+t",
+        "pretty" : "⌘T"
+      },
+      "input" : {
+        "stroke" : "cmd+t"
+      },
+      "name" : "normalize stroke \"cmd+t\""
+    },
+    {
+      "expected" : {
+        "normalized" : "shift+cmd+t",
+        "pretty" : "⇧⌘T"
+      },
+      "input" : {
+        "stroke" : "Cmd+Shift+T"
+      },
+      "name" : "normalize stroke \"Cmd+Shift+T\""
+    },
+    {
+      "expected" : {
+        "normalized" : "shift+cmd+t",
+        "pretty" : "⇧⌘T"
+      },
+      "input" : {
+        "stroke" : "shift+cmd+t"
+      },
+      "name" : "normalize stroke \"shift+cmd+t\""
+    },
+    {
+      "expected" : {
+        "normalized" : "alt+cmd+x",
+        "pretty" : "⌥⌘X"
+      },
+      "input" : {
+        "stroke" : "command+option+x"
+      },
+      "name" : "normalize stroke \"command+option+x\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd+x",
+        "pretty" : "⌘X"
+      },
+      "input" : {
+        "stroke" : "meta+x"
+      },
+      "name" : "normalize stroke \"meta+x\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd+x",
+        "pretty" : "⌘X"
+      },
+      "input" : {
+        "stroke" : "super+x"
+      },
+      "name" : "normalize stroke \"super+x\""
+    },
+    {
+      "expected" : {
+        "normalized" : "ctrl+alt+del",
+        "pretty" : "⌃⌥DEL"
+      },
+      "input" : {
+        "stroke" : "control+alt+del"
+      },
+      "name" : "normalize stroke \"control+alt+del\""
+    },
+    {
+      "expected" : {
+        "normalized" : "alt+a",
+        "pretty" : "⌥A"
+      },
+      "input" : {
+        "stroke" : "opt+a"
+      },
+      "name" : "normalize stroke \"opt+a\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd++",
+        "pretty" : "⌘+"
+      },
+      "input" : {
+        "stroke" : "cmd++"
+      },
+      "name" : "normalize stroke \"cmd++\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd++",
+        "pretty" : "⌘+"
+      },
+      "input" : {
+        "stroke" : "cmd+plus"
+      },
+      "name" : "normalize stroke \"cmd+plus\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd+=",
+        "pretty" : "⌘="
+      },
+      "input" : {
+        "stroke" : "cmd+="
+      },
+      "name" : "normalize stroke \"cmd+=\""
+    },
+    {
+      "expected" : {
+        "normalized" : "cmd+enter",
+        "pretty" : "⌘↩"
+      },
+      "input" : {
+        "stroke" : "cmd+return"
+      },
+      "name" : "normalize stroke \"cmd+return\""
+    },
+    {
+      "expected" : {
+        "normalized" : "escape",
+        "pretty" : "⎋"
+      },
+      "input" : {
+        "stroke" : "esc"
+      },
+      "name" : "normalize stroke \"esc\""
+    },
+    {
+      "expected" : {
+        "normalized" : "ctrl+delete",
+        "pretty" : "⌃⌫"
+      },
+      "input" : {
+        "stroke" : "ctrl+backspace"
+      },
+      "name" : "normalize stroke \"ctrl+backspace\""
+    },
+    {
+      "expected" : {
+        "normalized" : null,
+        "pretty" : ""
+      },
+      "input" : {
+        "stroke" : "hyper+x"
+      },
+      "name" : "normalize stroke \"hyper+x\""
+    },
+    {
+      "expected" : {
+        "normalized" : null,
+        "pretty" : ""
+      },
+      "input" : {
+        "stroke" : "cmd+"
+      },
+      "name" : "normalize stroke \"cmd+\""
+    },
+    {
+      "expected" : {
+        "normalized" : null,
+        "pretty" : ""
+      },
+      "input" : {
+        "stroke" : "+"
+      },
+      "name" : "normalize stroke \"+\""
+    },
+    {
+      "expected" : {
+        "normalized" : null,
+        "pretty" : ""
+      },
+      "input" : {
+        "stroke" : ""
+      },
+      "name" : "normalize stroke \"\""
+    },
+    {
+      "expected" : {
+        "normalized" : "ctrl+tab",
+        "pretty" : "⌃⇥"
+      },
+      "input" : {
+        "stroke" : "CTRL+TAB"
+      },
+      "name" : "normalize stroke \"CTRL+TAB\""
+    },
+    {
+      "expected" : {
+        "normalized" : "alt+cmd+left",
+        "pretty" : "⌥⌘←"
+      },
+      "input" : {
+        "stroke" : "alt+cmd+left"
+      },
+      "name" : "normalize stroke \"alt+cmd+left\""
+    },
+    {
+      "expected" : {
+        "normalized" : [
+          "cmd+k",
+          "cmd+t"
+        ]
+      },
+      "input" : {
+        "sequence" : "cmd+k cmd+t"
+      },
+      "name" : "normalize sequence \"cmd+k cmd+t\""
+    },
+    {
+      "expected" : {
+        "normalized" : [
+          "cmd+k",
+          "cmd+t"
+        ]
+      },
+      "input" : {
+        "sequence" : "  Cmd+K   cmd+T "
+      },
+      "name" : "normalize sequence \"  Cmd+K   cmd+T \""
+    },
+    {
+      "expected" : {
+        "normalized" : [
+          "cmd+k"
+        ]
+      },
+      "input" : {
+        "sequence" : "cmd+k hyper+x"
+      },
+      "name" : "normalize sequence \"cmd+k hyper+x\""
+    },
+    {
+      "expected" : {
+        "normalized" : [
+          "cmd+k"
+        ]
+      },
+      "input" : {
+        "sequence" : "cmd+k"
+      },
+      "name" : "normalize sequence \"cmd+k\""
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\n}\n"
+      },
+      "name" : "keybindings.json: empty user file"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"cmd+shift+c\": \"tab.copyURL\"}"
+      },
+      "name" : "keybindings.json: same as a default"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : "tab.copyURL",
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C   ⇧⌘K",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"Cmd+Shift+K\": \"tab.copyURL\"}"
+      },
+      "name" : "keybindings.json: add a binding (any case)"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : null,
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"cmd+t\": null}"
+      },
+      "name" : "keybindings.json: null removes a default"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : null,
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"cmd+t\": \"\"}"
+      },
+      "name" : "keybindings.json: empty string removes a default"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.new"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T   ⇧⌘T",
+          "tab.reopen" : "",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"shift+cmd+t\": \"tab.new\"}"
+      },
+      "name" : "keybindings.json: same keys in another order replace the default"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S   ⌘K ⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"cmd+k cmd+s\": \"sidebar.toggle\"}"
+      },
+      "name" : "keybindings.json: new chord"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"hyper+s\": \"tab.new\"}"
+      },
+      "name" : "keybindings.json: invalid modifier ignored"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : null,
+          "ctrl+tab" : "tab.cycleNext",
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⇥",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        }
+      },
+      "input" : {
+        "keybindings_json_text" : "{\"cmd+t\": "
+      },
+      "name" : "keybindings.json: not JSON: defaults only"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null,
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : "tab.reopen"
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⌥J",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "⇧⌘T",
+          "theme.edit" : "⌘K ⌘T"
+        },
+        "user_file_after" : {
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "command" : "tab.cycleNext",
+        "stroke" : "ctrl+alt+j"
+      },
+      "name" : "Settings ▸ Shortcuts: remap to a new stroke"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null,
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : null
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⌥J",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "",
+          "theme.edit" : "⌘K ⌘T"
+        },
+        "user_file_after" : {
+          "cmd+shift+t" : null,
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "command" : "tab.reopen",
+        "stroke" : null
+      },
+      "name" : "Settings ▸ Shortcuts: no shortcut"
+    },
+    {
+      "expected" : {
+        "command_on_stroke" : {
+          "cmd+s" : "sidebar.toggle",
+          "cmd+t" : "tab.new",
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null,
+          "shift+cmd+c" : "tab.copyURL",
+          "shift+cmd+k" : null,
+          "shift+cmd+t" : null
+        },
+        "display_all" : {
+          "sidebar.toggle" : "⌘S",
+          "tab.copyURL" : "⇧⌘C",
+          "tab.cycleNext" : "⌃⌥J",
+          "tab.new" : "⌘T",
+          "tab.reopen" : "",
+          "theme.edit" : "⌘K ⌘T"
+        },
+        "user_file_after" : {
+          "cmd+shift+t" : null,
+          "ctrl+alt+j" : "tab.cycleNext",
+          "ctrl+tab" : null
+        }
+      },
+      "input" : {
+        "applied_after_previous_case" : true,
+        "command" : "tab.new",
+        "stroke" : "cmd+t"
+      },
+      "name" : "Settings ▸ Shortcuts: set the default stroke again"
+    },
+    {
+      "expected" : {
+        "user_file_after" : {
+
+        }
+      },
+      "input" : {
+        "reset" : true
+      },
+      "name" : "Settings ▸ Shortcuts: reset all"
+    }
+  ],
+  "commands" : [
+    {
+      "id" : "window.new",
+      "title" : "New Window"
+    },
+    {
+      "id" : "window.close",
+      "title" : "Close Window"
+    },
+    {
+      "id" : "tab.new",
+      "title" : "New Tab"
+    },
+    {
+      "id" : "tab.editURL",
+      "title" : "Edit Address"
+    },
+    {
+      "id" : "tab.close",
+      "title" : "Close Tab"
+    },
+    {
+      "id" : "tab.reopen",
+      "title" : "Reopen Closed Tab"
+    },
+    {
+      "id" : "tab.reload",
+      "title" : "Reload Page"
+    },
+    {
+      "id" : "tab.hardReload",
+      "title" : "Reload Page Ignoring Cache"
+    },
+    {
+      "id" : "tab.togglePin",
+      "title" : "Pin or Unpin Tab"
+    },
+    {
+      "id" : "tab.toggleFavorite",
+      "title" : "Add to or Remove from Favorites"
+    },
+    {
+      "id" : "tab.copyURL",
+      "title" : "Copy Link"
+    },
+    {
+      "id" : "tab.duplicate",
+      "title" : "Duplicate Tab"
+    },
+    {
+      "id" : "tab.openInFallback",
+      "title" : "Open Page in Helium"
+    },
+    {
+      "id" : "tab.cycleNext",
+      "title" : "Switch to Next Tab in Control+Tab Order"
+    },
+    {
+      "id" : "tab.cyclePrevious",
+      "title" : "Switch to Previous Tab in Control+Tab Order"
+    },
+    {
+      "id" : "tab.next",
+      "title" : "Next Tab"
+    },
+    {
+      "id" : "tab.previous",
+      "title" : "Previous Tab"
+    },
+    {
+      "id" : "tab.select.1",
+      "title" : "Go to Favorite or Pinned Tab 1"
+    },
+    {
+      "id" : "tab.select.2",
+      "title" : "Go to Favorite or Pinned Tab 2"
+    },
+    {
+      "id" : "tab.select.3",
+      "title" : "Go to Favorite or Pinned Tab 3"
+    },
+    {
+      "id" : "tab.select.4",
+      "title" : "Go to Favorite or Pinned Tab 4"
+    },
+    {
+      "id" : "tab.select.5",
+      "title" : "Go to Favorite or Pinned Tab 5"
+    },
+    {
+      "id" : "tab.select.6",
+      "title" : "Go to Favorite or Pinned Tab 6"
+    },
+    {
+      "id" : "tab.select.7",
+      "title" : "Go to Favorite or Pinned Tab 7"
+    },
+    {
+      "id" : "tab.select.8",
+      "title" : "Go to Favorite or Pinned Tab 8"
+    },
+    {
+      "id" : "tab.select.9",
+      "title" : "Go to Favorite or Pinned Tab 9"
+    },
+    {
+      "id" : "split.add",
+      "title" : "New Split View…"
+    },
+    {
+      "id" : "split.separate",
+      "title" : "Separate Split View"
+    },
+    {
+      "id" : "split.removeTab",
+      "title" : "Remove Tab from Split View"
+    },
+    {
+      "id" : "split.focusNext",
+      "title" : "Focus Next Split Pane"
+    },
+    {
+      "id" : "split.focusPrevious",
+      "title" : "Focus Previous Split Pane"
+    },
+    {
+      "id" : "split.rotate",
+      "title" : "Switch Split View Between Side by Side and Stacked"
+    },
+    {
+      "id" : "split.swap",
+      "title" : "Swap Split View Panes"
+    },
+    {
+      "id" : "split.peek",
+      "title" : "Open Preview in Split View"
+    },
+    {
+      "id" : "nav.back",
+      "title" : "Back"
+    },
+    {
+      "id" : "nav.forward",
+      "title" : "Forward"
+    },
+    {
+      "id" : "sidebar.toggle",
+      "title" : "Hide or Show Sidebar"
+    },
+    {
+      "id" : "video.pictureInPicture",
+      "title" : "Picture in Picture"
+    },
+    {
+      "id" : "find.show",
+      "title" : "Find on Page"
+    },
+    {
+      "id" : "view.zoomIn",
+      "title" : "Zoom In"
+    },
+    {
+      "id" : "view.zoomOut",
+      "title" : "Zoom Out"
+    },
+    {
+      "id" : "view.zoomReset",
+      "title" : "Actual Size"
+    },
+    {
+      "id" : "tab.print",
+      "title" : "Print Page…"
+    },
+    {
+      "id" : "space.next",
+      "title" : "Next Space"
+    },
+    {
+      "id" : "space.previous",
+      "title" : "Previous Space"
+    },
+    {
+      "id" : "space.1",
+      "title" : "Go to Space 1"
+    },
+    {
+      "id" : "space.2",
+      "title" : "Go to Space 2"
+    },
+    {
+      "id" : "space.3",
+      "title" : "Go to Space 3"
+    },
+    {
+      "id" : "space.4",
+      "title" : "Go to Space 4"
+    },
+    {
+      "id" : "space.5",
+      "title" : "Go to Space 5"
+    },
+    {
+      "id" : "space.6",
+      "title" : "Go to Space 6"
+    },
+    {
+      "id" : "space.7",
+      "title" : "Go to Space 7"
+    },
+    {
+      "id" : "space.8",
+      "title" : "Go to Space 8"
+    },
+    {
+      "id" : "space.9",
+      "title" : "Go to Space 9"
+    },
+    {
+      "id" : "space.new",
+      "title" : "New Space"
+    },
+    {
+      "id" : "folder.new",
+      "title" : "New Folder"
+    },
+    {
+      "id" : "theme.edit",
+      "title" : "Edit Space Theme"
+    },
+    {
+      "id" : "mini.new",
+      "title" : "New Mini Window"
+    },
+    {
+      "id" : "private.new",
+      "title" : "New Private Window"
+    },
+    {
+      "id" : "mini.expand",
+      "title" : "Open Preview or Mini Window as a Full Tab"
+    },
+    {
+      "id" : "window.show",
+      "title" : "Show Main Window"
+    },
+    {
+      "id" : "settings.open",
+      "title" : "Settings…"
+    },
+    {
+      "id" : "config.open",
+      "title" : "Open Settings Folder"
+    },
+    {
+      "id" : "downloads.show",
+      "title" : "Show Downloads Folder"
+    },
+    {
+      "id" : "library.open",
+      "title" : "Open Library"
+    },
+    {
+      "id" : "library.downloads",
+      "title" : "Show Downloads"
+    },
+    {
+      "id" : "import.browser",
+      "title" : "Import from Another Browser…"
+    },
+    {
+      "id" : "history.show",
+      "title" : "Show History"
+    },
+    {
+      "id" : "data.clearRecent",
+      "title" : "Clear Browsing Data…"
+    },
+    {
+      "id" : "data.manage",
+      "title" : "Manage Website Data…"
+    },
+    {
+      "id" : "site.forget",
+      "title" : "Forget This Site…"
+    },
+    {
+      "id" : "cache.empty",
+      "title" : "Empty Cache"
+    },
+    {
+      "id" : "tabs.sleepSpace",
+      "title" : "Put Tabs in This Space to Sleep"
+    },
+    {
+      "id" : "settings.storage",
+      "title" : "Memory and Storage Settings…"
+    },
+    {
+      "id" : "library.archive",
+      "title" : "Show Archived Tabs"
+    },
+    {
+      "id" : "blocking.toggleSite",
+      "title" : "Turn Ad Blocking Off or On for This Site"
+    },
+    {
+      "id" : "extensions.manage",
+      "title" : "Manage Extensions…"
+    },
+    {
+      "id" : "extensions.menu",
+      "title" : "Show Extensions"
+    },
+    {
+      "id" : "blocking.update",
+      "title" : "Update Ad Blocking Lists"
+    },
+    {
+      "id" : "tabs.sleepNow",
+      "title" : "Free Up Memory (Put Background Tabs to Sleep)"
+    },
+    {
+      "id" : "blocking.updateExtension",
+      "title" : "Check for uBlock Origin Lite Update"
+    },
+    {
+      "id" : "updates.check",
+      "title" : "Check for Updates…"
+    },
+    {
+      "id" : "extensions.update",
+      "title" : "Check for Extension Updates"
+    },
+    {
+      "id" : "archive.now",
+      "title" : "Archive Unused Tabs Now"
+    },
+    {
+      "id" : "data.clear",
+      "title" : "Clear Cookies and Website Data…"
+    },
+    {
+      "id" : "config.reload",
+      "title" : "Reload Settings, Shortcuts and Bangs"
+    },
+    {
+      "id" : "history.clear",
+      "title" : "Clear Browsing History…"
+    }
+  ],
+  "fixture" : "keybindings",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "Mac modifiers: cmd = Command. Editions on other platforms document their own mapping; the grammar and file format are shared."
+  ],
+  "sources" : [
+    "Commands.swift Keybindings.defaults/normalize/pretty/reload/setShortcut/displayAll/command(onStroke:) (real)",
+    "Commands.shared.all after launch (real)"
+  ],
+  "spec_version" : "1.0.0"
+}

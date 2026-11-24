@@ -1,0 +1,301 @@
+{
+  "area" : "address-and-search",
+  "cases" : [
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://example.com"
+      },
+      "input" : {
+        "url" : "http://example.com"
+      },
+      "name" : "http://example.com",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://example.com/x?y=1"
+      },
+      "input" : {
+        "url" : "http://example.com:80/x?y=1"
+      },
+      "name" : "http://example.com:80/x?y=1",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://example.com:8080/"
+      },
+      "name" : "http://example.com:8080/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://localhost/"
+      },
+      "name" : "http://localhost/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://router.local/"
+      },
+      "name" : "http://router.local/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://printer.lan/"
+      },
+      "name" : "http://printer.lan/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://dev.test/"
+      },
+      "name" : "http://dev.test/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://x.internal/"
+      },
+      "name" : "http://x.internal/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://nas.home/"
+      },
+      "name" : "http://nas.home/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://1.0.168.192.in-addr.arpa/"
+      },
+      "name" : "http://1.0.168.192.in-addr.arpa/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://site.example/"
+      },
+      "name" : "http://site.example/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://x.invalid/"
+      },
+      "name" : "http://x.invalid/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://my.localhost/"
+      },
+      "name" : "http://my.localhost/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://192.168.1.1/"
+      },
+      "name" : "http://192.168.1.1/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://[::1]/"
+      },
+      "name" : "http://[::1]/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://[2001:db8::1]:80/"
+      },
+      "name" : "http://[2001:db8::1]:80/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://intranet/"
+      },
+      "name" : "http://intranet/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://EXAMPLE.COM/"
+      },
+      "input" : {
+        "url" : "http://EXAMPLE.COM/"
+      },
+      "name" : "http://EXAMPLE.COM/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://xn--bcher-kva.de/"
+      },
+      "input" : {
+        "url" : "http://xn--bcher-kva.de/"
+      },
+      "name" : "http://xn--bcher-kva.de/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://a.b.c.d.co.uk/"
+      },
+      "input" : {
+        "url" : "http://a.b.c.d.co.uk/"
+      },
+      "name" : "http://a.b.c.d.co.uk/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://example.com./"
+      },
+      "input" : {
+        "url" : "http://example.com./"
+      },
+      "name" : "http://example.com./",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://1.2.3.4.nip.io/"
+      },
+      "input" : {
+        "url" : "http://1.2.3.4.nip.io/"
+      },
+      "name" : "http://1.2.3.4.nip.io/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://localtest.me/"
+      },
+      "input" : {
+        "url" : "http://localtest.me/"
+      },
+      "name" : "http://localtest.me/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : false,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "http://example.com:443/"
+      },
+      "name" : "http://example.com:443/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : "https://user@example.com/"
+      },
+      "input" : {
+        "url" : "http://user@example.com/"
+      },
+      "name" : "http://user@example.com/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    },
+    {
+      "expected" : {
+        "can_upgrade" : true,
+        "upgraded_url" : null
+      },
+      "input" : {
+        "url" : "https://example.com/"
+      },
+      "name" : "https://example.com/",
+      "source" : "real: Engine.canUpgrade; upgraded_url transcribed from Engine decidePolicyFor (Web.swift)"
+    }
+  ],
+  "fixture" : "https-first",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "Applies only to main-frame GET navigations to http:// with Settings.httpsFirst on and the host not allowed this session (see address-and-search.md)."
+  ],
+  "sources" : [
+    "Web.swift Engine.canUpgrade (real)",
+    "upgrade rewrite transcribed: scheme -> https, explicit port 80 dropped"
+  ],
+  "spec_version" : "1.0.0"
+}

@@ -1,0 +1,1973 @@
+{
+  "area" : "saved-data",
+  "cases" : [
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 1,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{}"
+      },
+      "name" : "empty object"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 1,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 8,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":1,\"sidebarHoverEdgeWidth\":8}"
+      },
+      "name" : "version 1 with the old 8 pt reveal strip"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 1,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 10,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 10,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 10,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":1,\"sidebarHoverEdgeWidth\":10}"
+      },
+      "name" : "version 1 with a customised reveal strip"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 1,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 8,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"sidebarHoverEdgeWidth\":8}"
+      },
+      "name" : "no version, 8 pt reveal strip"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 8,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "settingsVersion" : 2,
+          "sidebarHoverEdgeWidth" : 8
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 8,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"sidebarHoverEdgeWidth\":8}"
+      },
+      "name" : "version 2, 8 pt reveal strip kept"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "Kagi",
+          "searchEngineURL" : "https://kagi.com/search?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "searchEngineName" : "Kagi",
+          "searchEngineURL" : "https://kagi.com/search?q=%s",
+          "settingsVersion" : 2
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "Kagi",
+          "searchEngineURL" : "https://kagi.com/search?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"searchEngineName\":\"Kagi\",\"searchEngineURL\":\"https://kagi.com/search?q=%s\"}"
+      },
+      "name" : "custom search engine"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 0,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 30,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "archiveAfterHours" : 0,
+          "settingsVersion" : 2,
+          "sleepTabsAfterMinutes" : 30
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 0,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 30,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"sleepTabsAfterMinutes\":30,\"archiveAfterHours\":0}"
+      },
+      "name" : "integer for a Double field"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "blockAds" : null,
+          "settingsVersion" : 2
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"blockAds\":null}"
+      },
+      "name" : "null value"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "peekExcludedSites" : [
+
+          ],
+          "settingsVersion" : 2
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"peekExcludedSites\":[]}"
+      },
+      "name" : "empty list kept empty"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "settingsVersion" : 2,
+          "someFutureSetting" : true
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"someFutureSetting\":true}"
+      },
+      "name" : "unknown key ignored"
+    },
+    {
+      "expected" : {
+        "decode_error" : "typeMismatch Bool at httpsFirst",
+        "decoded" : null,
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"httpsFirst\":\"yes\",\"blockAds\":false}"
+      },
+      "name" : "wrong type for one field"
+    },
+    {
+      "expected" : {
+        "decode_error" : null,
+        "decoded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+            "x" : [
+              "match:<all_urls>"
+            ]
+          },
+          "extensionGrants" : {
+            "x" : [
+              "perm:tabs"
+            ]
+          },
+          "extensionStates" : {
+            "ubol" : false
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_after_load" : {
+          "extensionApproved" : {
+            "x" : [
+              "match:<all_urls>"
+            ]
+          },
+          "extensionGrants" : {
+            "x" : [
+              "perm:tabs"
+            ]
+          },
+          "extensionStates" : {
+            "ubol" : false
+          },
+          "settingsVersion" : 2
+        },
+        "file_rewritten" : false,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+            "x" : [
+              "match:<all_urls>"
+            ]
+          },
+          "extensionGrants" : {
+            "x" : [
+              "perm:tabs"
+            ]
+          },
+          "extensionStates" : {
+            "ubol" : false
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"settingsVersion\":2,\"extensionStates\":{\"ubol\":false},\"extensionGrants\":{\"x\":[\"perm:tabs\"]},\"extensionApproved\":{\"x\":[\"match:<all_urls>\"]}}"
+      },
+      "name" : "extension maps"
+    },
+    {
+      "expected" : {
+        "decode_error" : "dataCorrupted at ",
+        "decoded" : null,
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : "{\"blockAds\": "
+      },
+      "name" : "not JSON"
+    },
+    {
+      "expected" : {
+        "file_after_load" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        },
+        "file_rewritten" : true,
+        "loaded" : {
+          "archiveAfterHours" : 24,
+          "autoUpdateBlocker" : true,
+          "blockAds" : true,
+          "blockCookieNotices" : false,
+          "blockingDisabledSites" : [
+
+          ],
+          "checkForUpdates" : true,
+          "controlTabUsesRecency" : true,
+          "emptyCacheOnQuit" : false,
+          "extensionApproved" : {
+
+          },
+          "extensionGrants" : {
+
+          },
+          "extensionStates" : {
+
+          },
+          "externalLinksOpenInMiniWindow" : true,
+          "fallbackBrowser" : "Helium",
+          "httpsFirst" : true,
+          "installUpdatesAutomatically" : false,
+          "peekExcludedSites" : [
+            "google",
+            "bing",
+            "yahoo",
+            "yandex",
+            "baidu",
+            "duckduckgo.com",
+            "search.brave.com",
+            "kagi.com",
+            "startpage.com",
+            "ecosia.org",
+            "qwant.com",
+            "perplexity.ai",
+            "mojeek.com",
+            "search.marginalia.nu"
+          ],
+          "peekLinksFromAllTabs" : true,
+          "peekLinksFromPinnedTabs" : true,
+          "removeHistoryAfterDays" : 0,
+          "searchEngineName" : "DuckDuckGo",
+          "searchEngineURL" : "https://duckduckgo.com/?q=%s",
+          "searchSuggestions" : false,
+          "settingsVersion" : 2,
+          "sidebarAnimationDuration" : 0.20000000000000001,
+          "sidebarExitTolerance" : 14,
+          "sidebarHideDelay" : 0.12,
+          "sidebarHoverEdgeWidth" : 14,
+          "sidebarHoverWhenInactive" : true,
+          "sidebarOvershootReach" : 90,
+          "sleepTabsAfterMinutes" : 120,
+          "stripTrackingParameters" : true
+        }
+      },
+      "input" : {
+        "settings_json_text" : null
+      },
+      "name" : "file missing"
+    }
+  ],
+  "fixture" : "settings-decode",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "loaded is what Birch runs with; file_after_load is settings.json afterwards (Settings.load rewrites it when it migrates or cannot read it)."
+  ],
+  "sources" : [
+    "Support.swift Settings.init(from:) and Settings.load() against the scratch profile's settings.json (real)"
+  ],
+  "spec_version" : "1.0.0"
+}

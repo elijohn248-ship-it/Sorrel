@@ -1,0 +1,819 @@
+{
+  "area" : "address-and-search",
+  "cases" : [
+    {
+      "expected" : {
+        "destination" : "https://example.com",
+        "url_from_typed" : "https://example.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com"
+      },
+      "name" : "typed \"example.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://Example.COM/Path?q=1#x",
+        "url_from_typed" : "https://Example.COM/Path?q=1#x"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "Example.COM/Path?q=1#x"
+      },
+      "name" : "typed \"Example.COM/Path?q=1#x\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://example.com",
+        "url_from_typed" : "https://example.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "  example.com  "
+      },
+      "name" : "typed \"  example.com  \""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=example",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example"
+      },
+      "name" : "typed \"example\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://localhost",
+        "url_from_typed" : "http://localhost"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "localhost"
+      },
+      "name" : "typed \"localhost\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://localhost:3000/x",
+        "url_from_typed" : "http://localhost:3000/x"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "localhost:3000/x"
+      },
+      "name" : "typed \"localhost:3000/x\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://LOCALHOST",
+        "url_from_typed" : "http://LOCALHOST"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "LOCALHOST"
+      },
+      "name" : "typed \"LOCALHOST\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://localhost.example",
+        "url_from_typed" : "http://localhost.example"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "localhost.example"
+      },
+      "name" : "typed \"localhost.example\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://192.168.1.1",
+        "url_from_typed" : "http://192.168.1.1"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "192.168.1.1"
+      },
+      "name" : "typed \"192.168.1.1\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://192.168.1.1:8080/admin",
+        "url_from_typed" : "http://192.168.1.1:8080/admin"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "192.168.1.1:8080/admin"
+      },
+      "name" : "typed \"192.168.1.1:8080/admin\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://999.1.1.1",
+        "url_from_typed" : "http://999.1.1.1"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "999.1.1.1"
+      },
+      "name" : "typed \"999.1.1.1\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://10.0.0.1/",
+        "url_from_typed" : "http://10.0.0.1/"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "10.0.0.1/"
+      },
+      "name" : "typed \"10.0.0.1/\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=1.2.3",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "1.2.3"
+      },
+      "name" : "typed \"1.2.3\""
+    },
+    {
+      "expected" : {
+        "destination" : "http://foo",
+        "url_from_typed" : "http://foo"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "http://foo"
+      },
+      "name" : "typed \"http://foo\""
+    },
+    {
+      "expected" : {
+        "destination" : "HTTPS://Example.com",
+        "url_from_typed" : "HTTPS://Example.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "HTTPS://Example.com"
+      },
+      "name" : "typed \"HTTPS://Example.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=https%3A%2F%2Fexample.com%2Fa+b",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "https://example.com/a b"
+      },
+      "name" : "typed \"https://example.com/a b\""
+    },
+    {
+      "expected" : {
+        "destination" : "file:///etc/hosts",
+        "url_from_typed" : "file:///etc/hosts"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "file:///etc/hosts"
+      },
+      "name" : "typed \"file:///etc/hosts\""
+    },
+    {
+      "expected" : {
+        "destination" : "birch://welcome",
+        "url_from_typed" : "birch://welcome"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "birch://welcome"
+      },
+      "name" : "typed \"birch://welcome\""
+    },
+    {
+      "expected" : {
+        "destination" : "sorrel://welcome",
+        "url_from_typed" : "sorrel://welcome"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "sorrel://welcome"
+      },
+      "name" : "typed \"sorrel://welcome\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=drift%3A%2F%2Fwelcome",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "drift://welcome"
+      },
+      "name" : "typed \"drift://welcome\""
+    },
+    {
+      "expected" : {
+        "destination" : "about:blank",
+        "url_from_typed" : "about:blank"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "about:blank"
+      },
+      "name" : "typed \"about:blank\""
+    },
+    {
+      "expected" : {
+        "destination" : "about:config",
+        "url_from_typed" : "about:config"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "about:config"
+      },
+      "name" : "typed \"about:config\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=javascript%3Aalert%281%29",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "javascript:alert(1)"
+      },
+      "name" : "typed \"javascript:alert(1)\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=data%3Atext%2Fhtml%2Chi",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "data:text/html,hi"
+      },
+      "name" : "typed \"data:text/html,hi\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=mailto%3Aa%40b.example",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "mailto:a@b.example"
+      },
+      "name" : "typed \"mailto:a@b.example\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=user%40example.com",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "user@example.com"
+      },
+      "name" : "typed \"user@example.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://sub.domain.co.uk",
+        "url_from_typed" : "https://sub.domain.co.uk"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "sub.domain.co.uk"
+      },
+      "name" : "typed \"sub.domain.co.uk\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://xn--bcher-kva.de",
+        "url_from_typed" : "https://xn--bcher-kva.de"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "xn--bcher-kva.de"
+      },
+      "name" : "typed \"xn--bcher-kva.de\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=b%C3%BCcher.de",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "bücher.de"
+      },
+      "name" : "typed \"bücher.de\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=example.c",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.c"
+      },
+      "name" : "typed \"example.c\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://example.com:8080",
+        "url_from_typed" : "https://example.com:8080"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com:8080"
+      },
+      "name" : "typed \"example.com:8080\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://foo.bar:99999",
+        "url_from_typed" : "https://foo.bar:99999"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "foo.bar:99999"
+      },
+      "name" : "typed \"foo.bar:99999\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=what+is+swift",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "what is swift"
+      },
+      "name" : "typed \"what is swift\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=swift.org+docs",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "swift.org docs"
+      },
+      "name" : "typed \"swift.org docs\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=1.5",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "1.5"
+      },
+      "name" : "typed \"1.5\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=3.14",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "3.14"
+      },
+      "name" : "typed \"3.14\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=a.b",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "a.b"
+      },
+      "name" : "typed \"a.b\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://node.js",
+        "url_from_typed" : "https://node.js"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "node.js"
+      },
+      "name" : "typed \"node.js\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://readme.md",
+        "url_from_typed" : "https://readme.md"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "readme.md"
+      },
+      "name" : "typed \"readme.md\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://my-site.dev/",
+        "url_from_typed" : "https://my-site.dev/"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "my-site.dev/"
+      },
+      "name" : "typed \"my-site.dev/\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=my_site.dev",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "my_site.dev"
+      },
+      "name" : "typed \"my_site.dev\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://-x.com",
+        "url_from_typed" : "https://-x.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "-x.com"
+      },
+      "name" : "typed \"-x.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=ex+ample.com",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "ex ample.com"
+      },
+      "name" : "typed \"ex ample.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : ""
+      },
+      "name" : "typed \"\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "   "
+      },
+      "name" : "typed \"   \""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=%3Fq",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "?q"
+      },
+      "name" : "typed \"?q\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=%23tag",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "#tag"
+      },
+      "name" : "typed \"#tag\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=c%2B%2B",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "c++"
+      },
+      "name" : "typed \"c++\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=100%25",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "100%"
+      },
+      "name" : "typed \"100%\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=a%26b",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "a&b"
+      },
+      "name" : "typed \"a&b\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=%F0%9F%98%80",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "😀"
+      },
+      "name" : "typed \"😀\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=%E6%97%A5%E6%9C%AC%E8%AA%9E",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "日本語"
+      },
+      "name" : "typed \"日本語\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=%C3%9Cn%C3%AFcode+test",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "Ünïcode test"
+      },
+      "name" : "typed \"Ünïcode test\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=example.com%2Fpath+with+space",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com/path with space"
+      },
+      "name" : "typed \"example.com/path with space\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://www.example.com",
+        "url_from_typed" : "https://www.example.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "www.example.com"
+      },
+      "name" : "typed \"www.example.com\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=example.com.",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com."
+      },
+      "name" : "typed \"example.com.\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://EXAMPLE.museum",
+        "url_from_typed" : "https://EXAMPLE.museum"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "EXAMPLE.museum"
+      },
+      "name" : "typed \"EXAMPLE.museum\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://a.b.c.d.e.f.example",
+        "url_from_typed" : "https://a.b.c.d.e.f.example"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "a.b.c.d.e.f.example"
+      },
+      "name" : "typed \"a.b.c.d.e.f.example\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=example.com%2F%3Fq%3Da+b",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com/?q=a b"
+      },
+      "name" : "typed \"example.com/?q=a b\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://example.com",
+        "url_from_typed" : "https://example.com"
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "example.com\t"
+      },
+      "name" : "typed \"example.com\t\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=chrome%3A%2F%2Fsettings",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "chrome://settings"
+      },
+      "name" : "typed \"chrome://settings\""
+    },
+    {
+      "expected" : {
+        "destination" : "https://duckduckgo.com/?q=ftp%3A%2F%2Ffiles.example%2F",
+        "url_from_typed" : null
+      },
+      "input" : {
+        "search_engine_url" : "https://duckduckgo.com/?q=%s",
+        "text" : "ftp://files.example/"
+      },
+      "name" : "typed \"ftp://files.example/\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://kagi.com/search?q=swift+strings"
+      },
+      "input" : {
+        "query" : "swift strings",
+        "search_engine_url" : "https://kagi.com/search?q=%s"
+      },
+      "name" : "search with https://kagi.com/search?q=%s for \"swift strings\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://kagi.com/search?q=a%2Bb+%26+c"
+      },
+      "input" : {
+        "query" : "a+b & c",
+        "search_engine_url" : "https://kagi.com/search?q=%s"
+      },
+      "name" : "search with https://kagi.com/search?q=%s for \"a+b & c\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://kagi.com/search?q=caf%C3%A9"
+      },
+      "input" : {
+        "query" : "café",
+        "search_engine_url" : "https://kagi.com/search?q=%s"
+      },
+      "name" : "search with https://kagi.com/search?q=%s for \"café\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://search.example/find/swift+strings/results"
+      },
+      "input" : {
+        "query" : "swift strings",
+        "search_engine_url" : "https://search.example/find/%s/results"
+      },
+      "name" : "search with https://search.example/find/%s/results for \"swift strings\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://search.example/find/a%2Bb+%26+c/results"
+      },
+      "input" : {
+        "query" : "a+b & c",
+        "search_engine_url" : "https://search.example/find/%s/results"
+      },
+      "name" : "search with https://search.example/find/%s/results for \"a+b & c\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://search.example/find/caf%C3%A9/results"
+      },
+      "input" : {
+        "query" : "café",
+        "search_engine_url" : "https://search.example/find/%s/results"
+      },
+      "name" : "search with https://search.example/find/%s/results for \"café\""
+    },
+    {
+      "expected" : {
+        "search_url" : "not%20a%20url%20swift+strings"
+      },
+      "informative" : "Foundation's URL(string:) percent-encodes an invalid template; editions need not copy this",
+      "input" : {
+        "query" : "swift strings",
+        "search_engine_url" : "not a url %s"
+      },
+      "name" : "search with not a url %s for \"swift strings\""
+    },
+    {
+      "expected" : {
+        "search_url" : "not%20a%20url%20a%252Bb+%2526+c"
+      },
+      "informative" : "Foundation's URL(string:) percent-encodes an invalid template; editions need not copy this",
+      "input" : {
+        "query" : "a+b & c",
+        "search_engine_url" : "not a url %s"
+      },
+      "name" : "search with not a url %s for \"a+b & c\""
+    },
+    {
+      "expected" : {
+        "search_url" : "not%20a%20url%20caf%25C3%25A9"
+      },
+      "informative" : "Foundation's URL(string:) percent-encodes an invalid template; editions need not copy this",
+      "input" : {
+        "query" : "café",
+        "search_engine_url" : "not a url %s"
+      },
+      "name" : "search with not a url %s for \"café\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://noplaceholder.example/"
+      },
+      "input" : {
+        "query" : "swift strings",
+        "search_engine_url" : "https://noplaceholder.example/"
+      },
+      "name" : "search with https://noplaceholder.example/ for \"swift strings\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://noplaceholder.example/"
+      },
+      "input" : {
+        "query" : "a+b & c",
+        "search_engine_url" : "https://noplaceholder.example/"
+      },
+      "name" : "search with https://noplaceholder.example/ for \"a+b & c\""
+    },
+    {
+      "expected" : {
+        "search_url" : "https://noplaceholder.example/"
+      },
+      "input" : {
+        "query" : "café",
+        "search_engine_url" : "https://noplaceholder.example/"
+      },
+      "name" : "search with https://noplaceholder.example/ for \"café\""
+    }
+  ],
+  "fixture" : "resolver",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "destination = bang, else address, else search with the default engine (DuckDuckGo)."
+  ],
+  "sources" : [
+    "Data.swift Resolver.url(fromTyped:), searchURL, destination(for:) (real; bundled bangs, empty custom file)"
+  ],
+  "spec_version" : "1.0.0"
+}

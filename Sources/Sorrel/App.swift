@@ -1121,6 +1121,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        if let dir = env["SORREL_SPECDUMP"] {
+            // spec/ fixtures for other editions: real functions on synthetic inputs, written as JSON to `dir` (SpecDump.swift).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { SpecDump.run(dir: dir, app: self, log: log) }
+        }
+
         if let fixture = env["SORREL_PIPTEST"] {
             PictureInPicture.shared.runTest(store: self.store, fixture: fixture)
         }

@@ -1,0 +1,168 @@
+{
+  "area" : "saved-data",
+  "cases" : [
+    {
+      "expected" : {
+        "decodes" : true,
+        "error" : null,
+        "reencoded" : [
+          {
+            "date" : "2026-11-19T08:00:00Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000001",
+            "title" : "Old page",
+            "url" : "https://a.example/old"
+          },
+          {
+            "date" : "2026-11-18T23:59:59Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000002",
+            "title" : "",
+            "url" : "https://b.example/"
+          }
+        ]
+      },
+      "input" : {
+        "archive_json" : [
+          {
+            "date" : "2026-11-19T08:00:00Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000001",
+            "title" : "Old page",
+            "url" : "https://a.example/old"
+          },
+          {
+            "date" : "2026-11-18T23:59:59Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000002",
+            "title" : "",
+            "url" : "https://b.example/"
+          }
+        ]
+      },
+      "name" : "archive.json: as written by Store.saveArchive"
+    },
+    {
+      "expected" : {
+        "decodes" : false,
+        "error" : "keyNotFound title at [0]",
+        "reencoded" : null
+      },
+      "input" : {
+        "archive_json" : [
+          {
+            "date" : "2026-11-19T08:00:00Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000001",
+            "url" : "https://a.example/"
+          }
+        ]
+      },
+      "name" : "archive.json: entry without title"
+    },
+    {
+      "expected" : {
+        "decodes" : true,
+        "error" : null,
+        "reencoded" : [
+          {
+            "date" : "2026-11-19T08:00:00Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000001",
+            "title" : "",
+            "url" : "https://a.example/"
+          }
+        ]
+      },
+      "input" : {
+        "archive_json" : [
+          {
+            "date" : "2026-11-19T08:00:00.5Z",
+            "spaceID" : "00000000-0000-4000-8000-000000000001",
+            "title" : "",
+            "url" : "https://a.example/"
+          }
+        ]
+      },
+      "name" : "archive.json: entry with fractional-second date"
+    },
+    {
+      "expected" : {
+        "decodes" : true,
+        "error" : null,
+        "reencoded" : [
+
+        ]
+      },
+      "input" : {
+        "archive_json" : [
+
+        ]
+      },
+      "name" : "archive.json: empty list"
+    },
+    {
+      "expected" : {
+        "decodes" : true,
+        "error" : null,
+        "reencoded" : [
+          {
+            "last" : "2026-11-20T12:00:00Z",
+            "title" : "A page",
+            "url" : "https://a.example/page?x=1",
+            "visits" : 3
+          }
+        ]
+      },
+      "input" : {
+        "history_json" : [
+          {
+            "last" : "2026-11-20T12:00:00Z",
+            "title" : "A page",
+            "url" : "https://a.example/page?x=1",
+            "visits" : 3
+          }
+        ]
+      },
+      "name" : "history.json: as written by History.saveNow"
+    },
+    {
+      "expected" : {
+        "decodes" : false,
+        "error" : "keyNotFound visits at [0]",
+        "reencoded" : null
+      },
+      "input" : {
+        "history_json" : [
+          {
+            "last" : "2026-11-20T12:00:00Z",
+            "title" : "",
+            "url" : "https://a.example/"
+          }
+        ]
+      },
+      "name" : "history.json: entry without visits"
+    },
+    {
+      "expected" : {
+        "decodes" : false,
+        "error" : "dataCorrupted at ",
+        "reencoded" : null
+      },
+      "input" : {
+        "history_json" : [
+          {
+            "last" : "2026-11-20T12:00:00Z",
+            "title" : "",
+            "url" : "https://a.example/",
+            "visits" : 2.5
+          }
+        ]
+      },
+      "name" : "history.json: visits as a Double"
+    }
+  ],
+  "fixture" : "archive-history-decode",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "A history.json or archive.json that fails to decode is treated as empty and overwritten on the next save."
+  ],
+  "sources" : [
+    "Models.swift ArchivedTab, Data.swift History.Entry Codable (real, iso8601)"
+  ],
+  "spec_version" : "1.0.0"
+}
