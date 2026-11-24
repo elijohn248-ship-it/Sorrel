@@ -1,0 +1,1139 @@
+{
+  "area" : "address-and-search",
+  "cases" : [
+    {
+      "expected" : {
+        "key" : "example.com"
+      },
+      "input" : {
+        "host" : "example.com"
+      },
+      "name" : "key \"example.com\""
+    },
+    {
+      "expected" : {
+        "key" : "example.com"
+      },
+      "input" : {
+        "host" : "www.example.com"
+      },
+      "name" : "key \"www.example.com\""
+    },
+    {
+      "expected" : {
+        "key" : "example.com"
+      },
+      "input" : {
+        "host" : "a.b.example.com"
+      },
+      "name" : "key \"a.b.example.com\""
+    },
+    {
+      "expected" : {
+        "key" : "bbc.co.uk"
+      },
+      "input" : {
+        "host" : "bbc.co.uk"
+      },
+      "name" : "key \"bbc.co.uk\""
+    },
+    {
+      "expected" : {
+        "key" : "bbc.co.uk"
+      },
+      "input" : {
+        "host" : "www.bbc.co.uk"
+      },
+      "name" : "key \"www.bbc.co.uk\""
+    },
+    {
+      "expected" : {
+        "key" : "bbc.co.uk"
+      },
+      "input" : {
+        "host" : "news.bbc.co.uk"
+      },
+      "name" : "key \"news.bbc.co.uk\""
+    },
+    {
+      "expected" : {
+        "key" : "example.co"
+      },
+      "input" : {
+        "host" : "example.co"
+      },
+      "name" : "key \"example.co\""
+    },
+    {
+      "expected" : {
+        "key" : "example.co"
+      },
+      "input" : {
+        "host" : "a.example.co"
+      },
+      "name" : "key \"a.example.co\""
+    },
+    {
+      "expected" : {
+        "key" : "foo.com.au"
+      },
+      "input" : {
+        "host" : "foo.com.au"
+      },
+      "name" : "key \"foo.com.au\""
+    },
+    {
+      "expected" : {
+        "key" : "x.gov.uk"
+      },
+      "input" : {
+        "host" : "x.gov.uk"
+      },
+      "name" : "key \"x.gov.uk\""
+    },
+    {
+      "expected" : {
+        "key" : "x.edu.au"
+      },
+      "input" : {
+        "host" : "x.edu.au"
+      },
+      "name" : "key \"x.edu.au\""
+    },
+    {
+      "expected" : {
+        "key" : "x.ac.jp"
+      },
+      "input" : {
+        "host" : "x.ac.jp"
+      },
+      "name" : "key \"x.ac.jp\""
+    },
+    {
+      "expected" : {
+        "key" : "localhost"
+      },
+      "input" : {
+        "host" : "localhost"
+      },
+      "name" : "key \"localhost\""
+    },
+    {
+      "expected" : {
+        "key" : "1.1"
+      },
+      "input" : {
+        "host" : "192.168.1.1"
+      },
+      "name" : "key \"192.168.1.1\""
+    },
+    {
+      "expected" : {
+        "key" : "example.com"
+      },
+      "input" : {
+        "host" : "EXAMPLE.COM"
+      },
+      "name" : "key \"EXAMPLE.COM\""
+    },
+    {
+      "expected" : {
+        "key" : null
+      },
+      "input" : {
+        "host" : ""
+      },
+      "name" : "key \"\""
+    },
+    {
+      "expected" : {
+        "key" : "xn--bcher-kva.de"
+      },
+      "input" : {
+        "host" : "xn--bcher-kva.de"
+      },
+      "name" : "key \"xn--bcher-kva.de\""
+    },
+    {
+      "expected" : {
+        "key" : "d.net.nz"
+      },
+      "input" : {
+        "host" : "a.b.c.d.net.nz"
+      },
+      "name" : "key \"a.b.c.d.net.nz\""
+    },
+    {
+      "expected" : {
+        "key" : "uk"
+      },
+      "input" : {
+        "host" : "uk"
+      },
+      "name" : "key \"uk\""
+    },
+    {
+      "expected" : {
+        "key" : "co.uk"
+      },
+      "input" : {
+        "host" : "co.uk"
+      },
+      "name" : "key \"co.uk\""
+    },
+    {
+      "expected" : {
+        "key" : null
+      },
+      "input" : {
+        "host" : null
+      },
+      "name" : "key nil"
+    },
+    {
+      "expected" : {
+        "display" : "example.com"
+      },
+      "input" : {
+        "host" : "www.example.com"
+      },
+      "name" : "display \"www.example.com\""
+    },
+    {
+      "expected" : {
+        "display" : "Example.com"
+      },
+      "input" : {
+        "host" : "WWW.Example.com"
+      },
+      "name" : "display \"WWW.Example.com\""
+    },
+    {
+      "expected" : {
+        "display" : "www2.example.com"
+      },
+      "input" : {
+        "host" : "www2.example.com"
+      },
+      "name" : "display \"www2.example.com\""
+    },
+    {
+      "expected" : {
+        "display" : "pwww.aypal.com"
+      },
+      "input" : {
+        "host" : "pwww.aypal.com"
+      },
+      "name" : "display \"pwww.aypal.com\""
+    },
+    {
+      "expected" : {
+        "display" : "example.www.com"
+      },
+      "input" : {
+        "host" : "example.www.com"
+      },
+      "name" : "display \"example.www.com\""
+    },
+    {
+      "expected" : {
+        "display" : ""
+      },
+      "input" : {
+        "host" : "www."
+      },
+      "name" : "display \"www.\""
+    },
+    {
+      "expected" : {
+        "display" : "www"
+      },
+      "input" : {
+        "host" : "www"
+      },
+      "name" : "display \"www\""
+    },
+    {
+      "expected" : {
+        "display" : "example.com"
+      },
+      "input" : {
+        "host" : "example.com"
+      },
+      "name" : "display \"example.com\""
+    },
+    {
+      "expected" : {
+        "display" : "www.example.com"
+      },
+      "input" : {
+        "host" : "www.www.example.com"
+      },
+      "name" : "display \"www.www.example.com\""
+    },
+    {
+      "expected" : {
+        "display" : "paypal.com.secure-login.evil.example"
+      },
+      "input" : {
+        "host" : "paypal.com.secure-login.evil.example"
+      },
+      "name" : "display \"paypal.com.secure-login.evil.example\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "www.google.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"www.google.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "google.co.uk",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"google.co.uk\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "scholar.google.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"scholar.google.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "notgoogle.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"notgoogle.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "googleblog.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"googleblog.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "kagi.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"kagi.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "app.kagi.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"app.kagi.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "evilkagi.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"evilkagi.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "duckduckgo.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"duckduckgo.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "html.duckduckgo.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"html.duckduckgo.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "search.brave.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"search.brave.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "brave.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"brave.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "en.wikipedia.org",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"en.wikipedia.org\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "bing.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"bing.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "www.bing.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"www.bing.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "yahoo.co.jp",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"yahoo.co.jp\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "perplexity.ai",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"perplexity.ai\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "www.perplexity.ai",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"www.perplexity.ai\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "baidu.com",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"baidu.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "BING.COM",
+        "list" : [
+          "google",
+          "bing",
+          "yahoo",
+          "yandex",
+          "baidu",
+          "duckduckgo.com",
+          "search.brave.com",
+          "kagi.com",
+          "startpage.com",
+          "ecosia.org",
+          "qwant.com",
+          "perplexity.ai",
+          "mojeek.com",
+          "search.marginalia.nu",
+          "duckduckgo.com"
+        ]
+      },
+      "name" : "on excluded list \"BING.COM\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "a.example",
+        "list" : [
+          " A.EXAMPLE "
+        ]
+      },
+      "name" : "on list [\" A.EXAMPLE \"] \"a.example\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "a.example",
+        "list" : [
+          ""
+        ]
+      },
+      "name" : "on list [\"\"] \"a.example\""
+    },
+    {
+      "expected" : {
+        "is_in" : false
+      },
+      "input" : {
+        "host" : "",
+        "list" : [
+          "a.example"
+        ]
+      },
+      "name" : "on list [\"a.example\"] \"\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "google.com",
+        "list" : [
+          "Google"
+        ]
+      },
+      "name" : "on list [\"Google\"] \"google.com\""
+    },
+    {
+      "expected" : {
+        "is_in" : true
+      },
+      "input" : {
+        "host" : "x.google.com",
+        "list" : [
+          "google.com"
+        ]
+      },
+      "name" : "on list [\"google.com\"] \"x.google.com\""
+    },
+    {
+      "expected" : {
+        "same" : true
+      },
+      "input" : {
+        "a" : "example.com",
+        "b" : "www.example.com"
+      },
+      "name" : "same \"example.com\" \"www.example.com\""
+    },
+    {
+      "expected" : {
+        "same" : true
+      },
+      "input" : {
+        "a" : "a.example.com",
+        "b" : "b.example.com"
+      },
+      "name" : "same \"a.example.com\" \"b.example.com\""
+    },
+    {
+      "expected" : {
+        "same" : true
+      },
+      "input" : {
+        "a" : "bbc.co.uk",
+        "b" : "news.bbc.co.uk"
+      },
+      "name" : "same \"bbc.co.uk\" \"news.bbc.co.uk\""
+    },
+    {
+      "expected" : {
+        "same" : false
+      },
+      "input" : {
+        "a" : "example.com",
+        "b" : "example.org"
+      },
+      "name" : "same \"example.com\" \"example.org\""
+    },
+    {
+      "expected" : {
+        "same" : false
+      },
+      "input" : {
+        "a" : "a.co.uk",
+        "b" : "b.co.uk"
+      },
+      "name" : "same \"a.co.uk\" \"b.co.uk\""
+    },
+    {
+      "expected" : {
+        "same" : false
+      },
+      "input" : {
+        "a" : "example.com",
+        "b" : ""
+      },
+      "name" : "same \"example.com\" \"\""
+    },
+    {
+      "expected" : {
+        "same" : true
+      },
+      "input" : {
+        "a" : "localhost",
+        "b" : "localhost"
+      },
+      "name" : "same \"localhost\" \"localhost\""
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "www.example.com",
+        "not_secure_lock" : false,
+        "text" : "example.com"
+      },
+      "input" : {
+        "url" : "https://www.example.com/a?b=c"
+      },
+      "name" : "address box for https://www.example.com/a?b=c",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "example.com",
+        "not_secure_lock" : true,
+        "text" : "example.com"
+      },
+      "input" : {
+        "url" : "http://example.com/"
+      },
+      "name" : "address box for http://example.com/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "xn--pple-43d.example",
+        "not_secure_lock" : false,
+        "text" : "xn--pple-43d.example"
+      },
+      "input" : {
+        "url" : "https://аpple.example/"
+      },
+      "name" : "address box for https://аpple.example/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "xn--bcher-kva.example",
+        "not_secure_lock" : false,
+        "text" : "xn--bcher-kva.example"
+      },
+      "input" : {
+        "url" : "https://bücher.example/x"
+      },
+      "name" : "address box for https://bücher.example/x",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "xn--bcher-kva.example",
+        "not_secure_lock" : false,
+        "text" : "xn--bcher-kva.example"
+      },
+      "input" : {
+        "url" : "https://xn--bcher-kva.example/"
+      },
+      "name" : "address box for https://xn--bcher-kva.example/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "paypal.com.secure-login.evil.example",
+        "not_secure_lock" : false,
+        "text" : "paypal.com.secure-login.evil.example"
+      },
+      "input" : {
+        "url" : "https://paypal.com.secure-login.evil.example/"
+      },
+      "name" : "address box for https://paypal.com.secure-login.evil.example/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : false,
+        "host" : "welcome",
+        "not_secure_lock" : false,
+        "text" : "Birch"
+      },
+      "input" : {
+        "url" : "birch://welcome"
+      },
+      "name" : "address box for birch://welcome",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : false,
+        "host" : "welcome",
+        "not_secure_lock" : false,
+        "text" : "Birch"
+      },
+      "input" : {
+        "url" : "sorrel://welcome"
+      },
+      "name" : "address box for sorrel://welcome",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : false,
+        "host" : null,
+        "not_secure_lock" : false,
+        "text" : "about:blank"
+      },
+      "input" : {
+        "url" : "about:blank"
+      },
+      "name" : "address box for about:blank",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : false,
+        "host" : null,
+        "not_secure_lock" : false,
+        "text" : "file:///tmp/a.html"
+      },
+      "input" : {
+        "url" : "file:///tmp/a.html"
+      },
+      "name" : "address box for file:///tmp/a.html",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "WWW.EXAMPLE.COM",
+        "not_secure_lock" : false,
+        "text" : "EXAMPLE.COM"
+      },
+      "input" : {
+        "url" : "https://WWW.EXAMPLE.COM/"
+      },
+      "name" : "address box for https://WWW.EXAMPLE.COM/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "192.168.1.1",
+        "not_secure_lock" : true,
+        "text" : "192.168.1.1"
+      },
+      "input" : {
+        "url" : "http://192.168.1.1:8080/"
+      },
+      "name" : "address box for http://192.168.1.1:8080/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "example.com",
+        "not_secure_lock" : false,
+        "text" : "example.com"
+      },
+      "input" : {
+        "url" : "https://user:pass@example.com/"
+      },
+      "name" : "address box for https://user:pass@example.com/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "xn--r8jz45g.jp",
+        "not_secure_lock" : false,
+        "text" : "xn--r8jz45g.jp"
+      },
+      "input" : {
+        "url" : "https://例え.jp/"
+      },
+      "name" : "address box for https://例え.jp/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    },
+    {
+      "expected" : {
+        "can_copy" : true,
+        "host" : "www.xn--80ak6aa92e.com",
+        "not_secure_lock" : false,
+        "text" : "xn--80ak6aa92e.com"
+      },
+      "input" : {
+        "url" : "https://www.xn--80ak6aa92e.com/"
+      },
+      "name" : "address box for https://www.xn--80ak6aa92e.com/",
+      "source" : "transcribed: Sidebar.refreshNavigation; real Item.host, Site.display, BundledPage.isBundled"
+    }
+  ],
+  "fixture" : "site",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "Long hosts are cut at the front in the address box (head truncation), so the registrable end always shows; that is layout, not a fixture."
+  ],
+  "sources" : [
+    "Peek.swift Site.key/host(_:isIn:)/display/same (real)",
+    "Models.swift Item.host (real Foundation URL parsing)"
+  ],
+  "spec_version" : "1.0.0"
+}

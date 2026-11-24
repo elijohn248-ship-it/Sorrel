@@ -1,0 +1,962 @@
+{
+  "area" : "saved-data",
+  "cases" : [
+    {
+      "expected" : {
+        "urls" : [
+          "https://news.example/today",
+          "https://swift.example/",
+          "https://bbc.co.uk/news",
+          "https://swift.example/docs/strings",
+          "https://www.bbc.co.uk/sport"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 5,
+        "query" : ""
+      },
+      "name" : "list all, newest first"
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://docs.example/swift/guide"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "swift GUIDE"
+      },
+      "name" : "list matching every word in url or title"
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://swift.example/",
+          "https://swift.example/docs/strings",
+          "https://www.swiftly.example/",
+          "https://docs.example/swift/guide"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "swift"
+      },
+      "name" : "search ranking \"swift\""
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://swift.example/",
+          "https://swift.example/docs/strings",
+          "https://www.swiftly.example/",
+          "https://docs.example/swift/guide"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "sw"
+      },
+      "name" : "search ranking \"sw\""
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://bbc.co.uk/news",
+          "https://www.bbc.co.uk/sport"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "bbc"
+      },
+      "name" : "search ranking \"bbc\""
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://news.example/today",
+          "https://bbc.co.uk/news"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "news"
+      },
+      "name" : "search ranking \"news\""
+    },
+    {
+      "expected" : {
+        "urls" : [
+          "https://swift.example/docs/strings"
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "Swift Strings"
+      },
+      "name" : "search ranking \"Swift Strings\""
+    },
+    {
+      "expected" : {
+        "urls" : [
+
+        ]
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "limit" : 10,
+        "query" : "nothing-here"
+      },
+      "name" : "search ranking \"nothing-here\""
+    },
+    {
+      "expected" : {
+        "url" : "https://swift.example/"
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "sw"
+      },
+      "name" : "topHostMatch \"sw\""
+    },
+    {
+      "expected" : {
+        "url" : null
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "s"
+      },
+      "name" : "topHostMatch \"s\""
+    },
+    {
+      "expected" : {
+        "url" : "https://swift.example/"
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "swi"
+      },
+      "name" : "topHostMatch \"swi\""
+    },
+    {
+      "expected" : {
+        "url" : "https://bbc.co.uk/news"
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "bbc"
+      },
+      "name" : "topHostMatch \"bbc\""
+    },
+    {
+      "expected" : {
+        "url" : null
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "news "
+      },
+      "name" : "topHostMatch \"news \""
+    },
+    {
+      "expected" : {
+        "url" : null
+      },
+      "input" : {
+        "history" : [
+          {
+            "days_ago" : 1,
+            "title" : "Swift home",
+            "url" : "https://swift.example/",
+            "visits" : 40
+          },
+          {
+            "days_ago" : 3,
+            "title" : "Strings in Swift",
+            "url" : "https://swift.example/docs/strings",
+            "visits" : 2
+          },
+          {
+            "days_ago" : 30,
+            "title" : "Swiftly",
+            "url" : "https://www.swiftly.example/",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 0.5,
+            "title" : "Morning news",
+            "url" : "https://news.example/today",
+            "visits" : 9
+          },
+          {
+            "days_ago" : 10,
+            "title" : "A Swift guide",
+            "url" : "https://docs.example/swift/guide",
+            "visits" : 5
+          },
+          {
+            "days_ago" : 2,
+            "title" : "BBC",
+            "url" : "https://bbc.co.uk/news",
+            "visits" : 3
+          },
+          {
+            "days_ago" : 4,
+            "title" : "BBC Sport",
+            "url" : "https://www.bbc.co.uk/sport",
+            "visits" : 1
+          },
+          {
+            "days_ago" : 400,
+            "title" : "Old",
+            "url" : "https://old.example/",
+            "visits" : 1
+          }
+        ],
+        "text" : "nothing"
+      },
+      "name" : "topHostMatch \"nothing\""
+    },
+    {
+      "expected" : {
+        "count_after" : 9,
+        "last_is_imported_date" : true,
+        "title" : "Swift home",
+        "visits" : 40
+      },
+      "input" : {
+        "existing" : {
+          "days_ago" : 1,
+          "title" : "Swift home",
+          "url" : "https://swift.example/",
+          "visits" : 40
+        },
+        "imported" : {
+          "days_ago" : 0.10000000000000001,
+          "title" : "Imported title",
+          "url" : "https://swift.example/",
+          "visits" : 7
+        }
+      },
+      "name" : "merge keeps the larger visits, the later date and the existing title"
+    },
+    {
+      "expected" : {
+        "count" : 9,
+        "news_title" : "Morning news",
+        "news_visits" : 10
+      },
+      "input" : {
+        "record" : [
+          "file:///tmp/x.html",
+          "birch://welcome",
+          "https://news.example/today (title \"\")"
+        ]
+      },
+      "name" : "record: only http(s), visits +1, empty title keeps the old one"
+    },
+    {
+      "expected" : {
+        "count_after" : 7,
+        "removed" : 2
+      },
+      "input" : {
+        "site" : "bbc.co.uk"
+      },
+      "name" : "remove site (registrable part)"
+    },
+    {
+      "expected" : {
+        "count_after" : 6,
+        "removed" : 1
+      },
+      "input" : {
+        "days" : 300
+      },
+      "name" : "remove older than 300 days"
+    },
+    {
+      "expected" : {
+        "remaining" : [
+          "https://swift.example/docs/strings",
+          "https://new.example/",
+          "https://docs.example/swift/guide",
+          "https://www.swiftly.example/"
+        ],
+        "removed" : 2
+      },
+      "input" : {
+        "days" : 2
+      },
+      "name" : "remove since 2 days ago"
+    },
+    {
+      "expected" : {
+        "count_after_save" : 15000,
+        "newest_kept" : "https://cap.example/0",
+        "oldest_kept" : "https://cap.example/14999"
+      },
+      "input" : {
+        "newest_first_index" : "0",
+        "pages" : 20001
+      },
+      "name" : "cap on save"
+    }
+  ],
+  "fixture" : "history-behaviour",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "days_ago is relative to the moment the edition seeds the entries.",
+    "search score = ln(visits+1)*2 + max(0, 5 - days/7), +6 if the host without \"www.\" starts with the first word, +4 more if the path is \"/\" or empty."
+  ],
+  "sources" : [
+    "Data.swift History list/search/topHostMatch/merge/record/remove/saveNow on History.shared (real)"
+  ],
+  "spec_version" : "1.0.0"
+}

@@ -1,0 +1,1297 @@
+{
+  "area" : "address-and-search",
+  "cases" : [
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Wikipedia",
+        "query" : "cats",
+        "trigger" : "w",
+        "url" : "https://wikipedia.org/w/index.php?search=cats"
+      },
+      "input" : {
+        "text" : "!w cats"
+      },
+      "name" : "bundled \"!w cats\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Wikipedia",
+        "query" : "cats",
+        "trigger" : "w",
+        "url" : "https://wikipedia.org/w/index.php?search=cats"
+      },
+      "input" : {
+        "text" : "cats !w"
+      },
+      "name" : "bundled \"cats !w\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Wikipedia",
+        "query" : "Cats",
+        "trigger" : "w",
+        "url" : "https://wikipedia.org/w/index.php?search=Cats"
+      },
+      "input" : {
+        "text" : "!W Cats"
+      },
+      "name" : "bundled \"!W Cats\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "YouTube",
+        "query" : "two spaces",
+        "trigger" : "yt",
+        "url" : "https://www.youtube.com/results?search_query=two+spaces"
+      },
+      "input" : {
+        "text" : "!yt  two   spaces"
+      },
+      "name" : "bundled \"!yt  two   spaces\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "",
+        "trigger" : "g",
+        "url" : "https://www.google.com"
+      },
+      "input" : {
+        "text" : "!g"
+      },
+      "name" : "bundled \"!g\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "GitHub",
+        "query" : "swift-format",
+        "trigger" : "gh",
+        "url" : "https://github.com/search?q=swift-format"
+      },
+      "input" : {
+        "text" : "!gh swift-format"
+      },
+      "name" : "bundled \"!gh swift-format\""
+    },
+    {
+      "expected" : {
+        "matched" : false
+      },
+      "input" : {
+        "text" : "hello !nosuchbang"
+      },
+      "name" : "bundled \"hello !nosuchbang\""
+    },
+    {
+      "expected" : {
+        "matched" : false
+      },
+      "input" : {
+        "text" : "!"
+      },
+      "name" : "bundled \"!\""
+    },
+    {
+      "expected" : {
+        "matched" : false
+      },
+      "input" : {
+        "text" : "!! x"
+      },
+      "name" : "bundled \"!! x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "a@b.example",
+        "trigger" : "g",
+        "url" : "https://www.google.com/search?q=a%40b.example"
+      },
+      "input" : {
+        "text" : "a@b.example !g"
+      },
+      "name" : "bundled \"a@b.example !g\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Amazon.com",
+        "query" : "c++ & stuff",
+        "trigger" : "a",
+        "url" : "https://www.amazon.com/s?k=c%2B%2B+%26+stuff"
+      },
+      "input" : {
+        "text" : "!a c++ & stuff"
+      },
+      "name" : "bundled \"!a c++ & stuff\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "WordPress.org",
+        "query" : "hello world",
+        "trigger" : "wp",
+        "url" : "https://wordpress.org/search/hello%20world"
+      },
+      "input" : {
+        "text" : "!wp hello world"
+      },
+      "name" : "bundled \"!wp hello world\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Bunpro",
+        "query" : "x y",
+        "trigger" : "bunpro",
+        "url" : "https://bunpro.jp/search?query=x+y"
+      },
+      "input" : {
+        "text" : "!bunpro x y"
+      },
+      "name" : "bundled \"!bunpro x y\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Wayback Machine",
+        "query" : "https://a.example/a b",
+        "trigger" : "archived",
+        "url" : "https://web.archive.org/web/*/https%3A%2F%2Fa.example%2Fa%20b"
+      },
+      "input" : {
+        "text" : "!archived https://a.example/a b"
+      },
+      "name" : "bundled \"!archived https://a.example/a b\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "YouTube",
+        "query" : "test",
+        "trigger" : "ют",
+        "url" : "https://www.youtube.com/results?search_query=test"
+      },
+      "input" : {
+        "text" : "!ют test"
+      },
+      "name" : "bundled \"!ют test\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "café ünïcode",
+        "trigger" : "g",
+        "url" : "https://www.google.com/search?q=caf%C3%A9+%C3%BCn%C3%AFcode"
+      },
+      "input" : {
+        "text" : "!g café ünïcode"
+      },
+      "name" : "bundled \"!g café ünïcode\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "50% off #1 a+b=c?",
+        "trigger" : "g",
+        "url" : "https://www.google.com/search?q=50%25+off+%231+a%2Bb%3Dc%3F"
+      },
+      "input" : {
+        "text" : "!g 50% off #1 a+b=c?"
+      },
+      "name" : "bundled \"!g 50% off #1 a+b=c?\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "!yt x",
+        "trigger" : "g",
+        "url" : "https://www.google.com/search?q=%21yt+x"
+      },
+      "input" : {
+        "text" : "!g !yt x"
+      },
+      "name" : "bundled \"!g !yt x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "",
+        "trigger" : "g",
+        "url" : "https://www.google.com"
+      },
+      "input" : {
+        "text" : "!G"
+      },
+      "name" : "bundled \"!G\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Reddit",
+        "query" : "swift",
+        "trigger" : "reddit",
+        "url" : "https://www.reddit.com/search?q=swift"
+      },
+      "input" : {
+        "text" : "  !reddit   swift  "
+      },
+      "name" : "bundled \"  !reddit   swift  \""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "IMDB",
+        "query" : "",
+        "trigger" : "imdb",
+        "url" : "https://www.imdb.com"
+      },
+      "input" : {
+        "text" : "!imdb"
+      },
+      "name" : "bundled \"!imdb\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google Maps",
+        "query" : "1 Main St, Springfield",
+        "trigger" : "gmaps",
+        "url" : "https://maps.google.com/maps?q=1+Main+St%2C+Springfield"
+      },
+      "input" : {
+        "text" : "!gmaps 1 Main St, Springfield"
+      },
+      "name" : "bundled \"!gmaps 1 Main St, Springfield\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Can I use...",
+        "query" : ":has()",
+        "trigger" : "caniuse",
+        "url" : "https://caniuse.com/?search=%3Ahas%28%29"
+      },
+      "input" : {
+        "text" : "!caniuse :has()"
+      },
+      "name" : "bundled \"!caniuse :has()\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "DuckDuckGo",
+        "query" : "privacy",
+        "trigger" : "ddg",
+        "url" : "https://duckduckgo.com/?q=privacy"
+      },
+      "input" : {
+        "text" : "!ddg privacy"
+      },
+      "name" : "bundled \"!ddg privacy\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Wikipedia",
+        "query" : "",
+        "trigger" : "w",
+        "url" : "https://wikipedia.org"
+      },
+      "input" : {
+        "text" : "!w"
+      },
+      "name" : "bundled \"!w\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Spec Search",
+        "query" : "a b",
+        "trigger" : "spec",
+        "url" : "https://search.example/?q=a+b"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!spec a b"
+      },
+      "name" : "custom \"!spec a b\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Spec Search",
+        "query" : "",
+        "trigger" : "spec",
+        "url" : "https://search.example"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!spec"
+      },
+      "name" : "custom \"!spec\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Override",
+        "query" : "cats",
+        "trigger" : "g",
+        "url" : "https://override.example/find?q=cats"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!g cats"
+      },
+      "name" : "custom \"!g cats\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "cats",
+        "trigger" : "google",
+        "url" : "https://www.google.com/search?q=cats"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!google cats"
+      },
+      "name" : "custom \"!google cats\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "specpath",
+        "query" : "a b",
+        "trigger" : "specpath",
+        "url" : "https://docs.example/a%20b/index"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specpath a b"
+      },
+      "name" : "custom \"!specpath a b\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "specpath",
+        "query" : "",
+        "trigger" : "specpath",
+        "url" : "https://docs.example"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specpath"
+      },
+      "name" : "custom \"!specpath\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Plus",
+        "query" : "a b",
+        "trigger" : "specplus",
+        "url" : "https://plus.example/a+b"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specplus a b"
+      },
+      "name" : "custom \"!specplus a b\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "No plus",
+        "query" : "a b",
+        "trigger" : "specnoplus",
+        "url" : "https://np.example/?q=a%20b"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specnoplus a b"
+      },
+      "name" : "custom \"!specnoplus a b\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Case",
+        "query" : "x",
+        "trigger" : "speccase",
+        "url" : "https://case.example/?q=x"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!speccase x"
+      },
+      "name" : "custom \"!speccase x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Case",
+        "query" : "x",
+        "trigger" : "sc1",
+        "url" : "https://case.example/?q=x"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!SC1 x"
+      },
+      "name" : "custom \"!SC1 x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Case",
+        "query" : "x",
+        "trigger" : "sc2",
+        "url" : "https://case.example/?q=x"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!sc2 x"
+      },
+      "name" : "custom \"!sc2 x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "With d",
+        "query" : "x",
+        "trigger" : "specd",
+        "url" : "https://d.example/?q=x"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specd x"
+      },
+      "name" : "custom \"!specd x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "With d",
+        "query" : "",
+        "trigger" : "specd",
+        "url" : "https://d.example"
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specd"
+      },
+      "name" : "custom \"!specd\""
+    },
+    {
+      "expected" : {
+        "matched" : false
+      },
+      "input" : {
+        "custom_bangs_json" : [
+          {
+            "s" : "Spec Search",
+            "t" : "spec",
+            "u" : "https://search.example/?q=%s"
+          },
+          {
+            "s" : "Override",
+            "t" : "g",
+            "u" : "https://override.example/find?q={{{s}}}"
+          },
+          {
+            "t" : "specpath",
+            "u" : "https://docs.example/{{{s}}}/index"
+          },
+          {
+            "fmt" : [
+              "url_encode_space_to_plus"
+            ],
+            "s" : "Plus",
+            "t" : "specplus",
+            "u" : "https://plus.example/{{{s}}}"
+          },
+          {
+            "fmt" : [
+              "open_base_path"
+            ],
+            "s" : "No plus",
+            "t" : "specnoplus",
+            "u" : "https://np.example/?q={{{s}}}"
+          },
+          {
+            "s" : "Case",
+            "t" : "SpecCase",
+            "ts" : [
+              "sc1",
+              "SC2"
+            ],
+            "u" : "https://case.example/?q={{{s}}}"
+          },
+          {
+            "d" : "other.example",
+            "s" : "With d",
+            "t" : "specd",
+            "u" : "https://d.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing t",
+            "u" : "https://x.example/?q={{{s}}}"
+          },
+          {
+            "s" : "missing u",
+            "t" : "specnou"
+          }
+        ],
+        "text" : "!specnou x"
+      },
+      "name" : "custom \"!specnou x\""
+    },
+    {
+      "expected" : {
+        "matched" : true,
+        "name" : "Google",
+        "query" : "cats",
+        "trigger" : "g",
+        "url" : "https://www.google.com/search?q=cats"
+      },
+      "input" : {
+        "custom_bangs_json_text" : "[ {\"t\": ",
+        "text" : "!g cats"
+      },
+      "name" : "custom file that is not JSON is ignored"
+    }
+  ],
+  "fixture" : "bangs",
+  "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
+  "notes" : [
+    "bangs-all.tsv (not committed) is regenerated by the hook; its sha256 is table.sha256."
+  ],
+  "sources" : [
+    "Data.swift Bangs.reload/ingest/resolve on Bangs.shared (real; custom file in the scratch profile)"
+  ],
+  "spec_version" : "1.0.0",
+  "table" : {
+    "bundled_file" : "Resources/bangs.json",
+    "line_format" : "<trigger>\\t<url for \"!<trigger> a b&c/é\">\\t<url for \"!<trigger>\">\\n, triggers sorted by Swift String order (Unicode scalar order), \"-\" when no URL",
+    "query" : "a b&c/é",
+    "sha256" : "bf68cf5c00122b8f2801919cd0f2d6a7c342c35b02d382b53e942e7722b5979c",
+    "table_size" : 13641,
+    "trigger_count" : 13641
+  }
+}
