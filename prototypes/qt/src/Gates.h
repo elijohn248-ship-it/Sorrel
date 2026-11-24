@@ -33,7 +33,7 @@ private:
     void addPermissions();
     void addDownload();
     void addSandbox();
-    void addAds(bool ubolExpected);
+    void addAds(const QString &area, bool expectBlocked);
     void addCodecs();
     void addSidebar();
     void addExtensions();

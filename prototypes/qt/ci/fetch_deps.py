@@ -103,13 +103,23 @@ def install_qt(osname, qt_root, archive_dir):
     cmd = [sys.executable, "-m", "aqt", "install-qt", host, "desktop", q["version"], arch,
            "-m", *q["modules"], "-O", str(qt_root), "--keep", "--archive-dest", str(archive_dir)]
     print("deps: " + " ".join(cmd[2:]))
-    subprocess.run(cmd, check=True)
-    verify_kept_archives(osname, archive_dir)
-
-    we = PINS["webengine"][osname]
-    arc = download(we["url"], Path(archive_dir) / "webengine" / Path(we["url"]).name, we["sha256"])
     import py7zr  # installed (hash-pinned) as an aqtinstall dependency
+    we = PINS["webengine"][osname]
     dest = Path(qt_root) / we["dest"]
+    if subprocess.run(cmd).returncode == 0:
+        print("deps: aqtinstall installed Qt base")
+        verify_kept_archives(osname, archive_dir)
+    else:
+        # aqtinstall 3.3.0 looks for Qt 6.12 (Windows MSVC) in a folder that no longer
+        # exists. Fall back to the very archives aqt would fetch, by pinned URL + SHA-256.
+        print("deps: aqtinstall FAILED for this Qt; using pinned direct downloads instead")
+        for name, url in q["base_archive_urls"][osname].items():
+            arc = download(url, Path(archive_dir) / "base" / name, q["base_archives_sha256"][osname][name])
+            with py7zr.SevenZipFile(arc, "r") as z:
+                z.extractall(path=dest)
+        print(f"deps: Qt base unpacked into {dest} (aqtinstall-fallback=1)")
+
+    arc = download(we["url"], Path(archive_dir) / "webengine" / Path(we["url"]).name, we["sha256"])
     with py7zr.SevenZipFile(arc, "r") as z:
         z.extractall(path=dest)
     print(f"deps: Qt WebEngine {PINS['webengine']['version']} unpacked into {dest}")

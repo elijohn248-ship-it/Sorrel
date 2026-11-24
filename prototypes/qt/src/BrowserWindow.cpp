@@ -180,6 +180,14 @@ void BrowserWindow::reveal(bool show)
     m_sidebar->slideTo(show ? 0 : -kSidebarWidth, show);
 }
 
+void BrowserWindow::setHoverTracking(bool on)
+{
+    if (on)
+        m_pointerTimer->start();
+    else
+        m_pointerTimer->stop();
+}
+
 void BrowserWindow::resizeEvent(QResizeEvent *e)
 {
     QMainWindow::resizeEvent(e);

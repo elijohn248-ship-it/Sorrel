@@ -1,0 +1,4 @@
+[
+  { "id": 1, "priority": 1, "action": { "type": "block" },
+    "condition": { "requestDomains": ["adnxs.com"], "resourceTypes": ["image", "script", "xmlhttprequest", "sub_frame", "other"] } }
+]

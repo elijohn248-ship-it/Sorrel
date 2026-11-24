@@ -13,6 +13,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSet>
 #include <QTimer>
 #include <QWebEngineDownloadRequest>
 #include <QWebEngineExtensionInfo>
@@ -121,7 +122,7 @@ void Gates::start()
     if (wants(QStringLiteral("sandbox")))
         addSandbox();
     if (wants(QStringLiteral("ads")))
-        addAds(false);
+        addAds(QStringLiteral("ads-control"), false);
     if (wants(QStringLiteral("codecs")))
         addCodecs();
     if (wants(QStringLiteral("ext")))
@@ -404,11 +405,14 @@ void Gates::addTls()
 
 void Gates::addPermissions()
 {
-    auto round = [this](int n) {
-        return [this, n](Next next) {
-            Tab *t = n == 1 ? m_main->newTab(QUrl(QStringLiteral("http://localhost:%1/perm.html").arg(m_port)))
-                            : m_main->current();
-            auto run = [this, t, n, next]() {
+    // Round 1 asks once; round 2 reloads the page (a new document) and asks again:
+    // with AskEveryTime nothing may be remembered, so the app must be asked again.
+    auto tab = std::make_shared<QPointer<Tab>>();
+    auto round = [this, tab](int n) {
+        return [this, tab, n](Next next) {
+            const QUrl url(QStringLiteral("http://localhost:%1/perm.html").arg(m_port));
+            auto run = [this, tab, n, next](bool) {
+                Tab *t = *tab;
                 eval(t, QStringLiteral("runPermTests(%1)").arg(n), [](const QVariant &) {});
                 pollJs(t,
                        QStringLiteral("(window.__perm && window.__perm.done && window.__perm.round === %1) ? "
@@ -420,10 +424,17 @@ void Gates::addPermissions()
                            const int cam = asked.value(QStringLiteral("camera+microphone")) +
                                asked.value(QStringLiteral("camera")) + asked.value(QStringLiteral("microphone"));
                            const QString want = QString::number(n);
+                           auto refused = [&o](const char *key) {
+                               const QString r = o.value(QString::fromLatin1(key)).toString();
+                               return (r.isEmpty() || r == QLatin1String("granted")) ? QStringLiteral("granted-or-missing")
+                                                                                     : QStringLiteral("refused");
+                           };
+                           const QString detail = QStringLiteral("round=%1 page-says=%2").arg(n);
                            check(QStringLiteral("perm"), QStringLiteral("camera-mic-asked-app-times"), want,
                                  QString::number(cam));
                            check(QStringLiteral("perm"), QStringLiteral("camera-mic-page-result"),
-                                 QStringLiteral("NotAllowedError"), o.value(QStringLiteral("cam")).toString());
+                                 QStringLiteral("refused"), refused("cam"),
+                                 detail.arg(o.value(QStringLiteral("cam")).toString()));
                            check(QStringLiteral("perm"), QStringLiteral("location-asked-app-times"), want,
                                  QString::number(asked.value(QStringLiteral("location"))));
                            check(QStringLiteral("perm"), QStringLiteral("location-page-result"),
@@ -437,14 +448,16 @@ void Gates::addPermissions()
                            next();
                        });
             };
-            if (n == 1)
-                waitLoaded(t, 0, 10000, [run](bool) { run(); });
-            else
-                run();
+            if (n == 1) {
+                *tab = m_main->newTab(url);
+                waitLoaded(*tab, 0, 10000, run);
+            } else {
+                loadAndWait(*tab, url, 10000, run);
+            }
         };
     };
     add(QStringLiteral("perm-round-1"), round(1));
-    add(QStringLiteral("perm-round-2-nothing-remembered"), round(2));
+    add(QStringLiteral("perm-round-2-new-document-asks-again"), round(2));
 }
 
 void Gates::addDownload()
@@ -500,6 +513,13 @@ void Gates::addSandbox()
         log(QStringLiteral("sandbox: ready"));
         after(3000, [this, next]() {
             const QList<ProcRow> rows = processTree(m_pid);
+            // On Linux renderers are forked from the zygote and keep its command line,
+            // so they are found by the pids Qt reports for the open tabs.
+            QSet<qint64> rendererPids;
+            for (Tab *t : m_main->tabs())
+                if (t->page->renderProcessPid() > 0)
+                    rendererPids.insert(t->page->renderProcessPid());
+            log(QStringLiteral("sandbox: tab-renderer-pids count=%1").arg(rendererPids.size()));
             int renderers = 0, rendererOk = 0, noSandbox = 0, gpu = 0;
             QStringList types;
             for (const ProcRow &r : rows) {
@@ -519,7 +539,14 @@ void Gates::addSandbox()
                     ++noSandbox;
                 if (r.type.startsWith(QLatin1String("gpu")))
                     ++gpu;
-                if (r.type == QLatin1String("renderer")) {
+                if (r.type == QLatin1String("renderer") || rendererPids.contains(r.pid)) {
+                    log(QStringLiteral("sandbox: renderer pid=%1 seccomp=%2 pidns-depth=%3 integrity=%4 restricted=%5 job=%6")
+                            .arg(r.pid)
+                            .arg(r.seccomp)
+                            .arg(r.pidNamespaceDepth)
+                            .arg(r.integrity)
+                            .arg(r.restricted)
+                            .arg(r.inJob));
                     ++renderers;
 #ifdef Q_OS_WIN
                     const bool ok = (r.integrity == QLatin1String("untrusted") || r.integrity == QLatin1String("low")) &&
@@ -568,17 +595,16 @@ void Gates::addSandbox()
     });
 }
 
-void Gates::addAds(bool ubolExpected)
+void Gates::addAds(const QString &area, bool expectBlocked)
 {
-    add(ubolExpected ? QStringLiteral("ads-with-ubol") : QStringLiteral("ads-control"), [this, ubolExpected](Next next) {
+    add(QStringLiteral("ads-") + area, [this, area, expectBlocked](Next next) {
         Tab *t = m_main->newTab(fx(QStringLiteral("site.test"), QStringLiteral("/ads.html")));
-        waitLoaded(t, 0, 10000, [this, t, ubolExpected, next](bool) {
+        waitLoaded(t, 0, 10000, [this, t, area, expectBlocked, next](bool) {
             pollJs(t, QStringLiteral("(window.__ads && window.__ads.done) ? JSON.stringify(window.__ads) : ''"), 10000,
-                   [this, t, ubolExpected, next](const QVariant &v) {
+                   [this, t, area, expectBlocked, next](const QVariant &v) {
                        const QJsonObject o = QJsonDocument::fromJson(v.toString().toUtf8()).object();
-                       const QString area = ubolExpected ? QStringLiteral("ubol") : QStringLiteral("ads-control");
                        check(area, QStringLiteral("tracker-request-loaded"),
-                             ubolExpected ? QStringLiteral("false") : QStringLiteral("true"),
+                             expectBlocked ? QStringLiteral("false") : QStringLiteral("true"),
                              boolText(o.value(QStringLiteral("tracker")).toVariant()));
                        check(area, QStringLiteral("first-party-loaded"), QStringLiteral("true"),
                              boolText(o.value(QStringLiteral("firstParty")).toVariant()));
@@ -626,6 +652,9 @@ void Gates::addSidebar()
     add(QStringLiteral("sidebar"), [this](Next next) {
         Tab *t = m_main->newTab(fx(QStringLiteral("site.test"), QStringLiteral("/page1.html")));
         waitLoaded(t, 0, 10000, [this, t, next](bool) {
+            // The real hover logic would hide the overlay again (the CI pointer is far
+            // from the sidebar), so the test drives reveal() itself.
+            m_main->setHoverTracking(false);
             m_main->setSidebarMode(BrowserWindow::SidebarMode::Pinned);
             after(600, [this, t, next]() {
                 shot(m_main, QStringLiteral("sidebar-pinned.png"));
@@ -655,6 +684,7 @@ void Gates::addSidebar()
                             check(QStringLiteral("motion"), QStringLiteral("hidden-x"), QStringLiteral("-240"),
                                   QString::number(m_main->sidebar()->x()));
                             m_main->setSidebarMode(BrowserWindow::SidebarMode::Pinned);
+                            m_main->setHoverTracking(true);
                             m_main->closeTab(t);
                             next();
                         });
@@ -733,7 +763,7 @@ void Gates::addExtensions()
             });
         });
     });
-    addAds(true);
+    addAds(QStringLiteral("ubol"), true);
     add(QStringLiteral("ext-ubol-popup"), [this, ubolInfo](Next next) {
         const QUrl popup = ubolInfo->actionPopupUrl();
         check(QStringLiteral("ext"), QStringLiteral("popup-url-scheme"), QStringLiteral("chrome-extension"),
@@ -752,19 +782,68 @@ void Gates::addExtensions()
                          check(QStringLiteral("ext"), QStringLiteral("popup-has-content"), QStringLiteral("1"),
                                yesNo(v.toString().toInt() > 20), QStringLiteral("elements=%1").arg(v.toString()));
                          shot(m_main, QStringLiteral("ubol-popup.png"));
-                         m_main->closeTab(t);
-                         next();
+                         // Which extension APIs Qt exposes to an extension page (names only).
+                         eval(t,
+                              QStringLiteral("(typeof chrome === 'object' ? Object.keys(chrome).sort().join(',') : 'none')"
+                                             " + ' | dnr=' + typeof (chrome.declarativeNetRequest)"
+                                             " + ' tabs=' + typeof (chrome.tabs) + ' permissions=' + typeof (chrome.permissions)"
+                                             " + ' action=' + typeof (chrome.action) + ' scripting=' + typeof (chrome.scripting)"
+                                             " + ' storage=' + typeof (chrome.storage) + ' offscreen=' + typeof (chrome.offscreen)"
+                                             " + ' userScripts=' + typeof (chrome.userScripts) + ' windows=' + typeof (chrome.windows)"),
+                              [this, t, next](const QVariant &apis) {
+                                  log(QStringLiteral("ext: apis-in-extension-page %1").arg(apis.toString()));
+                                  m_main->closeTab(t);
+                                  next();
+                              });
                      });
             });
         });
     });
+    add(QStringLiteral("ext-dnr-probe"), [this](Next next) {
+        // A minimal MV3 extension with one static declarativeNetRequest rule and no
+        // background script: tells "Qt has no DNR" apart from "uBOL's background failed".
+        QWebEngineExtensionManager *em = normalProfile()->extensionManager();
+        const QString dir = envOr("BIRCH_DNR_PROBE");
+        if (!em || dir.isEmpty()) {
+            log(QStringLiteral("dnr-probe: install expected=run got=skipped"));
+            next();
+            return;
+        }
+        auto info = std::make_shared<QWebEngineExtensionInfo>();
+        auto got = std::make_shared<bool>(false);
+        auto conn = std::make_shared<QMetaObject::Connection>();
+        *conn = connect(em, &QWebEngineExtensionManager::installFinished, this,
+                        [info, got](const QWebEngineExtensionInfo &i) {
+                            *info = i;
+                            *got = true;
+                        });
+        em->installExtension(dir);
+        waitFor([got]() { return *got; }, 20000, [this, em, info, got, conn, next](bool) {
+            disconnect(*conn);
+            check(QStringLiteral("dnr-probe"), QStringLiteral("installed"), QStringLiteral("1"),
+                  yesNo(*got && info->error().isEmpty()), QStringLiteral("error=[%1]").arg(info->error()));
+            if (*got && info->error().isEmpty())
+                em->setExtensionEnabled(*info, true);
+            after(4000, next);
+        });
+    });
+    addAds(QStringLiteral("dnr-probe"), true);
     add(QStringLiteral("ext-private-window"), [this](Next next) {
         m_private = new BrowserWindow(privateProfile(), true);
         m_private->setAttribute(Qt::WA_ShowWithoutActivating);
         m_private->show();
-        check(QStringLiteral("private-ubol"), QStringLiteral("extension-manager-in-private-profile"),
-              QStringLiteral("0"), yesNo(m_private->profile()->extensionManager() != nullptr),
-              QStringLiteral("(info: Qt documents no extensions off the record)"));
+        QWebEngineExtensionManager *pem = m_private->profile()->extensionManager();
+        log(QStringLiteral("private-ubol: extension-manager-object-exists got=%1 extensions-listed=%2 (info: Qt "
+                           "documents no extensions off the record)")
+                .arg(yesNo(pem != nullptr))
+                .arg(pem ? pem->extensions().size() : -1));
+        int ubolInPrivate = 0;
+        if (pem)
+            for (const QWebEngineExtensionInfo &i : pem->extensions())
+                if (i.name().contains(QLatin1String("uBlock"), Qt::CaseInsensitive) && i.isEnabled())
+                    ++ubolInPrivate;
+        check(QStringLiteral("private-ubol"), QStringLiteral("ubol-active-in-private-window"), QStringLiteral("0"),
+              QString::number(ubolInPrivate));
         Tab *t = m_private->newTab(fx(QStringLiteral("site.test"), QStringLiteral("/ads.html")));
         waitLoaded(t, 0, 10000, [this, t, next](bool) {
             pollJs(t, QStringLiteral("(window.__ads && window.__ads.done) ? JSON.stringify(window.__ads) : ''"), 10000,

@@ -33,6 +33,10 @@ HERE = Path(__file__).resolve().parent
 FIXTURES = HERE / "fixtures"
 IS_WIN = sys.platform.startswith("win")
 LOOKALIKE = "xn--80ak6aa92e.com"
+# Chromium's host resolver checks IPv6 reachability with a UDP connect() to Google
+# Public DNS's IPv6 address. A UDP connect sends no packet; strace (Linux) shows
+# whether anything is ever sent there.
+IPV6_PROBE = "2001:4860:4860::8888"
 AD_HOST = "ib.adnxs.com"
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]", LOOKALIKE, AD_HOST}
 GIF = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,"
@@ -299,12 +303,13 @@ def run_app(args, name, gates, extra_env=None, idle=0, netlog=True, strace=False
     })
     if args.ubol_zip:
         env["BIRCH_UBOL_ZIP"] = args.ubol_zip
+    env["BIRCH_DNR_PROBE"] = str(FIXTURES / "dnr-probe")
     if extra_env:
         env.update({k: v.format(scratch=scratch, home=home) for k, v in extra_env.items()})
     log_path = out / f"{name}.log"
     cmd = [args.app]
     if strace:
-        cmd = ["strace", "-f", "-qq", "-e", "trace=connect,sendto,sendmsg", "-o", str(out / f"{name}-strace.txt")] + cmd
+        cmd = ["strace", "-f", "-qq", "-e", "trace=socket,connect,sendto,sendmsg", "-o", str(out / f"{name}-strace.txt")] + cmd
     mon = start_tcp_monitor(out / f"{name}-tcp.txt", timeout) if netlog else None
     t0 = time.time()
     with open(log_path, "w", encoding="utf-8", errors="replace") as logf:
@@ -413,7 +418,9 @@ def main():
             harness_check(summary, name, "netlog", "recorded", 1, 0)
             continue
         bad_hosts = sorted(h for h in hosts if not host_allowed(h))
-        bad_addrs = sorted(a for a in addrs if a not in ("127.0.0.1", "::1", "") and not a.startswith("0.0.0.0"))
+        if IPV6_PROBE in addrs:
+            summary.append(f"[{name}] info     netlog: ipv6-reachability-probe address={IPV6_PROBE} (UDP connect, see strace)")
+        bad_addrs = sorted(a for a in addrs if a not in ("127.0.0.1", "::1", "", IPV6_PROBE) and not a.startswith("0.0.0.0"))
         harness_check(summary, name, "netlog", "recorded", 1, 1, f"hosts-seen={len(hosts)}")
         harness_check(summary, name, "netlog", "non-fixture-hosts", 0, len(bad_hosts), f"list={bad_hosts[:20]}")
         harness_check(summary, name, "netlog", "non-local-addresses", 0, len(bad_addrs), f"list={bad_addrs[:20]}")
@@ -428,22 +435,47 @@ def main():
     for name, r in results.items():
         st = out / f"{name}-strace.txt"
         if st.exists():
-            text = st.read_text(errors="replace")
-            ips = set(re.findall(r'inet_addr\("([\d.]+)"\)', text)) | set(re.findall(r'inet_pton\(AF_INET6, "([^"]+)"', text))
-            bad = sorted(ip for ip in ips if ip not in ("127.0.0.1", "::1", "0.0.0.0", "::"))
-            harness_check(summary, name, "strace", "connect-or-send-to-non-local-ip", 0, len(bad), f"ips={bad}")
+            local = ("127.0.0.1", "::1", "0.0.0.0", "::", "127.0.0.53")
+            socktype = {}
+            tcp, udp, sent = set(), set(), set()
+            for line in st.read_text(errors="replace").splitlines():
+                parts = line.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                pid, call = parts
+                m = re.match(r"socket\((AF_INET6?), (SOCK_\w+).*\) = (\d+)", call)
+                if m:
+                    socktype[(pid, m.group(3))] = m.group(2)
+                    continue
+                ip = re.search(r'inet_addr\("([\d.]+)"\)|inet_pton\(AF_INET6, "([^"]+)"', call)
+                if not ip:
+                    continue
+                ip = ip.group(1) or ip.group(2)
+                if ip in local:
+                    continue
+                fd = re.match(r"\w+\((\d+),", call)
+                kind = socktype.get((pid, fd.group(1) if fd else ""), "?")
+                if call.startswith(("sendto(", "sendmsg(")):
+                    sent.add(ip)
+                elif call.startswith("connect("):
+                    (udp if kind == "SOCK_DGRAM" else tcp).add(ip)
+            harness_check(summary, name, "strace", "tcp-or-unknown-connects-to-non-local-ip", 0, len(tcp), f"ips={sorted(tcp)}")
+            harness_check(summary, name, "strace", "packets-sent-to-non-local-ip", 0, len(sent), f"ips={sorted(sent)}")
+            summary.append(f"[{name}] info     strace: udp-connect-only (no data) ips={sorted(udp)}")
             harness_check(summary, name, "strace", "app-reached-end", 1,
                           int(any(l.startswith("gates: done") for l in r["lines"])))
 
     # Fixture server view of the ad request (uBOL must stop it before it is sent).
     with HITS_LOCK:
         hits = list(HITS)
-    for name in ("main", "ubol", "baseline"):
+    for name in ("main", "baseline"):
         if name in results:
             n = sum(1 for s, h, p in hits if s == name and h == AD_HOST)
-            exp = 0 if name == "ubol" else ">=1"
-            got = n if name == "ubol" else (">=1" if n >= 1 else n)
-            harness_check(summary, name, "fixture-server", "ad-requests-received", exp, got, f"count={n}")
+            harness_check(summary, name, "fixture-server", "ad-requests-received-without-blocker", ">=1",
+                          ">=1" if n >= 1 else n, f"count={n}")
+    if "ubol" in results:
+        n = sum(1 for s, h, p in hits if s == "ubol" and h == AD_HOST)
+        summary.append(f"[ubol] info     fixture-server: ad-requests-received count={n} (0 means every blocker test held)")
 
     # Mark of the Web, checked from outside the app too.
     if IS_WIN and "main" in results:

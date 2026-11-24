@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Birch DNR probe",
+  "version": "1.0",
+  "description": "Test fixture: one static declarativeNetRequest rule, no background script.",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "probe", "enabled": true, "path": "rules.json" }]
+  }
+}

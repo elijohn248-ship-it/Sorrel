@@ -34,7 +34,34 @@
     "6.12.0-0-202609280346qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "14c0dc4c8147cf9f7f64909b27ae5c9ab2aaa8ad6625bc2248c693c2a327ab5b",
     "6.12.0-0-202609280346icu-linux-Rhel8.6-x86_64.7z": "1fdbcd67b1760f3a3f031c64637a9f19992aed2f35aa615e12a468f8c655d4da"
    }
-  }
+  },
+  "base_archive_urls": {
+   "windows": {
+    "6.12.0-0-202609280346qtpositioning-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.addons.qtpositioning.win64_msvc2022_64/6.12.0-0-202609280346qtpositioning-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qtwebchannel-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.addons.qtwebchannel.win64_msvc2022_64/6.12.0-0-202609280346qtwebchannel-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qtdoc-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qtdoc-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+    "6.12.0-0-202609280346d3dcompiler_47-x64.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346d3dcompiler_47-x64.7z",
+    "6.12.0-0-202609280346opengl32sw-64-mesa_11_2_2-signed_sha256.7z": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6120/qt6_6120_msvc2022_64/qt.qt6.6120.win64_msvc2022_64/6.12.0-0-202609280346opengl32sw-64-mesa_11_2_2-signed_sha256.7z"
+   },
+   "linux": {
+    "6.12.0-0-202609280346qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.addons.qtpositioning.linux_gcc_64/6.12.0-0-202609280346qtpositioning-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.addons.qtwebchannel.linux_gcc_64/6.12.0-0-202609280346qtwebchannel-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qtbase-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qtsvg-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qtdeclarative-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qtdoc-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qttools-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qttranslations-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346qtwayland-Linux-RHEL_9_6-GCC-Linux-RHEL_9_6-X86_64.7z",
+    "6.12.0-0-202609280346icu-linux-Rhel8.6-x86_64.7z": "https://download.qt.io/online/qtsdkrepository/linux_x64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.linux_gcc_64/6.12.0-0-202609280346icu-linux-Rhel8.6-x86_64.7z"
+   }
+  },
+  "_note": "aqtinstall is tried first; if it cannot install this Qt (3.3.0 looks for Qt 6.12 for Windows MSVC in the wrong folder), fetch_deps.py downloads exactly these pinned archives and checks the same SHA-256 values."
  },
  "webengine": {
   "version": "6.140.0",

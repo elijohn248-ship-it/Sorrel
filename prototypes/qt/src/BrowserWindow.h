@@ -44,6 +44,8 @@ public:
     void select(Tab *tab);
     Tab *current() const;
     int tabCount() const { return int(m_tabs.size()); }
+    QList<Tab *> tabs() const { return m_tabs; }
+    void setHoverTracking(bool on);  // tests drive reveal() themselves
     QString addressText() const;
     QWebEngineProfile *profile() const { return m_profile; }
     bool isPrivate() const { return m_private; }
