@@ -46,17 +46,23 @@ jobs:
           (Get-CimInstance Win32_OperatingSystem).Caption
           python --version
           cmake --version | Select-Object -First 1
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - id: deps-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: deps
           key: cef-deps-windows64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
       - name: Fetch and verify CEF + uBOL
         run: python -I prototypes/cef/tools/fetch_deps.py --platform windows64 --dest deps
+      - if: steps.deps-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: cef-deps-windows64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
       - name: List bootstrap files
         shell: pwsh
         run: Get-ChildItem deps/cef/Release | Select-Object Name,Length | Format-Table -AutoSize
       - name: Configure
-        run: cmake -S prototypes/cef -B out -A x64 -DCEF_ROOT=${{ github.workspace }}/deps/cef
+        run: cmake -S prototypes/cef -B out -A x64 -DCEF_ROOT="${{ github.workspace }}/deps/cef"
       - name: Build
         shell: pwsh
         run: |
@@ -94,12 +100,18 @@ jobs:
             libxdamage1 libxrandr2 libasound2t64 libatk-bridge2.0-0t64 libcups2t64 \
             libpango-1.0-0 libgtk-3-0t64 >/dev/null
           gcc --version | head -1
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - id: deps-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: deps
           key: cef-deps-linux64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
       - name: Fetch and verify CEF + uBOL
         run: python3 -I prototypes/cef/tools/fetch_deps.py --platform linux64 --dest deps
+      - if: steps.deps-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: cef-deps-linux64-${{ hashFiles('prototypes/cef/deps.json', 'prototypes/cef/tools/fetch_deps.py') }}
       - name: Configure
         run: cmake -S prototypes/cef -B out -DCMAKE_BUILD_TYPE=Release -DCEF_ROOT=$GITHUB_WORKSPACE/deps/cef
       - name: Build

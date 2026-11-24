@@ -10,6 +10,8 @@ project(birch_cef LANGUAGES C CXX)
 if(NOT CEF_ROOT)
   message(FATAL_ERROR "Pass -DCEF_ROOT=<path to the unpacked CEF binary distribution>")
 endif()
+# Windows paths with backslashes break CEF's macros; use CMake's form.
+file(TO_CMAKE_PATH "${CEF_ROOT}" CEF_ROOT)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()

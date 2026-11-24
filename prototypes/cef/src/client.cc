@@ -101,7 +101,7 @@ void BirchClient::OnLoadError(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
 
 bool BirchClient::OnBeforePopup(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, int,
                                 const CefString& target_url, const CefString&,
-                                WindowOpenDisposition, bool,
+                                cef_window_open_disposition_t, bool,
                                 const CefPopupFeatures&, CefWindowInfo&,
                                 CefRefPtr<CefClient>&, CefBrowserSettings&,
                                 CefRefPtr<CefDictionaryValue>&, bool*) {
