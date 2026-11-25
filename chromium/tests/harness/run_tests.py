@@ -278,7 +278,11 @@ def test_channel():
     scratch, home = new_home()
     extension = os.path.join(scratch, "channel-extension")
     shutil.copytree(os.path.join(FIXTURES, "channel_extension"), extension)
+    # Chromium installs unpacked extensions only in a regular profile. Keep
+    # this one on disk inside the fresh scratch home; UI/private contexts
+    # remain off the record, as in the existing private-storage control.
     run = run_app("channel", {"BIRCH_TEST": "channel", "BIRCH_HOLD": "4",
+                              "BIRCH_PERSIST": "1",
                               "BIRCH_CHANNEL_EXTENSION": extension}, 240,
                   marker="channel: hold", during=shots, scratch=scratch, home=home)
     ev = check_lines(run) + grep(run, "channel:") + grep(run, "ui:") + [
