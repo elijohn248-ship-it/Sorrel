@@ -26,8 +26,10 @@ int main(int argc, char **argv)
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc, argv);
     if (qEnvironmentVariable("BIRCH_BASELINE") != QLatin1String("1")) {
-        // Qt WebEngine takes its proxy from Qt Network. Pin "no proxy" so nothing
-        // tries Windows' proxy auto-discovery (WPAD); see REPORT.md, gate 5.
+        // Qt WebEngine takes its proxy from Qt Network. Pin "no proxy": with Qt's
+        // defaults, Windows runs proxy auto-discovery (a "wpad" DNS lookup on the local
+        // network, seen in the baseline NetLog). Trade-off: system proxies are ignored;
+        // a real build needs an explicit proxy setting instead (owner decision).
         QNetworkProxyFactory::setUseSystemConfiguration(false);
         QNetworkProxy::setApplicationProxy(QNetworkProxy(QNetworkProxy::NoProxy));
     }

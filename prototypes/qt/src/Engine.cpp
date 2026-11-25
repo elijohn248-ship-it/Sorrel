@@ -35,12 +35,11 @@ static const char *const kForbiddenSwitches[] = {
 // Birch's own hardening. Most are no-ops in Qt WebEngine (it leaves Chrome's
 // Google services out), kept as defence in depth; the NetLog comparison with
 // BIRCH_BASELINE=1 shows which actually change anything.
-// --no-proxy-server stops Windows' proxy auto-discovery (a "wpad" lookup on the
-// local network, seen in the baseline NetLog); it also ignores any system proxy,
-// which is a trade-off for the owner to decide.
+// (Chromium's --no-proxy-server has no effect in Qt WebEngine: Qt supplies the proxy
+// configuration itself. Proxy auto-discovery is switched off in main.cpp instead.)
 static const char kHardening[] =
     "--disable-background-networking --disable-component-update --disable-domain-reliability "
-    "--no-pings --disable-breakpad --no-proxy-server";
+    "--no-pings --disable-breakpad";
 
 static QString g_flagsInUse;
 
