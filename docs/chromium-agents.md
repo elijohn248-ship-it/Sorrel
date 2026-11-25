@@ -240,7 +240,7 @@ Write chromium/SECURITY-AUDIT.md: each finding with severity, evidence and a fix
 
 ### Prompt 11: Linux edition (branch `chromium-linux`)
 
-> **Changed 2026-11-25 (see Change of order):** this now runs in wave 4, before Windows. Agent 9 hasn't run, so you design the signed update feed yourself, following prompt 9 ▸ 2 (editions can never cross; ask the owner whether to reuse the existing update key; signing stays on this Mac), for linux-x64 first. The owner uses Ubuntu: propose the package format (a .deb that installs an AppArmor profile, an AppImage, or both) with how each one updates itself, and ask before choosing. Ignore "The Windows edition is merged" below.
+> **Changed 2026-11-25 (see Change of order):** this now runs in wave 4, before Windows. Agent 9 hasn't run, so you design the signed update feed yourself, following prompt 9 ▸ 2 (editions can never cross; ask the owner whether to reuse the existing update key; signing stays on this Mac), for linux-x64 first. The owner uses Ubuntu and chose a **.deb** (2026-11-25): it installs Birch and an AppArmor profile so Chromium's sandbox works on Ubuntu 23.10+. Propose how the .deb edition updates itself (with the signed feed above) and ask before building that part; an AppImage is not needed for now. Ignore "The Windows edition is merged" below.
 
 ```text
 Follow docs/chromium-agents.md ▸ Shared rules. Your branch: chromium-linux. The Windows edition is merged; CI has built chromium/ on Linux since wave 2. Your job is a Linux download people can install, with the same privacy and update guarantees.
