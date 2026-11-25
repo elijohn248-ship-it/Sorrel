@@ -155,13 +155,25 @@ BIRCH_TEST_SCENARIO(channel) {
                   "(function(){location.href='" + pa +
                       "/page1.html';return 'tried'})()");
   Sleep(1000);
+  Then("web navigation stayed blocked", [] {
+    Expect("channel", "web navigation leaves sidebar on its own page",
+           "birch-ui://sidebar/index.html", SidebarUrl());
+  });
   SidebarEvalStep("sidebar navigates to birch://welcome", M, "uinav2",
                   "(function(){location.href='birch://welcome/';return 'tried'})()");
   Sleep(1000);
+  Then("bundled-page navigation stayed blocked", [] {
+    Expect("channel", "bundled-page navigation leaves sidebar on its own page",
+           "birch-ui://sidebar/index.html", SidebarUrl());
+  });
   SidebarEvalStep("sidebar navigates to another UI page", M, "uinav3",
                   "(function(){location.href='birch-ui://commandbar/index.html';"
                   "return 'tried'})()");
   Sleep(1000);
+  Then("other UI-page navigation stayed blocked", [] {
+    Expect("channel", "other UI-page navigation leaves sidebar on its own page",
+           "birch-ui://sidebar/index.html", SidebarUrl());
+  });
   SidebarEvalStep("sidebar opens a pop-up", M, "uipop",
                   "(function(){var w=window.open('" + pa +
                       "/page2.html');return w?'opened':'blocked'})()");
@@ -172,8 +184,11 @@ BIRCH_TEST_SCENARIO(channel) {
   Then("ui locked", [base, rows] {
     Expect("channel", "sidebar still on its own page", "yes",
            YesNo(StartsWith(SidebarUrl(), "birch-ui://sidebar/")));
-    Expect("channel", "UI navigations refused (3)", "yes",
-           YesNo(S().navigations_refused - base->navigations_refused >= 3));
+    // Chromium's display-isolation policy can block a scheme change before
+    // OnBeforeBrowse. Check each committed URL above and separately require
+    // the app's navigation guard to have refused the HTTP attempt.
+    Expect("channel", "UI navigation refused by the app", "yes",
+           YesNo(S().navigations_refused > base->navigations_refused));
     Expect("channel", "UI pop-up refused", "yes",
            YesNo(S().popups_refused > base->popups_refused ||
                  Value("uipop") == "blocked"));
