@@ -4,6 +4,7 @@
 #include <cmath>
 #include <vector>
 
+#include "include/views/cef_fill_layout.h"
 #include "include/views/cef_panel_delegate.h"
 
 namespace birch::ui {
