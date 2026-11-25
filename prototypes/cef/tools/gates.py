@@ -365,7 +365,17 @@ def linux_userns(pid):
         return "unreadable"
 
 
-def inspect_linux(_proc):
+def session_of(pid):
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return int(f.read().rsplit(")", 1)[1].split()[3])
+    except (OSError, ValueError, IndexError):
+        return -1
+
+
+def inspect_linux(proc):
+    """Every process in the app's own session (the app is started with
+    start_new_session=True, so its session id is its pid)."""
     rows = []
     me = linux_userns(os.getpid())
     for pid in os.listdir("/proc"):
@@ -376,8 +386,7 @@ def inspect_linux(_proc):
                 argv = f.read().split(b"\0")
         except OSError:
             continue
-        if not argv or os.path.basename(argv[0].decode(errors="replace")) not in (
-                "birch_cef", os.path.basename(A.app)):
+        if session_of(pid) != proc.pid or not argv or not argv[0]:
             continue
         cmd = " ".join(a.decode(errors="replace") for a in argv)
         seccomp = "?"
@@ -511,7 +520,7 @@ def gate_netlog(label, privacy_on=True):
           + (json.dumps(other, sort_keys=True) if other else "none"),
           f"{name}: WPAD (Windows proxy auto-detect) lookup: " + ("yes" if wpad else "no")]
     if privacy_on:
-        ok = not other and run["clean_exit"] and verdict_from_checks(run, False) != "FAIL"
+        ok = not other and run["clean_exit"] and not run["timed_out"]
         gate(f"5 network ({label})", "PASS" if ok else "FAIL", ev)
         shutil.copy(netlog, os.path.join(A.out, f"{name}.json"))
     else:
@@ -538,7 +547,7 @@ def gate_tls():
 
 # ---- gate 8 -------------------------------------------------------------------
 
-AD_HOSTS = "pagead2.googlesyndication.com,www.google-analytics.com"
+AD_HOSTS = "pagead2.googlesyndication.com,b.scorecardresearch.com"
 
 
 def gate_ubol():

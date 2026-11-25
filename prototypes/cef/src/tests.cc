@@ -326,17 +326,30 @@ void TabsScenario() {
     Expect("tabs", "lookalike shown as punycode", idn, g_main->address_text());
   });
 
+  // Page.crash (DevTools) crashes the renderer on Windows; if the renderer
+  // is still alive after 8 s, fall back to Chromium's chrome://kill debug URL,
+  // which ends the renderer process from the browser side.
+  auto crash_start = std::make_shared<Clock::time_point>();
+  auto killed = std::make_shared<bool>(false);
   runner().Do(
       "crash renderer",
-      [b] {
+      [b, crash_start] {
+        *crash_start = Clock::now();
         (*b)->loading = true;
         DevTools(*b, "crash", "Page.crash", nullptr);
       },
-      [b] {
+      [b, crash_start, killed] {
+        if (!(*b)->crashed && !*killed &&
+            Clock::now() - *crash_start > std::chrono::seconds(8)) {
+          *killed = true;
+          Log("crash: Page.crash did not end the renderer in 8 s; "
+              "using chrome://kill");
+          (*b)->browser->GetMainFrame()->LoadURL("chrome://kill");
+        }
         return (*b)->crashed && Settled(*b) &&
                StartsWith((*b)->committed_url, "birch://error");
       },
-      25000);
+      30000);
   runner().Then("crash page", [b] {
     Expect("tabs", "renderer crash detected", "yes", YesNo((*b)->crashed));
     Expect("tabs", "crash shows error page origin", "birch://error",
@@ -691,7 +704,9 @@ void UbolScenario() {
 
 // Gate 10: codecs and DRM.
 void CodecScenario() {
-  LoadStep("codec page", MainTab, Site("media") + "/codecs.html",
+  // 127.0.0.1 is a secure context, which Encrypted Media requires.
+  LoadStep("codec page", MainTab,
+           "http://127.0.0.1:" + HttpPort() + "/codecs.html",
            [](const std::string& u) { return EndsWith(u, "/codecs.html"); });
   EvalStep("codec tests", MainTab, "codecs", "window.runCodecTests()", true,
            60000);

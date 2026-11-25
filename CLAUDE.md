@@ -292,3 +292,17 @@ One bug per session where possible.
 ## Working with the owner
 
 Medical student, daily Safari user, former heavy Arc user. Wants Arc's feel (Spaces, hover sidebar, Peek, mini window) with Helium's privacy. Prefers plain, short explanations of what changed and what was verified versus not. Keep test output short and batched. Commit locally when asked; don't push or deploy anything without a go-ahead.
+
+## Chromium edition
+
+Windows first, then Linux (`docs/chromium-agents.md`). Each wave-1 branch keeps its own subsection here.
+
+### CEF prototype (wave 1, branch `chromium-cef-proto`, `prototypes/cef/`)
+
+Throwaway C++/CMake browser on CEF to test the engine gates; the report is `prototypes/cef/REPORT.md`, pins are `prototypes/cef/deps.json` and `chromium/THIRD_PARTY.md`. Built and tested only in GitHub Actions (`.github/workflows/chromium-cef-proto.yml`, push to this branch or manual run; never on main): `media` (ffmpeg fixtures) -> `windows` (windows-latest) and `linux` (ubuntu-24.04, Xvfb). Nothing CEF-related is built on the Mac.
+
+- **Windows sandbox needs CEF's bootstrap:** since M138 `cef_sandbox.lib` can't be linked by outside compilers, so the app is `birch_cef.dll` (exports `RunConsoleMain`) loaded by CEF's prebuilt `bootstrapc.exe` renamed `birch_cef.exe`. Never build with `USE_SANDBOX=OFF`; the CMake file refuses. `main_win.cc` refuses to start without sandbox info; `OnBeforeCommandLineProcessing` strips `--no-sandbox` and friends.
+- **Linux sandbox on Ubuntu 23.10+:** unprivileged user namespaces are restricted by AppArmor, so CI loads a per-binary AppArmor profile (`userns,` for `out/Release/birch_cef` only) instead of disabling anything; the step before it shows what happens without the profile.
+- **Pass CEF_ROOT with forward slashes / let CMake normalise it** (backslashes break CEF's macros), and **merge, never repeat, `--disable-features`**: CEF passes its own list (Glic, Lens overlay, ...); a second switch replaced it and crashed every Chrome-style window (0xC0000005).
+- **Test hooks:** `BIRCH_HOME` (fresh scratch profile; site data in memory unless `BIRCH_PERSIST=1`, everything stays inside BIRCH_HOME), `BIRCH_TEST=tabs|storage|download|sandbox|perm|tls|ubol|codecs|idle|netlog`, `BIRCH_LOG`, `BIRCH_DELAY`, `BIRCH_SNAPSHOT`, `BIRCH_HOLD`, `BIRCH_NETLOG`, `BIRCH_SEAL`, `BIRCH_HOSTMAP`, `BIRCH_EXTENSIONS`, `BIRCH_FAKE_MEDIA` (fake capture devices only, never fake-UI auto-accept), `BIRCH_PRIVACY=off` (stock-CEF NetLog baseline, test-only). Lines are `<area>: <what> expected=… got=… -> PASS|FAIL`. Page reads use the DevTools protocol (`Runtime.evaluate` with fixed expressions), not a page bridge. `tools/gates.py` runs them against `fixtures/server.py` (127.0.0.1 only; `*.birch.test` mapped there with `--host-resolver-rules`).
+- **Warnings:** Birch's own sources build with `/W4 /WX` and `-Wall -Wextra -Werror` with zero warnings; CEF headers are included as system/external headers. Unavoidable third-party warnings: on Windows the linker prints ~61 `LNK4199` ("/DELAYLOAD:x.dll ignored; no imports found") because CEF's CMake applies Chromium's whole delay-load list to every target; they are harmless and come from CEF's flags, not Birch code. CI counts warnings in `build.log`.

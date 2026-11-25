@@ -126,6 +126,7 @@ jobs:
       - name: Sandbox without an AppArmor profile (expected to refuse on Ubuntu 24.04)
         continue-on-error: true
         run: |
+          set +e
           echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo absent)"
           ls -la out/Release/chrome-sandbox
           S=$(mktemp -d /tmp/birch-test.XXXXXX)

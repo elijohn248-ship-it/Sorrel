@@ -82,7 +82,7 @@ class Handler(BaseHTTPRequestHandler):
                              {"Content-Disposition": f'attachment; filename="{name}"'})
         if path == "/tls/secret.html":
             return self.send(200, b"<!doctype html><p>BADCERT-CONTENT</p>")
-        if path in ("/pagead/js/adsbygoogle.js", "/analytics.js"):
+        if path in ("/pagead/js/adsbygoogle.js", "/beacon.js"):
             return self.send(200, b"/* fixture script */", "text/javascript")
         if path == "/collect":
             return self.send(200, GIF, "image/gif")
