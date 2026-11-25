@@ -68,6 +68,7 @@ void RoundedCard::Attach(CefRefPtr<CefWindow> window) {
     masks_[i]->SetEnabled(false);
     masks_[i]->SetFocusable(false);
     masks_[i]->SetInkDropEnabled(false);
+    masks_[i]->SetInsets(CefInsets(0, 0, 0, 0));
     masks_[i]->SetMinimumSize(CefSize(kRadius, kRadius));
     masks_[i]->SetMaximumSize(CefSize(kRadius, kRadius));
     masks_[i]->SetBackgroundColor(CefColorSetARGB(0, 0, 0, 0));
