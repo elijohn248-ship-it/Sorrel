@@ -1007,5 +1007,5 @@
     "Commands.swift Keybindings.defaults/normalize/pretty/reload/setShortcut/displayAll/command(onStroke:) (real)",
     "Commands.shared.all after launch (real)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

@@ -164,5 +164,5 @@
   "sources" : [
     "Models.swift ArchivedTab, Data.swift History.Entry Codable (real, iso8601)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

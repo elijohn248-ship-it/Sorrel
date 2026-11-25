@@ -11238,7 +11238,7 @@
     "Models.swift AppState/Space/Item/SplitLayout/BrowserWindowState Codable (JSONDecoder, iso8601 dates)",
     "store_on_launch: transcribed from Store.init (Models.swift): decode failure or no spaces -> seed + backup"
   ],
-  "spec_version" : "1.0.0",
+  "spec_version" : "2.0.0",
   "written_by_birch" : {
     "currentSpaceID" : "00000000-0000-4000-8000-000000000001",
     "favorites" : [

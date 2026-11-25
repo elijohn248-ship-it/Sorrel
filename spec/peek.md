@@ -1,6 +1,6 @@
 # Peek (link preview)
 
-Spec 1.0.0. Fixture: `peek` (every case is a transcription of `Engine.shouldPeek` and the link branch of `Engine`'s navigation policy in `Web.swift`, because WebKit's navigation action object can't be built outside WebKit; the site checks inside are the real `Site` functions with real settings).
+Spec 2.0.0. Fixture: `peek` (every case is a transcription of `Engine.shouldPeek` and the link branch of `Engine`'s navigation policy in `Web.swift`, because WebKit's navigation action object can't be built outside WebKit; the site checks inside are the real `Site` functions with real settings).
 
 ## Decision, in order
 

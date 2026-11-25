@@ -951,5 +951,5 @@
   "sources" : [
     "Models.swift Store.archiveStaleTabs/sleepIdleTabs/canSleep, Cleanup.swift relieveMemoryPressure (real, live scratch store)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

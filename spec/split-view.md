@@ -1,6 +1,6 @@
 # Split view
 
-Spec 1.0.0. Fixture: `split-view` (one sequence of 28 steps on the real store; run them in order). Source: `Models.swift` (Store split functions, `SplitLayout`), `MainWindow.swift`.
+Spec 2.0.0. Fixture: `split-view` (one sequence of 28 steps on the real store; run them in order). Source: `Models.swift` (Store split functions, `SplitLayout`), `MainWindow.swift`.
 
 ## Model
 

@@ -1,6 +1,6 @@
 # Saved data
 
-Spec 1.0.0. Fixtures: `state-decode`, `state-derived`, `settings-fields`, `settings-decode`, `archive-history-decode`, `history-behaviour`. Sources: `Models.swift`, `Support.swift`, `Data.swift`.
+Spec 2.0.0. Fixtures: `state-decode`, `state-derived`, `settings-fields`, `settings-decode`, `archive-history-decode`, `history-behaviour`. Sources: `Models.swift`, `Support.swift`, `Data.swift`.
 
 The profile folder holds plain JSON files. Each edition has **its own** profile folder (Mac: inside the `app.sorrel.browser` container; Chromium: `%LOCALAPPDATA%\Birch`, `~/.local/share/birch`). An edition never opens another edition's folder directly; moving data across is an explicit, validated import (dual-engine-plan.md ▸ Data and safety rules).
 

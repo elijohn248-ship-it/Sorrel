@@ -10,8 +10,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -27,8 +26,7 @@
             "switcher" : [
               "d",
               "b",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -44,8 +42,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -63,6 +60,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -103,8 +103,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -113,18 +112,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
-            ]
-          },
-          {
-            "selected" : "c",
-            "step" : "press",
-            "switcher" : [
-              "b",
-              "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -133,12 +121,20 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
-            "selected" : "b",
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "b",
+              "d",
+              "a"
+            ]
+          },
+          {
+            "selected" : "d",
             "step" : "release",
             "switcher" : [
 
@@ -152,6 +148,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -191,8 +190,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -201,8 +199,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -211,8 +208,7 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
@@ -221,22 +217,20 @@
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
-            "selected" : "c",
+            "selected" : "a",
             "step" : "shift-press",
             "switcher" : [
               "b",
               "d",
-              "a",
-              "c"
+              "a"
             ]
           },
           {
-            "selected" : "c",
+            "selected" : "a",
             "step" : "release",
             "switcher" : [
 
@@ -250,6 +244,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -358,6 +355,12 @@
           "e" : 30
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -387,6 +390,178 @@
         ]
       },
       "name" : "tabs never visited follow by last use, ties in sidebar order"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "d",
+            "step" : "close b",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "d",
+              "c",
+              "a"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "d",
+              "c",
+              "a"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "d",
+              "c",
+              "a"
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : true,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+            "b"
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "c",
+            "d",
+            "e"
+          ]
+        },
+        "steps" : [
+          "close b",
+          "press",
+          "press",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "b",
+          "c",
+          "d"
+        ]
+      },
+      "name" : "sleeping and never-opened tabs are left out"
+    },
+    {
+      "expected" : {
+        "after_each_step" : [
+          {
+            "selected" : "c",
+            "step" : "close b",
+            "switcher" : [
+
+            ]
+          },
+          {
+            "selected" : "d",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "a",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "press",
+            "switcher" : [
+              "a",
+              "c",
+              "d"
+            ]
+          },
+          {
+            "selected" : "c",
+            "step" : "release",
+            "switcher" : [
+
+            ]
+          }
+        ]
+      },
+      "input" : {
+        "controlTabUsesRecency" : false,
+        "idle_minutes" : {
+
+        },
+        "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
+        "sidebar_before" : {
+          "favorites" : [
+
+          ],
+          "pinned" : [
+            "b"
+          ],
+          "selected" : null,
+          "today" : [
+            "a",
+            "c",
+            "d",
+            "e"
+          ]
+        },
+        "steps" : [
+          "close b",
+          "press",
+          "press",
+          "press",
+          "release"
+        ],
+        "visits_in_order" : [
+          "a",
+          "b",
+          "d",
+          "c"
+        ]
+      },
+      "name" : "recency off: sleeping and never-opened tabs are left out"
     },
     {
       "expected" : {
@@ -431,6 +606,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -503,6 +681,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -606,6 +787,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
             "a"
@@ -675,6 +859,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -722,6 +909,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -756,7 +946,6 @@
             "step" : "press",
             "switcher" : [
               "a",
-              "b",
               "c",
               "d"
             ]
@@ -766,7 +955,6 @@
             "step" : "press",
             "switcher" : [
               "a",
-              "b",
               "c",
               "d"
             ]
@@ -776,7 +964,6 @@
             "step" : "shift-press",
             "switcher" : [
               "a",
-              "b",
               "c",
               "d"
             ]
@@ -800,7 +987,6 @@
             "step" : "press",
             "switcher" : [
               "a",
-              "b",
               "c",
               "d"
             ]
@@ -820,6 +1006,9 @@
 
         },
         "idle_minutes_default" : 60,
+        "loaded_without_visit" : [
+
+        ],
         "sidebar_before" : {
           "favorites" : [
 
@@ -856,6 +1045,8 @@
   "fixture" : "tab-recency",
   "generated_by" : "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",
   "notes" : [
+    "Only open tabs take part: tabs with a loaded page (visited, or listed in loaded_without_visit, i.e. opened in the background) plus the selected tab.",
+    "Tabs never opened, and pinned tabs put to sleep (close on a pinned tab), are left out of the cycle and the switcher.",
     "press = Control+Tab key down (holdingControl true), shift-press = Control+Shift+Tab, release = Control let go,",
     "menu-next = tab.cycleNext from a menu or the command bar (holdingControl false).",
     "switcher = the order the Control+Tab switcher shows after the step ([] = hidden).",
@@ -864,5 +1055,5 @@
   "sources" : [
     "Models.swift Store.cycleTab/endTabCycle/select/cycleOrder (real, live scratch store)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

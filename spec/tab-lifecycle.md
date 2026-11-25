@@ -1,6 +1,6 @@
 # Tab sleep, archive and memory pressure
 
-Spec 1.0.0. Fixture: `tab-lifecycle`. Sources: `Models.swift` (Store.sleepIdleTabs, sleepTabs, canSleep, archiveStaleTabs), `Cleanup.swift` (relieveMemoryPressure, freeMemory), `App.swift` (timers).
+Spec 2.0.0. Fixture: `tab-lifecycle`. Sources: `Models.swift` (Store.sleepIdleTabs, sleepTabs, canSleep, archiveStaleTabs), `Cleanup.swift` (relieveMemoryPressure, freeMemory), `App.swift` (timers).
 
 Every tab has `lastActive`: set when it is selected and when a page finishes loading. Selecting one pane of a split also refreshes the other panes (they are on screen).
 

@@ -1969,5 +1969,5 @@
   "sources" : [
     "Support.swift Settings.init(from:) and Settings.load() against the scratch profile's settings.json (real)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

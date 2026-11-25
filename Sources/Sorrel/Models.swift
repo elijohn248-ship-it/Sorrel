@@ -337,6 +337,12 @@ final class Store {
         state.favorites + tabs(in: currentSpace.pinned) + tabs(in: currentSpace.today)
     }
 
+    /// Control+Tab's tabs: those in `cycleOrder` with a loaded page, plus the selected tab. Sleeping and
+    /// never-opened tabs stay out; Next/Previous Tab (⌥⌘↓/↑) still walk all of `cycleOrder`.
+    var openCycleOrder: [Item] {
+        cycleOrder.filter { $0.page != nil || $0 === selected }
+    }
+
     /// Every tab anywhere, for searching.
     var allTabs: [(item: Item, space: Space?)] {
         var out: [(Item, Space?)] = state.favorites.map { ($0, nil) }
@@ -464,8 +470,8 @@ final class Store {
         scheduleSave()
     }
 
-    func selectRelative(_ offset: Int) {
-        let order = cycleOrder
+    func selectRelative(_ offset: Int, in tabs: [Item]? = nil) {
+        let order = tabs ?? cycleOrder
         guard !order.isEmpty else { return }
         guard let cur = selected, let idx = order.firstIndex(where: { $0 === cur }) else {
             select(order[0]); return
@@ -479,13 +485,14 @@ final class Store {
         guard Settings.current.controlTabUsesRecency else {
             tabCycleIDs = []
             selectingInTabCycle = true
-            selectRelative(offset)
+            let open = openCycleOrder
+            selectRelative(offset, in: open)
             selectingInTabCycle = false
-            if holdingControl { onTabCycleChanged?(cycleOrder) } else { endTabCycle() }
+            if holdingControl { onTabCycleChanged?(open) } else { endTabCycle() }
             return
         }
         // A tab already on screen in another window belongs to that window's cycle.
-        let eligible = cycleOrder.filter { tab in
+        let eligible = openCycleOrder.filter { tab in
             !sessions.contains { $0 !== self && $0.displays(tab) }
         }
         let liveIDs = Set(eligible.map { $0.id })

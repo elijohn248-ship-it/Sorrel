@@ -3497,5 +3497,5 @@
   "sources" : [
     "Support.swift NSColor(hex:)/hexString; ThemeLook.swift OKLab, Theme.softBase/soften/blendedStops, Grain (real)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

@@ -502,5 +502,5 @@
     "Item.displayTitle, SplitLayout.normalized, BundledPage (real)",
     "Store.seed via a fresh profile (real)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

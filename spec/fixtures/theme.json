@@ -14418,5 +14418,5 @@
   "sources" : [
     "ThemeLook.swift Theme.soften/softLabs/gradientStops, Support.swift Theme.resolvedColors/isDark, Grain.opacity (real)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

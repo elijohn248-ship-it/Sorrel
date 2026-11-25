@@ -1,6 +1,6 @@
 # Keyboard shortcuts and commands
 
-Spec 1.0.0. Fixture: `keybindings` (its top-level `commands` lists all 87 command ids and titles). Source: `Commands.swift`.
+Spec 2.0.0. Fixture: `keybindings` (its top-level `commands` lists all 87 command ids and titles). Source: `Commands.swift`.
 
 ## Commands
 
