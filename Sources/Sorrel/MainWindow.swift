@@ -37,6 +37,8 @@ final class ContentCard: NSView {
     private(set) weak var webView: WKWebView?
     private let empty = NSTextField(labelWithString: "")
     let findBar = FindBar()
+    /// Holds the find bar over the focused pane (FindBar.swift).
+    private let findClip = FindClipView()
 
     // Split view (Split.swift has the pane and divider views).
     private(set) var panes: [PaneView] = []
@@ -75,17 +77,12 @@ final class ContentCard: NSView {
         empty.translatesAutoresizingMaskIntoConstraints = false
         addSubview(empty)
 
-        findBar.translatesAutoresizingMaskIntoConstraints = false
-        findBar.isHidden = true
-        addSubview(findBar)
+        addSubview(findClip)
+        findBar.install(in: findClip)
 
         NSLayoutConstraint.activate([
             empty.centerXAnchor.constraint(equalTo: centerXAnchor),
             empty.centerYAnchor.constraint(equalTo: centerYAnchor),
-            findBar.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            findBar.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
-            findBar.widthAnchor.constraint(equalToConstant: 300),
-            findBar.heightAnchor.constraint(equalToConstant: 34),
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -137,7 +134,13 @@ final class ContentCard: NSView {
     /// so changing focus between panes never reloads or flickers.
     func show(_ views: [WKWebView], focused: Int, stacked: Bool, fractions: [Double]) {
         let focusedView = views.indices.contains(focused) ? views[focused] : views.first
-        if focusedView !== webView { findBar.close() }
+        if focusedView !== webView {
+            // Moving focus between the panes of the same split keeps the bar and takes it along; anything else
+            // (another tab, a split coming apart, no page) closes it.
+            let samePanes = views.count > 1 && views.count == panes.count
+                && Set(views.map(ObjectIdentifier.init)) == Set(panes.map { ObjectIdentifier($0.webView) })
+            if samePanes, let f = focusedView { findBar.follow(f) } else { findBar.close(refocus: false) }
+        }
         webView = focusedView
         isEmpty = views.isEmpty
 
@@ -235,6 +238,14 @@ final class ContentCard: NSView {
 
     override func layout() {
         super.layout()
+        layoutPanes()
+        // The find bar sits along the bottom of the focused pane, clipped to its corners.
+        let focusedPane = panes.first { $0.webView === webView } ?? panes.first
+        findClip.frame = focusedPane?.frame ?? bounds
+        findClip.layer?.cornerRadius = focusedPane?.layer?.cornerRadius ?? 0
+    }
+
+    private func layoutPanes() {
         let n = panes.count
         guard n > 0 else { return }
         if n == 1 {
@@ -325,101 +336,6 @@ final class ContentCard: NSView {
         guard let id = draggedID(sender), let s = side(for: sender), canDrop?(id) ?? false else { return false }
         onDrop?(id, s)
         return true
-    }
-}
-
-/// Find in page.
-final class FindBar: NSView, NSTextFieldDelegate {
-    private let field = NSTextField()
-    private let status = NSTextField(labelWithString: "")
-    weak var webView: WKWebView?
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        wantsLayer = true
-        layer?.cornerRadius = 9
-        layer?.borderWidth = 0.5
-        layer?.borderColor = NSColor.separatorColor.cgColor
-        shadow = {
-            let s = NSShadow()
-            s.shadowBlurRadius = 10
-            s.shadowColor = NSColor.black.withAlphaComponent(0.2)
-            return s
-        }()
-        field.placeholderString = "Find on page"
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
-        field.font = .systemFont(ofSize: 13)
-        field.delegate = self
-        status.font = .systemFont(ofSize: 11)
-        status.textColor = .secondaryLabelColor
-        let prev = IconButton(symbol: "chevron.up", size: 11, tooltip: "Previous") { [weak self] in self?.search(backwards: true) }
-        let next = IconButton(symbol: "chevron.down", size: 11, tooltip: "Next") { [weak self] in self?.search(backwards: false) }
-        let done = IconButton(symbol: "xmark", size: 10, tooltip: "Close") { [weak self] in self?.close() }
-        for v in [field, status, prev, next, done] as [NSView] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
-        }
-        NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            field.centerYAnchor.constraint(equalTo: centerYAnchor),
-            field.trailingAnchor.constraint(equalTo: status.leadingAnchor, constant: -6),
-            status.trailingAnchor.constraint(equalTo: prev.leadingAnchor, constant: -4),
-            status.centerYAnchor.constraint(equalTo: centerYAnchor),
-            prev.trailingAnchor.constraint(equalTo: next.leadingAnchor),
-            next.trailingAnchor.constraint(equalTo: done.leadingAnchor, constant: -2),
-            done.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            prev.centerYAnchor.constraint(equalTo: centerYAnchor),
-            next.centerYAnchor.constraint(equalTo: centerYAnchor),
-            done.centerYAnchor.constraint(equalTo: centerYAnchor),
-            prev.widthAnchor.constraint(equalToConstant: 22),
-            next.widthAnchor.constraint(equalToConstant: 22),
-            done.widthAnchor.constraint(equalToConstant: 22),
-        ])
-        status.setContentHuggingPriority(.required, for: .horizontal)
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override var wantsUpdateLayer: Bool { true }
-    override func updateLayer() { layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
-
-    func open(for webView: WKWebView) {
-        self.webView = webView
-        isHidden = false
-        status.stringValue = ""
-        window?.makeFirstResponder(field)
-        field.selectText(nil)
-    }
-
-    func close() {
-        guard !isHidden else { return }
-        isHidden = true
-        if let wv = webView { window?.makeFirstResponder(wv) }
-    }
-
-    private func search(backwards: Bool) {
-        let text = field.stringValue
-        guard !text.isEmpty, let wv = webView else { return }
-        let cfg = WKFindConfiguration()
-        cfg.backwards = backwards
-        cfg.wraps = true
-        cfg.caseSensitive = false
-        wv.find(text, configuration: cfg) { [weak self] result in
-            self?.status.stringValue = result.matchFound ? "" : "Not found"
-        }
-    }
-
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        if selector == #selector(NSResponder.insertNewline(_:)) {
-            search(backwards: NSApp.currentEvent?.modifierFlags.contains(.shift) ?? false)
-            return true
-        }
-        if selector == #selector(NSResponder.cancelOperation(_:)) {
-            close()
-            return true
-        }
-        return false
     }
 }
 
@@ -638,7 +554,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             card.show(page.webView)
         }
         window?.title = item.displayTitle
-        if commandBar.isHidden, window?.firstResponder !== page.webView { window?.makeFirstResponder(page.webView) }
+        // Typing in the find bar keeps the keyboard when the sidebar or a title refreshes the content.
+        if commandBar.isHidden, !card.findBar.hasFocus, window?.firstResponder !== page.webView {
+            window?.makeFirstResponder(page.webView)
+        }
     }
 
     // MARK: Split view
@@ -790,6 +709,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         background.apply(theme, animated: animated)
         sidebar.applyTheme(theme)
         card.setTheme(isDark: theme.isDark(systemIsDark: systemIsDark()))
+        card.findBar.tint = theme.progressColors(dark: card.isDarkAppearance).first
         downloadsThemeChanged()
     }
 
