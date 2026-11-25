@@ -23,11 +23,11 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-- **Chromium UI host blank on first launch (Prompt 4b, 2026-11-25):** Repro: run `chromium-ui-host` CI with a fresh `BIRCH_HOME` on Windows or Ubuntu 24.04. Expected: HTML sidebar ready, 250 px wide, page card visible. Actual: startup times out, sidebar DOM is empty, sidebar takes the full window width. Reproduced in run 45697971243 on both platforms. Cause: scheme registration deferred until the asynchronous context-initialized callback; preferred size has zero height, which CEF treats as empty. Fix being verified: register the scheme before creating the BrowserView; return a nonempty preferred size.
-
 _None._
 
 ## Fixed
+
+- **Chromium UI host blank on first launch (Prompt 4b, 2026-11-25):** Repro: run `chromium-ui-host` CI with a fresh `BIRCH_HOME` on Windows or Ubuntu 24.04. Expected: HTML sidebar ready, 250 px wide, page card visible. Actual: startup times out, sidebar DOM is empty, sidebar takes the full window width. Reproduced in run 45697971243 on both platforms. Cause: scheme registration deferred until the asynchronous context-initialized callback; preferred size has zero height, which CEF treats as empty. Fix: register the scheme before creating the BrowserView; return a nonempty preferred size. Verified: CI [45704231108](https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45704231108), Windows and Ubuntu 24.04: shell 51/51, channel 36/36, all app groups pass; 250 px sidebar and visible page card confirmed in logs and Ubuntu screenshot. Navigation probes now assert the committed URL after each escape attempt, including ones Chromium blocks before the app callback.
 
 ### Sidebar mini player shows tabs that have no audio playing (fixed 2026-11-24, branch `media-silent-tabs`)
 - **Repro:** open a page holding an unplayed `<audio>`, a muted autoplay video or a video without sound (canvas stream). `SORREL_MEDIATEST=1` now opens such fixtures beside the real silent-WAV source.
