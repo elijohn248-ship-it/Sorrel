@@ -14,6 +14,9 @@ constexpr int kRadius = 12;
 class CornerDelegate : public CefButtonDelegate {
  public:
   void OnButtonPressed(CefRefPtr<CefButton>) override {}
+  void OnThemeChanged(CefRefPtr<CefView> view) override {
+    view->SetBackgroundColor(CefColorSetARGB(0, 0, 0, 0));
+  }
  private:
   IMPLEMENT_REFCOUNTING(CornerDelegate);
 };
@@ -49,6 +52,9 @@ class RoundedCard::Delegate : public CefPanelDelegate {
   void Detach() { owner_ = nullptr; }
   void OnLayoutChanged(CefRefPtr<CefView>, const CefRect&) override {
     if (owner_) owner_->Layout();
+  }
+  void OnThemeChanged(CefRefPtr<CefView> view) override {
+    view->SetBackgroundColor(CefColorSetARGB(0, 0, 0, 0));
   }
  private:
   RoundedCard* owner_;

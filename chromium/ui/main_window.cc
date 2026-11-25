@@ -130,7 +130,7 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
                                            ctx_.is_private);
   // The page card sits inset in a panel of the space's colour, so it reads
   // as a card on the same surface as the sidebar's gradient.
-  frame_ = CefPanel::CreatePanel(nullptr);
+  frame_ = CefPanel::CreatePanel(this);
   CefBoxLayoutSettings inset;
   inset.horizontal = true;
   inset.inside_border_insets = {kCardInset, 0, kCardInset, kCardInset};
@@ -191,6 +191,12 @@ cef_show_state_t MainWindow::GetInitialShowState(CefRefPtr<CefWindow>) {
 
 cef_runtime_style_t MainWindow::GetWindowRuntimeStyle() {
   return CEF_RUNTIME_STYLE_ALLOY;
+}
+
+void MainWindow::OnThemeChanged(CefRefPtr<CefView> view) {
+  // CEF clears custom backgrounds when attaching views and changing themes.
+  // This delegate serves both the window and the page's surround panel.
+  if (!surround_.empty()) view->SetBackgroundColor(ColorFromHex(surround_));
 }
 
 bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {

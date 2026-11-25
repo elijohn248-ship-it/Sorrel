@@ -119,6 +119,7 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   cef_show_state_t GetInitialShowState(CefRefPtr<CefWindow> window) override;
   cef_runtime_style_t GetWindowRuntimeStyle() override;
   bool OnAccelerator(CefRefPtr<CefWindow> window, int command_id) override;
+  void OnThemeChanged(CefRefPtr<CefView> view) override;
 
  private:
   class TabObserver;

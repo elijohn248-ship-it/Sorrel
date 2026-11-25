@@ -23,6 +23,8 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
+- **Chromium page-card surround loses its space color:** Repro: inspect normal/private Ubuntu screenshots from CI 45709255421. Expected: the page's inset and rounded corners share the space color, including in private windows. Actual: the inset becomes the default bright background while corner images retain the intended color. Cause confirmed in CEF's view implementation: theme changes clear custom view backgrounds. Restore them from the view's theme callback; verification pending.
+
 - **Chromium corner-control startup crash (Prompt 4b continuation, 2026-11-25):** Repro: CI run 45708717603, fresh scratch profile, any app scenario. Expected: window and sidebar open. Actual: process exits with SIGSEGV before tests start. The new decorative controls called `CefLabelButton::CreateLabelButton` without the delegate required by its public API. Supply an inert delegate; controls remain disabled and unfocusable. Verification pending.
 
 ## Fixed
