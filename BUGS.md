@@ -23,7 +23,10 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-_None._
+### Sidebar mini player shows tabs that have no audio playing (reported 2026-11-24, branch `media-silent-tabs`)
+- **Repro:** open a page holding an unplayed `<audio>`, a muted autoplay video or a video without sound (canvas stream). `SORREL_MEDIATEST=1` now opens such fixtures beside the real silent-WAV source.
+- **Expected:** the card appears only for a tab that played audible media (then stays while it is paused or muted).
+- **Actual:** every such tab became a source (`sources=4` instead of 1); the card followed them and pause/resume/background checks failed.
 
 ## Fixed
 

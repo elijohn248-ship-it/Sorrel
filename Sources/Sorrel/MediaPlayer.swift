@@ -10,6 +10,11 @@ enum TabMedia {
         return unsafeBitCast(webView.method(for: selector), to: Getter.self)(webView, selector)
     }
 
+    /// WebKit's own "playing audible audio" flag: playing, with an audio track, not muted, volume above zero.
+    static func isPlayingAudio(_ webView: WKWebView) -> Bool {
+        webView.responds(to: Selector(("_isPlayingAudio"))) && (webView.value(forKey: "_isPlayingAudio") as? Bool) == true
+    }
+
     static func toggleMute(_ webView: WKWebView) {
         let selector = NSSelectorFromString("_setPageMuted:")
         guard let state = mutedState(webView), webView.responds(to: selector) else { return }
@@ -100,6 +105,7 @@ final class SidebarMediaPlayer: NSView {
     private(set) weak var source: Item?
     private var states: [UUID: WKMediaPlaybackState] = [:]
     private var previouslyPlaying: Set<UUID> = []
+    private var audible: Set<UUID> = []
     private var timer: Timer?
     private var polling = false
     private var busy = false
@@ -203,6 +209,7 @@ final class SidebarMediaPlayer: NSView {
         let tabs = Store.shared.allTabs.map(\.item).filter { $0.page != nil && $0.page?.isPrivate == false }
         let live = Set(tabs.map(\.id))
         previouslyPlaying.formIntersection(live)
+        audible.formIntersection(live)
         states = states.filter { live.contains($0.key) }
         guard !tabs.isEmpty else { source = nil; render(); return }
         polling = true
@@ -213,11 +220,16 @@ final class SidebarMediaPlayer: NSView {
             page.webView.requestMediaPlaybackState { [weak self, weak item, weak page] state in
                 guard let self else { return }
                 if let item, let page, item.page === page {
-                    if state == .playing && self.states[item.id] != .playing { newlyPlaying.insert(item.id) }
+                    // WebKit reports .playing for any page holding media that isn't paused, including an unplayed
+                    // <audio> and muted or silent autoplay video. Only audible playback makes a tab a source;
+                    // once it is one, pauses and mutes keep it.
+                    let audible = state == .playing && TabMedia.isPlayingAudio(page.webView)
+                    if audible && !self.audible.contains(item.id) { newlyPlaying.insert(item.id) }
+                    if audible { self.audible.insert(item.id) } else { self.audible.remove(item.id) }
                     self.states[item.id] = state
-                    page.mediaIsPlaying = state == .playing
-                    if state == .playing { self.previouslyPlaying.insert(item.id) }
+                    if audible { self.previouslyPlaying.insert(item.id) }
                     if state == .none { self.previouslyPlaying.remove(item.id) }
+                    page.mediaIsPlaying = state == .playing && self.previouslyPlaying.contains(item.id)
                 }
                 remaining -= 1
                 if remaining == 0 {
@@ -399,6 +411,29 @@ extension SidebarMediaPlayer {
         let first = store.newTab(url: "about:blank", title: "Media Fixture")
         let page = Engine.shared.ensurePage(for: first)
         page.webView.loadHTMLString(html, baseURL: URL(string: "https://media.invalid"))
+        // Pages that hold media but never make sound must never become sources (BUGS.md, silent tabs).
+        let audio = "src='data:audio/wav;base64,\(wav.base64EncodedString())'"
+        let silentFixtures: [(String, String)] = [
+            ("Muted Video Fixture", "<title>Muted Video Fixture</title><video muted autoplay loop playsinline \(audio)></video>"),
+            ("Unplayed Audio Fixture", "<title>Unplayed Audio Fixture</title><audio preload=auto controls \(audio)></audio>"),
+            ("Canvas Video Fixture", "<title>Canvas Video Fixture</title><canvas width=64 height=36></canvas><video autoplay loop playsinline></video><script>const c = document.querySelector('canvas'), g = c.getContext('2d'); let n = 0; setInterval(() => { g.fillStyle = n++ % 2 ? '#123' : '#321'; g.fillRect(0, 0, 64, 36); }, 100); document.querySelector('video').srcObject = c.captureStream(10);</script>"),
+        ]
+        let silent = silentFixtures.map { title, body -> Item in
+            let item = store.newTab(url: "about:blank", title: title, select: false)
+            Engine.shared.ensurePage(for: item).webView.loadHTMLString(body, baseURL: URL(string: "https://silent.invalid"))
+            return item
+        }
+        func checkSilent(_ moment: String) {
+            for item in silent {
+                guard let wv = item.page?.webView else { log("silent \(item.title) \(moment) expected=loaded got=missing"); continue }
+                wv.requestMediaPlaybackState { state in
+                    // The fixture only proves something if WebKit itself still calls it playing.
+                    log("silent \(item.title) \(moment) webkit-playing expected=true got=\(state == .playing)")
+                    log("silent \(item.title) \(moment) source expected=false got=\(self.candidates.contains { $0 === item })")
+                    log("silent \(item.title) \(moment) sleep-protected expected=false got=\(item.page?.mediaIsPlaying == true)")
+                }
+            }
+        }
         func play(_ page: Page) {
             page.webView.callAsyncJavaScript("navigator.mediaSession.metadata = new MediaMetadata({title: 'Fixture Track', artist: 'Fixture Artist'}); await document.querySelector('audio').play(); return true", arguments: [:], in: nil, in: .page) { result in
                 log("fixture play expected=true result=\(result)")
@@ -406,6 +441,7 @@ extension SidebarMediaPlayer {
         }
         after(2) { play(page) }
         after(4) {
+            checkSilent("early")
             log("playing expected=shown/playing/1: \(self.debugState)")
             if let path = ProcessInfo.processInfo.environment["SORREL_MEDIASHOT"], let view = self.window?.contentView,
                let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
@@ -448,6 +484,28 @@ extension SidebarMediaPlayer {
             let privatePage = Engine.shared.makePage(profileID: nil, isPrivate: true)
             log("private expected=nonpersistent/not-source: \(!privatePage.webView.configuration.websiteDataStore.isPersistent) \(self.source == nil)")
             privatePage.teardown()
+            checkSilent("late")
+        }
+        // Background tabs hold their media unloaded; on screen, the videos really play, muted or without sound.
+        func onScreen(_ item: Item, _ label: String, _ next: @escaping () -> Void) {
+            store.select(item)
+            after(1.5) {
+                let js = "(() => { const v = document.querySelector('video'); return !v.paused && v.readyState >= 2 && v.currentTime > 0; })()"
+                item.page?.webView.evaluateJavaScript(js) { value, _ in
+                    log("on screen \(label) DOM playing expected=true got=\(value as? Bool == true)")
+                    log("on screen \(label) expected=source=false shown=false: \(self.source === item) \(self.debugState)")
+                    next()
+                }
+            }
+        }
+        after(24) {
+            onScreen(silent[2], "canvas video") {
+                onScreen(silent[0], "muted video") {
+                    // Turning a silent page's sound on is real playback: it becomes the source.
+                    silent[0].page?.webView.evaluateJavaScript("document.querySelector('video').muted = false", completionHandler: nil)
+                    after(2.5) { log("unmuted video expected=source=true shown=true: \(self.source === silent[0]) \(self.debugState)") }
+                }
+            }
         }
     }
 }
