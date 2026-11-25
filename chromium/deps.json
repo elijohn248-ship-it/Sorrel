@@ -1,0 +1,36 @@
+{
+  "cef": {
+    "version": "158.0.3+g8c29be2+chromium-158.0.8127.18",
+    "channel": "stable",
+    "source": "https://cef-builds.spotifycdn.com/index.html (CEF automated builds)",
+    "files": {
+      "windows64": {
+        "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_windows64_minimal.tar.bz2",
+        "size": 180772981,
+        "sha1": "a8634573a10fb514fb9e8bc9fcf39016a2fb17bd",
+        "sha256": "a5659888cca36e3b7fde841c05c67f923065c3bb2d62609ba379c7f79986a02b"
+      },
+      "linux64": {
+        "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_linux64_minimal.tar.bz2",
+        "size": 338967910,
+        "sha1": "620b80a02dfe93ed7884a9eb1b265ff34f799024",
+        "sha256": "2c5dfc7c1073f61f2511ab0183e835e0810d6ace7e17811ae9d375faa838fd25"
+      }
+    }
+  },
+  "nlohmann_json": {
+    "version": "3.12.0",
+    "files": {
+      "json.hpp": {
+        "url": "https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp",
+        "size": 953436,
+        "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63"
+      },
+      "LICENSE.MIT": {
+        "url": "https://raw.githubusercontent.com/nlohmann/json/v3.12.0/LICENSE.MIT",
+        "size": 1076,
+        "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+      }
+    }
+  }
+}

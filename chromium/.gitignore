@@ -1,0 +1,5 @@
+deps/
+out/
+stage/
+*.zip
+__pycache__/

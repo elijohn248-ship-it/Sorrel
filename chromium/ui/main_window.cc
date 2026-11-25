@@ -1,0 +1,475 @@
+#include "ui/main_window.h"
+
+#include <algorithm>
+
+#include "include/cef_image.h"
+#include "include/cef_task.h"
+#include "include/views/cef_box_layout.h"
+#include "include/views/cef_fill_layout.h"
+
+#include "core/codec.h"
+#include "core/typed_url.h"
+#include "platform/platform.h"
+
+namespace birch::ui {
+
+namespace {
+
+// Commands, named after the Mac's command ids (spec/keybindings.md). The
+// Windows/Linux mapping of the Mac's Cmd is Ctrl. Wave-3 agent 6 replaces this
+// fixed table with the keybindings registry.
+enum Command {
+  kTabNew = 1,      // tab.new        Ctrl+T
+  kTabClose,        // tab.close      Ctrl+W
+  kTabEditUrl,      // tab.editURL    Ctrl+L
+  kTabReload,       // tab.reload     Ctrl+R
+  kTabReloadF5,     //                F5
+  kNavBack,         // nav.back       Alt+Left
+  kNavForward,      // nav.forward    Alt+Right
+  kPrivateNew,      // private.new    Ctrl+Shift+N
+  kWindowClose,     // window.close   Ctrl+Shift+W
+};
+
+// Windows virtual-key codes (CEF uses them on every OS).
+constexpr int kVkLeft = 0x25, kVkRight = 0x27, kVkF5 = 0x74;
+
+class FnTask : public CefTask {
+ public:
+  explicit FnTask(std::function<void()> fn) : fn_(std::move(fn)) {}
+  void Execute() override { fn_(); }
+
+ private:
+  std::function<void()> fn_;
+  IMPLEMENT_REFCOUNTING(FnTask);
+};
+
+void PostUi(std::function<void()> fn) {
+  CefPostTask(TID_UI, new FnTask(std::move(fn)));
+}
+
+}  // namespace
+
+class MainWindow::TabObserver : public engine::PageObserver {
+ public:
+  TabObserver(MainWindow* window, std::string id)
+      : window_(window), id_(std::move(id)) {}
+  const std::string& id() const { return id_; }
+
+  void OnPageAddress(const std::string& url, bool is_error_page) override {
+    window_->PageAddress(id_, url, is_error_page);
+  }
+  void OnPageTitle(const std::string& title) override {
+    window_->PageTitle(id_, title);
+  }
+  void OnPageLoading(bool, bool, bool) override { window_->PageLoading(id_); }
+  void OnPageCrashed() override { window_->PageLoading(id_); }
+  void OnPageClosed() override { window_->PageClosed(this); }
+  void OnPageWantsNewTab(const std::string& url, bool foreground) override {
+    window_->NewTab(url, foreground);
+  }
+
+ private:
+  MainWindow* window_;
+  std::string id_;
+};
+
+MainWindow::MainWindow(WindowContext context) : ctx_(std::move(context)) {}
+
+MainWindow::~MainWindow() = default;
+
+void MainWindow::Open() {
+  CefWindow::CreateTopLevelWindow(this);
+}
+
+void MainWindow::Close() {
+  if (window_ && !window_->IsClosed()) {
+    window_->Close();
+  }
+}
+
+void MainWindow::Activate() {
+  if (window_) {
+    if (window_->IsMinimized()) {
+      window_->Restore();
+    }
+    window_->Activate();
+  }
+}
+
+std::optional<std::string> MainWindow::selected_id() const {
+  return ctx_.session.SelectedIn(ctx_.store->CurrentSpace(ctx_.session).id);
+}
+
+void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
+  window_ = window;
+  window_->SetTitle(ctx_.is_private ? "Birch Private" : "Birch");
+  SetIcon();
+  CefBoxLayoutSettings row;
+  row.horizontal = true;
+  CefRefPtr<CefBoxLayout> layout = window_->SetToBoxLayout(row);
+
+  toolbar_ = new Toolbar(this);
+  int width = static_cast<int>(ctx_.store->state().sidebar_width);
+  sidebar_ = new SidebarView(this, std::clamp(width, 180, 480), ctx_.is_private);
+  sidebar_->SetHeader(toolbar_->panel());
+  content_ = CefPanel::CreatePanel(nullptr);
+  content_->SetToFillLayout();
+  window_->AddChildView(sidebar_->panel());
+  window_->AddChildView(content_);
+  layout->SetFlexForView(content_, 1);
+
+  window_->SetAccelerator(kTabNew, 'T', false, true, false, true);
+  window_->SetAccelerator(kTabClose, 'W', false, true, false, true);
+  window_->SetAccelerator(kTabEditUrl, 'L', false, true, false, true);
+  window_->SetAccelerator(kTabReload, 'R', false, true, false, true);
+  window_->SetAccelerator(kTabReloadF5, kVkF5, false, false, false, true);
+  window_->SetAccelerator(kNavBack, kVkLeft, false, false, true, true);
+  window_->SetAccelerator(kNavForward, kVkRight, false, false, true, true);
+  window_->SetAccelerator(kPrivateNew, 'N', true, true, false, true);
+  window_->SetAccelerator(kWindowClose, 'W', true, true, false, true);
+
+  if (std::optional<std::string> sel = selected_id()) {
+    SelectTab(*sel);
+  } else if (ctx_.is_private) {
+    PostUi([self = CefRefPtr<MainWindow>(this)] { self->StartNewTab(); });
+  }
+  Refresh();
+  window_->Show();
+}
+
+void MainWindow::SetIcon() {
+  std::string png;
+  if (!core::ReadFileUtf8Path(
+          core::JoinPath(platform::ExecutableDir(), "birch.png"), &png) ||
+      png.empty()) {
+    return;
+  }
+  CefRefPtr<CefImage> image = CefImage::CreateImage();
+  if (image->AddPNG(1.0f, png.data(), png.size())) {
+    window_->SetWindowIcon(image);
+    window_->SetWindowAppIcon(image);
+  }
+}
+
+CefRect MainWindow::GetInitialBounds(CefRefPtr<CefWindow>) {
+  return CefRect(80, 60, 1280, 840);
+}
+
+cef_show_state_t MainWindow::GetInitialShowState(CefRefPtr<CefWindow>) {
+  if (platform::IsTestRun() && !platform::EnvOn("BIRCH_SHOW")) {
+    return CEF_SHOW_STATE_MINIMIZED;  // never take focus on someone's desktop
+  }
+  return CEF_SHOW_STATE_NORMAL;
+}
+
+cef_runtime_style_t MainWindow::GetWindowRuntimeStyle() {
+  return CEF_RUNTIME_STYLE_ALLOY;
+}
+
+bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {
+  switch (command_id) {
+    case kTabNew:
+      StartNewTab();
+      return true;
+    case kTabClose:
+      if (std::optional<std::string> sel = selected_id()) {
+        CloseTab(*sel);
+      }
+      return true;
+    case kTabEditUrl:
+      toolbar_->FocusAddress();
+      return true;
+    case kTabReload:
+    case kTabReloadF5:
+      Reload();
+      return true;
+    case kNavBack:
+      GoBack();
+      return true;
+    case kNavForward:
+      GoForward();
+      return true;
+    case kPrivateNew:
+      ctx_.host->OpenPrivateWindow();
+      return true;
+    case kWindowClose:
+      Close();
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
+  if (!closing_window_) {
+    closing_window_ = true;
+    ctx_.host->WindowClosing(this);
+  }
+  bool ready = true;
+  for (auto& kv : pages_) {
+    ready = kv.second.page->TryCloseForWindow() && ready;
+  }
+  for (Live& live : closing_) {
+    ready = live.page->TryCloseForWindow() && ready;
+  }
+  return ready;
+}
+
+void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) {
+  destroyed_ = true;
+  pages_.clear();
+  closing_.clear();
+  window_ = nullptr;
+  content_ = nullptr;
+  CefRefPtr<MainWindow> self(this);
+  PostUi([self] { self->ctx_.host->WindowDestroyed(self.get()); });
+}
+
+// ---- tabs ----------------------------------------------------------------------
+
+std::optional<std::string> MainWindow::UrlOf(const std::string& item_id) const {
+  auto live = pages_.find(item_id);
+  if (live != pages_.end() && !live->second.page->committed_url().empty()) {
+    return live->second.page->committed_url();
+  }
+  const core::Item* item = ctx_.store->FindItem(item_id);
+  return item ? item->url : std::nullopt;
+}
+
+std::string MainWindow::NewTab(const std::string& url, bool foreground) {
+  if (destroyed_) {
+    return std::string();
+  }
+  std::string space = ctx_.store->CurrentSpace(ctx_.session).id;
+  std::string id = ctx_.store->AddTab(space, url, "");
+  ctx_.host->StoreChanged(this);
+  if (foreground) {
+    SelectTab(id);
+  } else {
+    ScheduleSidebarRebuild();
+  }
+  return id;
+}
+
+void MainWindow::SelectTab(const std::string& item_id) {
+  if (destroyed_ || !ctx_.store->FindItem(item_id)) {
+    return;
+  }
+  if (const core::Space* sp = ctx_.store->SpaceOf(item_id)) {
+    ctx_.session.current_space_id = sp->id;
+  }
+  ctx_.session.SetSelected(ctx_.store->CurrentSpace(ctx_.session).id, item_id);
+  ctx_.store->Touch(item_id, core::NowSeconds());
+  ctx_.host->StoreChanged(this);
+  ShowPage(item_id);
+  Refresh();
+}
+
+void MainWindow::ShowPage(const std::string& item_id) {
+  if (!content_) {
+    return;
+  }
+  if (!pages_.count(item_id)) {
+    const core::Item* item = ctx_.store->FindItem(item_id);
+    std::string url = item && item->url ? core::bundled_page::Current(*item->url)
+                                        : std::string("about:blank");
+    Live live;
+    live.observer = std::make_unique<TabObserver>(this, item_id);
+    live.page = engine::Page::Create(ctx_.profile, url, live.observer.get());
+    content_->AddChildView(live.page->view());
+    pages_[item_id] = std::move(live);
+  }
+  for (auto& kv : pages_) {
+    if (CefRefPtr<CefView> v = kv.second.page->view()) {
+      v->SetVisible(kv.first == item_id);
+    }
+  }
+  content_->Layout();
+  pages_[item_id].page->Focus();
+}
+
+void MainWindow::CloseTab(const std::string& item_id) {
+  if (destroyed_) {
+    return;
+  }
+  std::string space = ctx_.store->CurrentSpace(ctx_.session).id;
+  bool was_selected = selected_id() == item_id;
+  std::optional<std::string> next =
+      ctx_.store->NeighbourAfterClose(space, item_id);
+  core::Store::CloseResult result = ctx_.store->CloseTab(item_id);
+  auto live = pages_.find(item_id);
+  if (live != pages_.end()) {
+    // The page leaves the window; pinned tabs stay in the sidebar, asleep.
+    if (CefRefPtr<CefView> v = live->second.page->view()) {
+      v->SetVisible(false);
+    }
+    live->second.page->Close();
+    closing_.push_back(std::move(live->second));
+    pages_.erase(live);
+  }
+  if (result == core::Store::CloseResult::kRemoved && was_selected) {
+    ctx_.session.SetSelected(space, std::nullopt);
+    if (next) {
+      SelectTab(*next);
+    }
+  }
+  ctx_.host->StoreChanged(this);
+  Refresh();
+}
+
+engine::Page* MainWindow::PageFor(const std::string& item_id) const {
+  auto it = pages_.find(item_id);
+  return it == pages_.end() ? nullptr : it->second.page.get();
+}
+
+// ---- page reports -------------------------------------------------------------------
+
+void MainWindow::PageAddress(const std::string& id, const std::string& url,
+                             bool is_error_page) {
+  if (!is_error_page) {
+    // Birch's error page never replaces the tab's saved address.
+    ctx_.store->UpdatePage(id, url, std::nullopt);
+    ctx_.host->StoreChanged(this);
+  }
+  if (selected_id() == id) {
+    Refresh();
+  }
+}
+
+void MainWindow::PageTitle(const std::string& id, const std::string& title) {
+  ctx_.store->UpdatePage(id, std::nullopt, title);
+  ctx_.host->StoreChanged(this);
+  ScheduleSidebarRebuild();
+  if (selected_id() == id && window_) {
+    window_->SetTitle((title.empty() ? std::string() : title + " - ") +
+                      (ctx_.is_private ? "Birch Private" : "Birch"));
+  }
+}
+
+void MainWindow::PageLoading(const std::string& id) {
+  if (selected_id() == id) {
+    Refresh();
+  }
+}
+
+void MainWindow::PageClosed(TabObserver* observer) {
+  CefRefPtr<MainWindow> self(this);
+  PostUi([self, observer] {
+    auto& c = self->closing_;
+    c.erase(std::remove_if(c.begin(), c.end(),
+                           [observer](const Live& l) {
+                             return l.observer.get() == observer;
+                           }),
+            c.end());
+    // A page that closed by itself (not through CloseTab).
+    for (auto it = self->pages_.begin(); it != self->pages_.end(); ++it) {
+      if (it->second.observer.get() == observer) {
+        self->pages_.erase(it);
+        self->Refresh();
+        break;
+      }
+    }
+  });
+}
+
+// ---- toolbar and sidebar ---------------------------------------------------------------
+
+void MainWindow::Refresh() {
+  if (!toolbar_ || destroyed_) {
+    return;
+  }
+  std::optional<std::string> sel = selected_id();
+  engine::Page* page = sel ? PageFor(*sel) : nullptr;
+  toolbar_->Update(sel ? UrlOf(*sel) : std::nullopt,
+                   page && page->CanGoBack(), page && page->CanGoForward());
+  ScheduleSidebarRebuild();
+}
+
+void MainWindow::ScheduleSidebarRebuild() {
+  if (rebuild_pending_) {
+    return;
+  }
+  rebuild_pending_ = true;
+  // Rebuilt from a posted task: a click handler may be running inside one of
+  // the buttons being replaced.
+  PostUi([self = CefRefPtr<MainWindow>(this)] {
+    self->rebuild_pending_ = false;
+    if (self->destroyed_ || !self->sidebar_) {
+      return;
+    }
+    const core::Space& space = self->ctx_.store->CurrentSpace(self->ctx_.session);
+    self->sidebar_->Rebuild(self->space_title(), self->ctx_.store->SidebarRows(space.id),
+                            self->selected_id().value_or(std::string()));
+    self->sidebar_->panel()->Layout();
+  });
+}
+
+std::string MainWindow::space_title() const {
+  if (ctx_.is_private) {
+    return "Private";
+  }
+  const core::Space& space = ctx_.store->CurrentSpace(ctx_.session);
+  return space.icon + "  " + space.name;
+}
+
+// ---- WindowActions ---------------------------------------------------------------------
+
+void MainWindow::StartNewTab() {
+  toolbar_->BeginNewTab();
+}
+
+void MainWindow::GoBack() {
+  if (std::optional<std::string> sel = selected_id()) {
+    if (engine::Page* p = PageFor(*sel)) {
+      p->Back();
+    }
+  }
+}
+
+void MainWindow::GoForward() {
+  if (std::optional<std::string> sel = selected_id()) {
+    if (engine::Page* p = PageFor(*sel)) {
+      p->Forward();
+    }
+  }
+}
+
+void MainWindow::Reload() {
+  if (std::optional<std::string> sel = selected_id()) {
+    if (engine::Page* p = PageFor(*sel)) {
+      p->Reload();
+    } else {
+      ShowPage(*sel);
+    }
+  }
+}
+
+void MainWindow::SubmitAddress(const std::string& text, bool in_new_tab) {
+  std::string url = core::Destination(text, ctx_.settings->searchEngineURL);
+  std::optional<std::string> sel = selected_id();
+  if (in_new_tab || !sel) {
+    NewTab(url, true);
+    return;
+  }
+  ShowPage(*sel);
+  if (engine::Page* p = PageFor(*sel)) {
+    p->Load(url);
+    p->Focus();
+  }
+}
+
+void MainWindow::CancelAddress() {
+  if (std::optional<std::string> sel = selected_id()) {
+    if (engine::Page* p = PageFor(*sel)) {
+      p->Focus();
+    }
+  }
+}
+
+std::string MainWindow::AddressForEditing() const {
+  std::optional<std::string> sel = selected_id();
+  std::optional<std::string> url = sel ? UrlOf(*sel) : std::nullopt;
+  return url ? *url : std::string();
+}
+
+}  // namespace birch::ui
