@@ -60,6 +60,8 @@ final class Keybindings {
         ("cmd+]", "nav.forward"),
         ("cmd+s", "sidebar.toggle"),
         ("cmd+f", "find.show"),
+        ("cmd+g", "find.next"),
+        ("cmd+shift+g", "find.previous"),
         ("cmd+=", "view.zoomIn"),
         ("cmd+-", "view.zoomOut"),
         ("cmd+0", "view.zoomReset"),

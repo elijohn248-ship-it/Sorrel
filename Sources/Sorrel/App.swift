@@ -295,6 +295,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return main.peek?.page.webView ?? main.currentWebView
     }
 
+    /// The find bar for the window in front and the page it searches: a mini or private window's own page,
+    /// otherwise the main window's focused tab or pane.
+    private var findTarget: (FindBar, WKWebView)? {
+        if let mini = keyMini { return (mini.findBar, mini.page.webView) }
+        guard let main, let wv = main.currentWebView else { return nil }
+        return (main.card.findBar, wv)
+    }
+
     private func revealSidebarForEditing() {
         showMainWindow()
         if main.mode != .pinned { main.toggleSidebar() }
@@ -395,8 +403,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let view = self.activeWebView { PictureInPicture.shared.toggle(view) }
         }
         c.register("find.show", "Find on Page") { [unowned self] in
-            if let wv = self.main.currentWebView { self.main.card.findBar.open(for: wv) }
+            if let (bar, wv) = self.findTarget { bar.open(for: wv) }
         }
+        // ⌘G / ⇧⌘G: with the bar closed they open it again on the last query and move on from there.
+        func findAgain(backwards: Bool) -> () -> Void {
+            { [unowned self] in
+                guard let (bar, wv) = self.findTarget else { return }
+                if !bar.isOpen || bar.webView !== wv { bar.open(for: wv) }
+                bar.findAgain(backwards: backwards)
+            }
+        }
+        c.register("find.next", "Find Next", findAgain(backwards: false))
+        c.register("find.previous", "Find Previous", findAgain(backwards: true))
         func zoom(_ change: @escaping (CGFloat) -> CGFloat) -> () -> Void {
             { [unowned self] in
                 guard let wv = self.activeWebView else { return }
@@ -705,7 +723,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             std("Paste and Match Style", "pasteAsPlainText:", "v", [.command, .option, .shift]),
             std("Select All", "selectAll:", "a"),
             .separator(),
-            item("find.show"), item("tab.copyURL"), item("tab.editURL"),
+            {
+                let find = NSMenuItem(title: "Find", action: nil, keyEquivalent: "")
+                let sub = NSMenu(title: "Find")
+                for mi in [item("find.show", title: "Find…"), item("find.next"), item("find.previous")] { sub.addItem(mi) }
+                find.submenu = sub
+                return find
+            }(),
+            .separator(),
+            item("tab.copyURL"), item("tab.editURL"),
         ])
         _ = add("View", [
             item("sidebar.toggle"), item("theme.edit"),
@@ -1046,6 +1072,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Exercise fullscreen layout callbacks without switching the owner's macOS Space.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 self.main.debugFullscreenTest(log: log)
+            }
+        }
+
+        if env["SORREL_FINDTEST"] != nil {
+            // Find bar along the bottom of the page: local pages only (FindBar.swift, debugFindTest).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let shot = URL(fileURLWithPath: out).deletingLastPathComponent().appendingPathComponent("find.png")
+                self.main.debugFindTest(shot: shot, log: log)
             }
         }
 

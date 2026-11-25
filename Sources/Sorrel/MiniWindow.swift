@@ -14,6 +14,8 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
     private let expandButton = NSButton(title: "", target: nil, action: nil)
     private var spaceChooser: IconButton!
     private var expanded = false
+    /// Find on page (⌘F), along the bottom of the page as in the main window.
+    let findBar = FindBar()
 
     /// Private windows keep no history or cookies and cannot be turned into tabs.
     var isPrivate: Bool { page.isPrivate }
@@ -100,6 +102,7 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
         wv.frame = card.bounds
         wv.autoresizingMask = [.width, .height]
         card.addSubview(wv)
+        findBar.install(in: card)
 
         NSLayoutConstraint.activate([
             background.topAnchor.constraint(equalTo: root.topAnchor),
@@ -132,6 +135,8 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
         let dark = theme.isDark(systemIsDark: systemIsDark())
         window.contentView?.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         page.webView.appearance = NSApp.effectiveAppearance   // pages follow the system, not the theme
+        findBar.appearance = NSApp.effectiveAppearance        // the bar sits on the page, so it does too
+        findBar.tint = theme.progressColors(dark: findBar.isDarkAppearance).first
 
         if isPrivate {
             expandButton.title = "Private"
@@ -193,6 +198,7 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
         guard !expanded, !isPrivate else { return }
         if page.webView.url == nil { return }
         expanded = true
+        findBar.close(refocus: false)
         page.onChange = nil
         page.webView.appearance = nil
         let space = Store.shared.space(id: targetSpace.id) ?? Store.shared.currentSpace
@@ -207,6 +213,7 @@ final class MiniWindowController: NSWindowController, NSWindowDelegate, NSTextFi
     }
 
     func windowWillClose(_ notification: Notification) {
+        findBar.close(refocus: false)
         if !expanded { page.teardown() }
         Self.all.removeAll { $0 === self }
     }
