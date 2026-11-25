@@ -786,7 +786,9 @@ void StartTests() {
     return;  // interactive use
   }
   Log("test: start " + tests);
-  WaitReady("main window", MainTab);
+  // A cold first start on a CI runner (antivirus scanning freshly unpacked
+  // binaries) has taken more than 20 s; allow 60 s for the first page.
+  WaitReady("main window", MainTab, 60000);
   if (tests == "tabs") {
     TabsScenario();
   } else if (tests == "storage") {
