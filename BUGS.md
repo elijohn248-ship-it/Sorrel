@@ -23,11 +23,13 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-- **Chromium page-card surround loses its space color:** Repro: inspect normal/private Ubuntu screenshots from CI 45709255421. Expected: the page's inset and rounded corners share the space color, including in private windows. Actual: the inset becomes the default bright background while corner images retain the intended color. Cause confirmed in CEF's view implementation: theme changes clear custom view backgrounds. Restore them from the view's theme callback; verification pending.
-
-- **Chromium corner-control startup crash (Prompt 4b continuation, 2026-11-25):** Repro: CI run 45708717603, fresh scratch profile, any app scenario. Expected: window and sidebar open. Actual: process exits with SIGSEGV before tests start. The new decorative controls called `CefLabelButton::CreateLabelButton` without the delegate required by its public API. Supply an inert delegate; controls remain disabled and unfocusable. Verification pending.
+_None._
 
 ## Fixed
+
+- **Chromium page-card surround loses its space color:** Repro: inspect normal/private Ubuntu screenshots from CI 45709255421. Expected: the page's inset and rounded corners share the space color, including in private windows. Actual: the inset becomes the default bright background while corner images retain the intended color. Cause confirmed in CEF's view implementation: theme changes clear custom view backgrounds. Fixed by restoring them from the view's theme callback; verified in final CI 45710475328 on Windows and Ubuntu 24.04, with matching normal/private screenshot colors.
+
+- **Chromium corner-control startup crash (Prompt 4b continuation, 2026-11-25):** Repro: CI run 45708717603, fresh scratch profile, any app scenario. Expected: window and sidebar open. Actual: process exits with SIGSEGV before tests start. The new decorative controls called `CefLabelButton::CreateLabelButton` without the delegate required by its public API. Fixed by supplying an inert delegate; controls remain disabled and unfocusable. Verified in final CI 45710475328 on Windows and Ubuntu 24.04: shell 51/51 and channel 42/42, clean exit in every app scenario.
 
 - **Chromium UI host blank on first launch (Prompt 4b, 2026-11-25):** Repro: run `chromium-ui-host` CI with a fresh `BIRCH_HOME` on Windows or Ubuntu 24.04. Expected: HTML sidebar ready, 250 px wide, page card visible. Actual: startup times out, sidebar DOM is empty, sidebar takes the full window width. Reproduced in run 45697971243 on both platforms. Cause: scheme registration deferred until the asynchronous context-initialized callback; preferred size has zero height, which CEF treats as empty. Fix: register the scheme before creating the BrowserView; return a nonempty preferred size. Verified: CI [45704231108](https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45704231108), Windows and Ubuntu 24.04: shell 51/51, channel 36/36, all app groups pass; 250 px sidebar and visible page card confirmed in logs and Ubuntu screenshot. Navigation probes now assert the committed URL after each escape attempt, including ones Chromium blocks before the app callback.
 
