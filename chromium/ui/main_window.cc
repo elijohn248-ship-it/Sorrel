@@ -135,13 +135,14 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   inset.horizontal = true;
   inset.inside_border_insets = {kCardInset, 0, kCardInset, kCardInset};
   CefRefPtr<CefBoxLayout> frame_layout = frame_->SetToBoxLayout(inset);
-  content_ = CefPanel::CreatePanel(nullptr);
-  content_->SetToFillLayout();
+  rounded_card_ = std::make_unique<RoundedCard>();
+  content_ = rounded_card_->view();
   frame_->AddChildView(content_);
   frame_layout->SetFlexForView(content_, 1);
   window_->AddChildView(sidebar_->view());
   window_->AddChildView(frame_);
   layout->SetFlexForView(frame_, 1);
+  rounded_card_->Attach(window_);
   ApplySurroundColor();
 
   window_->SetAccelerator(kTabNew, 'T', false, true, false, true);
@@ -262,6 +263,7 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
 
 void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) {
   destroyed_ = true;
+  rounded_card_.reset();
   pages_.clear();
   closing_.clear();
   window_ = nullptr;
@@ -476,6 +478,7 @@ void MainWindow::ApplySurroundColor() {
   surround_ = color;
   frame_->SetBackgroundColor(ColorFromHex(color));
   window_->SetBackgroundColor(ColorFromHex(color));
+  if (rounded_card_) rounded_card_->SetColor(ColorFromHex(color));
 }
 
 void MainWindow::ScheduleSidebarRebuild() {

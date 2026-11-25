@@ -275,8 +275,12 @@ def test_channel():
             got["private"] = screenshot(pshot)
         return got
 
-    run = run_app("channel", {"BIRCH_TEST": "channel", "BIRCH_HOLD": "4"}, 240,
-                  marker="channel: hold", during=shots)
+    scratch, home = new_home()
+    extension = os.path.join(scratch, "channel-extension")
+    shutil.copytree(os.path.join(FIXTURES, "channel_extension"), extension)
+    run = run_app("channel", {"BIRCH_TEST": "channel", "BIRCH_HOLD": "4",
+                              "BIRCH_CHANNEL_EXTENSION": extension}, 240,
+                  marker="channel: hold", during=shots, scratch=scratch, home=home)
     ev = check_lines(run) + grep(run, "channel:") + grep(run, "ui:") + [
         f"screenshots: {run['during']}", f"exit={run['exit']} clean={run['clean_exit']}"]
     record("channel: only Birch's UI pages reach the app; UI pages locked; "

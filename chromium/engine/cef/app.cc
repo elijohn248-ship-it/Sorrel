@@ -73,6 +73,14 @@ class BirchApp : public CefApp, public CefBrowserProcessHandler {
  private:
   // BIRCH_HOME is set: local fixtures only, NetLog, fake capture devices.
   static void AddTestSwitches(CefRefPtr<CefCommandLine> cl) {
+    // Only the channel scenario loads our permission-free local extension.
+    // No store downloads, persistent profile or production extension loader.
+    if (platform::Env("BIRCH_TEST") == "channel") {
+      std::string fixture = platform::Env("BIRCH_CHANNEL_EXTENSION");
+      if (!fixture.empty()) {
+        cl->AppendSwitchWithValue("load-extension", fixture);
+      }
+    }
     std::string rules = "MAP *.birch.test 127.0.0.1";
     std::string extra = platform::Env("BIRCH_HOSTMAP");
     for (const std::string& host : core::Split(extra, ',')) {

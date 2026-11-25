@@ -24,6 +24,7 @@
 #include "core/store.h"
 #include "engine/engine.h"
 #include "ui/sidebar/sidebar_host.h"
+#include "ui/rounded_card.h"
 #include "ui/window_actions.h"
 
 namespace birch::ui {
@@ -147,6 +148,7 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   std::unique_ptr<SidebarHost> sidebar_;
   CefRefPtr<CefPanel> frame_;    // the coloured surround of the page card
   CefRefPtr<CefPanel> content_;  // the page card
+  std::unique_ptr<RoundedCard> rounded_card_;
   std::string surround_;
   std::map<std::string, Live> pages_;
   std::vector<Live> closing_;

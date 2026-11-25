@@ -103,13 +103,34 @@ BIRCH_TEST_SCENARIO(channel) {
   });
 
   // ---- extension pages ----------------------------------------------------------------------
-  Then("extension pages", [] {
-    // No extension support exists in the Chromium edition yet (wave-3 agent
-    // 7). Their pages will be web-content browsers, which never get the
-    // object (only UI browsers do) and whose messages the browser process
-    // refuses (the forged-sender check below). Agent 7 adds a real probe.
-    platform::Log("channel: extension page probe: not applicable yet "
-                  "(no extension support until agent 7)");
+  Then("before extension probe", [base, rows] {
+    *base = S();
+    *rows = M()->sidebar_titles().size();
+  });
+  const std::string extension_url =
+      "chrome-extension://ejgidlejobddkhgokcbhbffhaamdmomk/forge.html";
+  LoadStep("extension page", M, extension_url,
+           [extension_url](const std::string& u) { return u == extension_url; });
+  EvalStep("extension looks for the channel", M, "extension",
+           "window.extensionProbe.id+'|'+window.extensionProbe.name+'|'"
+           "+window.extensionProbe.channel+'|'+window.extensionProbe.sent");
+  Sleep(1000);
+  Then("extension cannot reach the app", [base, rows] {
+    Expect("channel", "real extension page: identity/channel/send",
+           "ejgidlejobddkhgokcbhbffhaamdmomk|Birch channel isolation fixture|"
+           "undefined/undefined|false", Value("extension"));
+    Expect("channel", "forged messages from extension renderer refused (>=3)",
+           "yes", YesNo(S().refused_sender - base->refused_sender >= 3));
+    Expect("channel", "extension messages accepted", "0",
+           std::to_string(S().accepted - base->accepted));
+    Expect("channel", "extension opened no tab", std::to_string(*rows),
+           std::to_string(M()->sidebar_titles().size()));
+  });
+  SidebarEvalStep("UI has no extension runtime", M, "uiextension",
+                  "typeof chrome==='undefined'?'undefined':typeof chrome.runtime");
+  Then("UI context has no extension", [] {
+    Expect("channel", "UI page has no extension runtime", "undefined",
+           Value("uiextension"));
   });
 
   // ---- a compromised web renderer sends channel messages ---------------------------------
@@ -319,6 +340,13 @@ BIRCH_TEST_SCENARIO(channel) {
        [p] { return Settled(SelectedPage(p->get())); }, 20000);
     SidebarMatchesStep("channel", "private window",
                        [p]() -> ui::MainWindow* { return p->get(); });
+    EvalStep("private web content looks for channel",
+             [p]() -> ui::MainWindow* { return p->get(); }, "privatechannel",
+             "typeof window.birchUI+'/'+typeof window.cefQuery");
+    Then("private web content has no channel", [] {
+      Expect("channel", "private web page: birchUI/cefQuery",
+             "undefined/undefined", Value("privatechannel"));
+    });
     Then("private hold", [] { platform::Log("channel: private hold"); });
     Sleep(std::stoi(hold) * 1000);
   }
