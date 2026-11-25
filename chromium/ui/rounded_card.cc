@@ -11,6 +11,13 @@ namespace birch::ui {
 namespace {
 constexpr int kRadius = 12;
 
+class CornerDelegate : public CefButtonDelegate {
+ public:
+  void OnButtonPressed(CefRefPtr<CefButton>) override {}
+ private:
+  IMPLEMENT_REFCOUNTING(CornerDelegate);
+};
+
 CefRefPtr<CefImage> Corner(cef_color_t color, int corner) {
   auto image = CefImage::CreateImage();
   for (int scale : {1, 2}) {
@@ -64,7 +71,7 @@ void RoundedCard::Attach(CefRefPtr<CefWindow> window) {
   for (size_t i = 0; i < masks_.size(); ++i) {
     // CEF's image-bearing view is a LabelButton. Keep these decorative views
     // disabled, unfocusable and non-activating; they execute no actions.
-    masks_[i] = CefLabelButton::CreateLabelButton(nullptr, "");
+    masks_[i] = CefLabelButton::CreateLabelButton(new CornerDelegate(), "");
     masks_[i]->SetEnabled(false);
     masks_[i]->SetFocusable(false);
     masks_[i]->SetInkDropEnabled(false);
