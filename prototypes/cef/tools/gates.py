@@ -29,6 +29,7 @@ FIXTURES = os.path.join(HERE, "..", "fixtures")
 CHECK = re.compile(r"^([\w-]+): (.*) expected=(.*) got=(.*) -> (PASS|FAIL)$")
 
 A = None
+WORK = ""
 RESULTS = {}      # gate -> {"status": ..., "evidence": [...]}
 REQUIRED_FAIL = []
 SERVER_LOG = None
@@ -225,13 +226,14 @@ def gate_storage(label):
     t0 = time.time()
     run = run_app(f"storage-{label}", {"BIRCH_TEST": "storage", "BIRCH_PERSIST": "1",
                                        "BIRCH_NONCE": nonce}, 150)
-    priv_hits, files, size = scan(run["home"], ["private.birch.test", f"birchprivate_{nonce}"])
+    priv_marks = ["private.birch.test", f"birchprivate_{nonce}", f"birchprivshared_{nonce}"]
+    priv_hits, files, size = scan(run["home"], priv_marks)
     norm_hits, _, _ = scan(run["home"], ["normal.birch.test", f"birchnormal_{nonce}"])
     # Anything else written to the system temp folder during the run.
     tmp_hits = []
     tmp = tempfile.gettempdir()
     for d, _, fs in os.walk(tmp):
-        if d.startswith(run["scratch"]):
+        if d.startswith(run["scratch"]) or d.startswith(WORK):
             continue
         for fn in fs:
             p = os.path.join(d, fn)
@@ -242,14 +244,14 @@ def gate_storage(label):
                     data = f.read()
             except OSError:
                 continue
-            if b"private.birch.test" in data or nonce.encode() in data:
-                tmp_hits.append(p)
+            if any(m.encode() in data for m in priv_marks):
+                tmp_hits.append(os.path.relpath(p, tmp))
     top = sorted(os.listdir(run["home"]))
     ev = check_lines(run) + [
         f"profile after exit: {files} files, {size} bytes; top level: {', '.join(top)}",
         f"files containing private-window markers: {len(priv_hits)} {priv_hits[:10]}",
         f"files containing normal-window markers (scanner sanity): {len(norm_hits)} {norm_hits[:6]}",
-        f"temp files with private markers: {len(tmp_hits)}",
+        f"files elsewhere in the temp folder written during the run with private markers: {len(tmp_hits)} {tmp_hits[:5]}",
         f"exit={run['exit']} clean={run['clean_exit']}"]
     ok = (verdict_from_checks(run) == "PASS" and not priv_hits and norm_hits
           and not tmp_hits and run["clean_exit"])
@@ -421,46 +423,59 @@ def gate_sandbox(label):
 
 # ---- gate 5 -----------------------------------------------------------------
 
-ALLOWED = re.compile(r"(^|\.)birch\.test$|^127\.0\.0\.1$|^localhost$|^\[?::1\]?$")
+ALLOWED = re.compile(r"(^|\.)birch\.test$|^127\.0\.0\.1$|^localhost$|^::1$")
+REQUEST_KEYS = ("url", "original_url", "new_location", "host", "hostname",
+                "destination", "qname", "origin")
+
+
+def host_of(v):
+    v = v.strip()
+    if "://" in v:
+        return (urlsplit(v.split(" ")[0]).hostname or "").lower()
+    h = v.split(" ")[0]
+    if h.startswith("["):
+        return h[1:h.index("]")].lower() if "]" in h else h.lower()
+    if h.count(":") == 1:
+        h = h.split(":")[0]
+    return h.lower()
 
 
 def netlog_hosts(path):
+    """Hosts Chromium tried to reach, and addresses it actually connected to
+    or sent packets to. Resolver results and DNS configuration are ignored."""
     with open(path, encoding="utf-8", errors="replace") as f:
         text = f.read()
     try:
         data = json.loads(text)
     except ValueError:
-        text = text.rstrip().rstrip(",")
-        data = json.loads(text + ("]}" if not text.endswith("]}") else ""))
-    hosts = {}
-
-    def add(h, how):
-        h = (h or "").strip().lower().strip("[]")
-        if h:
-            hosts.setdefault(h, set()).add(how)
-
-    def walk(v, key=""):
-        if isinstance(v, dict):
-            for k, x in v.items():
-                walk(x, k)
-        elif isinstance(v, list):
-            for x in v:
-                walk(x, key)
-        elif isinstance(v, str):
-            if "://" in v and key in ("url", "original_url", "new_location", "host",
-                                      "scheme_host_port", "origin", "server", "group_id",
-                                      "proxy_server", "destination"):
-                u = urlsplit(v if not v.startswith("pm/") else v[3:])
-                if u.scheme in ("http", "https", "ws", "wss", "quic"):
-                    add(u.hostname, key)
-            elif key in ("host", "hostname"):
-                add(v.split(":")[0] if v.count(":") == 1 else v, key)
-            elif key in ("address", "remote_address", "peer_address"):
-                add(v.rsplit(":", 1)[0], key)
-
+        data = json.loads(text.rstrip().rstrip(",") + "]}")
+    names = {v: k for k, v in data["constants"]["logEventTypes"].items()}
+    requested, contacted = {}, {}
+    udp_connect, udp_sent = {}, set()
     for ev in data.get("events", []):
-        walk(ev.get("params", {}))
-    return hosts
+        t = names.get(ev.get("type"), "")
+        p = ev.get("params") or {}
+        if not isinstance(p, dict):
+            continue
+        if t in ("TCP_CONNECT_ATTEMPT", "TCP_CONNECT") and "address" in p:
+            contacted.setdefault(host_of(p["address"]), set()).add(t)
+        elif t == "UDP_CONNECT" and "address" in p:
+            udp_connect.setdefault(ev["source"]["id"], host_of(p["address"]))
+        elif t == "UDP_BYTES_SENT" and "address" in p:
+            udp_sent.add(host_of(p["address"]))
+            contacted.setdefault(host_of(p["address"]), set()).add(t)
+        if "RESULT" in t or "CACHE_HIT" in t or t.startswith("DNS_CONFIG"):
+            continue
+        for k in REQUEST_KEYS:
+            v = p.get(k)
+            if isinstance(v, str) and v:
+                if "://" in v and not v.split("://")[0] in ("http", "https", "ws", "wss"):
+                    continue
+                h = host_of(v)
+                if h:
+                    requested.setdefault(h, set()).add(t)
+    probes = sorted({a for a in udp_connect.values() if a not in udp_sent})
+    return requested, contacted, probes
 
 
 def gate_netlog(label, privacy_on=True):
@@ -476,12 +491,25 @@ def gate_netlog(label, privacy_on=True):
         gate(f"5 network ({label})", "FAIL" if privacy_on else "INFO",
              [f"{name}: no NetLog written"], required=privacy_on)
         return
-    hosts = netlog_hosts(netlog)
-    other = {h: sorted(v) for h, v in hosts.items() if not ALLOWED.search(h)}
-    ev = [f"{name}: NetLog {os.path.getsize(netlog)} bytes; hosts seen: "
-          + ", ".join(sorted(hosts)),
-          f"{name}: non-fixture hosts: " + (json.dumps(other, sort_keys=True) if other else "none")]
-    ev += grep(run, "privacy: pref", 30) if privacy_on else []
+    requested, contacted, probes = netlog_hosts(netlog)
+    bad_req = {h: sorted(v) for h, v in requested.items() if not ALLOWED.search(h)}
+    bad_con = {h: sorted(v) for h, v in contacted.items() if not ALLOWED.search(h)}
+    # Windows' own proxy auto-detection (WPAD) asks the LAN's DNS server for
+    # "wpad"; it is an OS proxy setting, not a Chromium/Google service. It is
+    # reported separately; the DNS packets it causes are only excused when
+    # no other non-fixture host was looked up.
+    wpad = bad_req.pop("wpad", None)
+    if not bad_req:
+        bad_con = {k: v for k, v in bad_con.items() if v != ["UDP_BYTES_SENT"]}
+    other = dict(bad_req, **{"addr " + k: v for k, v in bad_con.items()})
+    ev = [f"{name}: NetLog {os.path.getsize(netlog)} bytes",
+          f"{name}: hosts requested: " + ", ".join(sorted(requested)),
+          f"{name}: addresses connected/sent to: " + ", ".join(sorted(contacted)),
+          f"{name}: UDP connect() without any packet sent (route probes): "
+          + (", ".join(probes) or "none"),
+          f"{name}: non-fixture requests/connections: "
+          + (json.dumps(other, sort_keys=True) if other else "none"),
+          f"{name}: WPAD (Windows proxy auto-detect) lookup: " + ("yes" if wpad else "no")]
     if privacy_on:
         ok = not other and run["clean_exit"] and verdict_from_checks(run, False) != "FAIL"
         gate(f"5 network ({label})", "PASS" if ok else "FAIL", ev)
@@ -612,7 +640,8 @@ def gate_cost():
 
 
 def main():
-    global A
+    global A, WORK
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser()
     p.add_argument("--app", required=True)
     p.add_argument("--platform", required=True, choices=["windows", "linux"])
@@ -624,8 +653,8 @@ def main():
     A = p.parse_args()
     A.app = os.path.abspath(A.app)
     os.makedirs(A.out, exist_ok=True)
-    work = tempfile.mkdtemp(prefix="birch-fixtures.")
-    server = start_server(work)
+    WORK = tempfile.mkdtemp(prefix="birch-fixtures.")
+    server = start_server(WORK)
     only = set(filter(None, A.only.split(",")))
     want = lambda n: not only or n in only
     label = A.platform

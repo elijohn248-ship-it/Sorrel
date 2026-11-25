@@ -48,6 +48,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionError, TimeoutError):
+            pass  # the browser closed the connection; nothing to report
+
     def do_HEAD(self):
         self.do_GET()
 

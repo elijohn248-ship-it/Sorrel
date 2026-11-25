@@ -28,7 +28,11 @@ const char kDisabledFeatures[] =
     "InterestFeedContentSuggestions,DnsOverHttps,UseDnsHttpsSvcb,"
     "SafeBrowsingEnhancedProtection,ComponentUpdaterTimeouts,"
     "PrivacySandboxSettings4,PrivacySandboxAdsAPIsOverride,"
-    "FedCm,BackForwardCacheMemoryControls";
+    "FedCm,BackForwardCacheMemoryControls,"
+    // AI Mode eligibility check (https://www.google.com/async/folae) that
+    // Chrome style starts at launch.
+    "AimEnabled,AimServerEligibilityEnabled,AimServerRequestOnStartupEnabled,"
+    "AimUrlNavigationFetchEnabled";
 
 void SetPref(CefRefPtr<CefPreferenceManager> manager, const char* label,
              const std::string& name, CefRefPtr<CefValue> value) {
@@ -174,7 +178,16 @@ void BirchApp::OnBeforeCommandLineProcessing(
           "disable-spell-checking"}) {
       command_line->AppendSwitch(sw);
     }
-    command_line->AppendSwitchWithValue("disable-features", kDisabledFeatures);
+    // CEF passes its own --disable-features list; a second switch would
+    // replace it (and crash Chrome-style windows), so merge the two.
+    std::string features = kDisabledFeatures;
+    std::string existing =
+        command_line->GetSwitchValue("disable-features").ToString();
+    if (!existing.empty()) {
+      features = existing + "," + features;
+      command_line->RemoveSwitch("disable-features");
+    }
+    command_line->AppendSwitchWithValue("disable-features", features);
   }
 
   if (!IsTestRun()) {
@@ -241,8 +254,7 @@ void ApplyPrivacyPrefs(CefRefPtr<CefRequestContext> context,
   SetPref(context, label, "url_keyed_anonymized_data_collection.enabled",
           Bool(false));
   SetPref(context, label, "credentials_enable_service", Bool(false));
-  SetPref(context, label, "enable_a_ping", Bool(false));
-  SetPref(context, label, "domain_reliability.allowed_by_policy", Bool(false));
+  SetPref(context, label, "omnibox.ai_mode_settings", Int(1));
 }
 
 void RegisterBirchScheme(CefRefPtr<CefRequestContext> context) {

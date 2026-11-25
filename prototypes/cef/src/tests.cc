@@ -385,22 +385,29 @@ void TabsScenario() {
   SnapshotSteps(A);
 }
 
-// Gate 2: normal vs private storage. The orchestrator scans BIRCH_HOME after
-// exit for the private markers.
+// Gate 2: normal vs private storage. "private.birch.test" and the
+// birchprivate*/birchprivshared* cookies are only ever used by the private
+// window, so the orchestrator can scan BIRCH_HOME for them after exit. The
+// isolation checks use a third host both windows visit (shared.birch.test).
 void StorageScenario() {
   std::string nonce = Env("BIRCH_NONCE");
   auto p = std::make_shared<BrowserWindow*>(nullptr);
   auto P = [p] { return *p ? (*p)->active() : nullptr; };
-  std::string normal = Site("normal"), priv = Site("private");
+  std::string normal = Site("normal"), priv = Site("private"),
+              shared = Site("shared");
+  auto is_storage = [](const std::string& u) {
+    return u.find("/storage") != std::string::npos;
+  };
 
   LoadStep("normal storage", MainTab,
-           normal + "/storage?role=normal&nonce=" + nonce,
-           [](const std::string& u) { return u.find("/storage") != std::string::npos; });
+           normal + "/storage?role=normal&nonce=" + nonce, is_storage);
   EvalStep("normal cookie", MainTab, "ncookie",
            "document.cookie.indexOf('birchnormal_" + nonce + "')>=0?'yes':'no'");
   runner().Then("normal cookie set", [] {
     Expect("storage", "normal cookie set", "yes", Value("ncookie"));
   });
+  LoadStep("normal on shared host", MainTab,
+           shared + "/storage?role=normalshared&nonce=" + nonce, is_storage);
   runner().Do(
       "open private window",
       [p, priv, nonce] {
@@ -413,19 +420,23 @@ void StorageScenario() {
   runner().Then("private cookie set", [] {
     Expect("storage", "private cookie set (in memory)", "yes", Value("pcookie"));
   });
-  LoadStep("private sees normal site", P, normal + "/page1.html",
-           [](const std::string& u) { return EndsWith(u, "/page1.html"); });
-  EvalStep("private reads normal cookie", P, "pcross",
-           "document.cookie.indexOf('birchnormal_')>=0?'yes':'no'");
+  LoadStep("private on shared host", P,
+           shared + "/storage?role=privshared&nonce=" + nonce, is_storage);
+  EvalStep("private reads shared host", P, "pshared",
+           "(document.cookie.indexOf('birchprivshared_')>=0?'own':'-')+'|'+"
+           "(document.cookie.indexOf('birchnormalshared_')>=0?'normal':'-')");
   runner().Then("isolation 1", [] {
-    Expect("storage", "private window sees normal cookie", "no", Value("pcross"));
+    Expect("storage", "private window on shared host sees (own|normal's)",
+           "own|-", Value("pshared"));
   });
-  LoadStep("normal sees private site", MainTab, priv + "/page1.html",
+  LoadStep("normal back on shared host", MainTab, shared + "/page1.html",
            [](const std::string& u) { return EndsWith(u, "/page1.html"); });
-  EvalStep("normal reads private cookie", MainTab, "ncross",
-           "document.cookie.indexOf('birchprivate_')>=0?'yes':'no'");
+  EvalStep("normal reads shared host", MainTab, "nshared",
+           "(document.cookie.indexOf('birchnormalshared_')>=0?'own':'-')+'|'+"
+           "(document.cookie.indexOf('birchprivshared_')>=0?'private':'-')");
   runner().Then("isolation 2", [] {
-    Expect("storage", "normal window sees private cookie", "no", Value("ncross"));
+    Expect("storage", "normal window on shared host sees (own|private's)",
+           "own|-", Value("nshared"));
   });
   runner().Do("close private window", [p] { (*p)->Close(); },
               [p] { return (*p)->destroyed(); }, 15000);
