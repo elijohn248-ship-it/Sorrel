@@ -16,6 +16,13 @@ const char* const kSandboxDisabling[] = {
     "disable-namespace-sandbox", "single-process", "in-process-gpu",
 };
 
+// Remote DevTools would expose every page, Birch's UI pages included
+// (CLAUDE.md ▸ Chromium edition ▸ UI host). Tests use in-process DevTools.
+const char* const kRemoteDebugging[] = {
+    "remote-debugging-port", "remote-debugging-pipe",
+    "remote-debugging-address", "remote-allow-origins",
+};
+
 const char* const kPrivacySwitches[] = {
     "disable-background-networking",         // variations, network time, …
     "disable-component-update",              // CRLSet, CT lists, CDMs, …
@@ -102,6 +109,12 @@ void ApplySwitches(CefRefPtr<CefCommandLine> cl) {
     if (cl->HasSwitch(bad)) {
       cl->RemoveSwitch(bad);
       platform::Log(std::string("sandbox: removed forbidden switch --") + bad);
+    }
+  }
+  for (const char* dev : kRemoteDebugging) {
+    if (cl->HasSwitch(dev)) {
+      cl->RemoveSwitch(dev);
+      platform::Log(std::string("devtools: removed switch --") + dev);
     }
   }
   for (const char* sw : kPrivacySwitches) {

@@ -10,7 +10,9 @@
 #include "include/cef_values.h"
 
 #include "app/shell.h"
+#include "core/ui_channel.h"
 #include "engine/engine.h"
+#include "engine/ui_page.h"
 #include "platform/platform.h"
 #include "ui/main_window.h"
 
@@ -138,6 +140,44 @@ ScenarioRegistrar::ScenarioRegistrar(const char* name, ScenarioFn fn) {
   Registry()[name] = fn;
 }
 
+namespace {
+
+// Runtime.evaluate on the sidebar page of |w|; the value lands in |key|.
+void SidebarEvaluate(ui::MainWindow* w, const std::string& key,
+                     const std::string& expression) {
+  g_results.erase(key);
+  CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+  params->SetString("expression", expression);
+  params->SetBool("returnByValue", true);
+  params->SetBool("awaitPromise", true);
+  params->SetBool("userGesture", true);
+  engine::UiPage* ui = w ? w->sidebar_page() : nullptr;
+  bool sent = ui && ui->DevToolsForTest(
+                        "Runtime.evaluate", params,
+                        [key](bool ok, const std::string& json) {
+                          g_results[key] = ok ? ValueOf(json) : "devtools-error";
+                        });
+  if (!sent) {
+    g_results[key] = "not-sent";
+  }
+}
+
+const char kDomSummary[] =
+    "(function(){var r=[].map.call(document.querySelectorAll("
+    "'#tabs li.tab:not(.leaving) .title'),function(e){return e.textContent})"
+    ".join('|');return r+'#'+document.getElementById('address').value+'#'+"
+    "(document.getElementById('not-secure').hidden?'no':'yes')})()";
+
+std::string ExpectedSummary(ui::MainWindow* w) {
+  std::string rows;
+  for (const std::string& t : w->sidebar_titles()) {
+    rows += (rows.empty() ? "" : "|") + t;
+  }
+  return rows + "#" + w->address_text() + "#" + YesNo(w->not_secure_shown());
+}
+
+}  // namespace
+
 void Do(const std::string& name, std::function<void()> act,
         std::function<bool()> done, int timeout_ms) {
   R().Add({name, std::move(act), std::move(done), timeout_ms});
@@ -248,6 +288,77 @@ void EvalStep(const std::string& name, std::function<ui::MainWindow*()> w,
       [key] { return g_results.count(key) > 0; }, timeout_ms);
 }
 
+void SidebarEvalStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                     const std::string& key, const std::string& expression,
+                     int timeout_ms) {
+  Do(
+      name, [w, key, expression] { SidebarEvaluate(w(), key, expression); },
+      [key] { return g_results.count(key) > 0; }, timeout_ms);
+}
+
+void SidebarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                     const std::string& key, const std::string& text) {
+  // The text is a test-chosen string, quoted as a JSON string literal.
+  SidebarEvalStep(
+      name, w, key,
+      "new Promise(function(done){var i=document.getElementById('address'),"
+      "n=0;(function go(){if(document.activeElement!==i&&n++<30){"
+      "setTimeout(go,100);return}var f=document.activeElement===i;i.focus();"
+      "i.value=" + core::ui_channel::JsonQuote(text) + ";"
+      "i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));"
+      "done(f?'focused':'not-focused')})()})");
+}
+
+std::string ClickExpression(const std::string& css) {
+  return
+      "new Promise(function(done){var n=0;(function go(){var e="
+      "document.querySelector(" + core::ui_channel::JsonQuote(css) + ");"
+      "if((!e||e.disabled)&&n++<50){setTimeout(go,100);return}"
+      "if(!e){done('missing');return}if(e.disabled){done('disabled');return}"
+      "e.click();done('clicked')})()})";
+}
+
+void SidebarClick(ui::MainWindow* w, const std::string& key,
+                  const std::string& css) {
+  SidebarEvaluate(w, key, ClickExpression(css));
+}
+
+void SidebarClickStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                      const std::string& key, const std::string& css) {
+  SidebarEvalStep(name, w, key, ClickExpression(css));
+}
+
+void SidebarMatchesStep(const std::string& area, const std::string& label,
+                        std::function<ui::MainWindow*()> w) {
+  auto key = std::make_shared<std::string>("dom:" + label);
+  auto until = std::make_shared<Clock::time_point>();
+  Do(
+      "sidebar DOM: " + label,
+      [w, key, until] {
+        *until = Clock::now() + std::chrono::seconds(8);
+        SidebarEvaluate(w(), *key, kDomSummary);
+      },
+      [w, key, until] {
+        if (!g_results.count(*key)) {
+          return false;
+        }
+        if (g_results[*key] == ExpectedSummary(w()) || Clock::now() > *until) {
+          return true;
+        }
+        SidebarEvaluate(w(), *key, kDomSummary);  // not drawn yet: look again
+        return false;
+      },
+      12000);
+  Then("check sidebar DOM: " + label, [area, label, w, key] {
+    Expect(area, "sidebar page shows it (" + label + ")", ExpectedSummary(w()),
+           Value(*key));
+  });
+}
+
+std::string RowSelector(const std::string& item_id) {
+  return "#tabs li.tab[data-target=\"" + item_id + "\"]";
+}
+
 std::string Value(const std::string& key) {
   auto it = g_results.find(key);
   return it == g_results.end() ? "missing" : it->second;
@@ -301,7 +412,11 @@ void StartTests() {
   // A cold first start on a CI runner (antivirus scanning freshly unpacked
   // binaries) has taken more than 20 s; allow 60 s for the first page.
   Do("main window ready", [] {},
-     [] { return Settled(SelectedPage(Main())); }, 60000);
+     [] {
+       return Settled(SelectedPage(Main())) && Main()->sidebar_page() &&
+              Main()->sidebar_page()->ready();
+     },
+     60000);
   it->second();
   R().Start([name] {
     platform::Log("summary: scenario=" + name +

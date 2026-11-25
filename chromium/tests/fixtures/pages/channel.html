@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Birch channel probe</title>
+<p>Web page: must not see Birch's UI channel.</p>
+<script>
+window.probe = {own: typeof window.birchUI + "/" + typeof window.cefQuery, frame: "waiting"};
+addEventListener("message", function (e) { if (e.data && e.data.probe) window.probe.frame = e.data.probe; });
+var f = document.createElement("iframe");
+f.src = location.protocol + "//x.birch.test:" + location.port + "/frame.html";
+document.body.appendChild(f);
+</script>

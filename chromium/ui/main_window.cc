@@ -9,6 +9,7 @@
 
 #include "core/codec.h"
 #include "core/typed_url.h"
+#include "core/ui_channel.h"
 #include "platform/platform.h"
 
 namespace birch::ui {
@@ -46,6 +47,22 @@ class FnTask : public CefTask {
 void PostUi(std::function<void()> fn) {
   CefPostTask(TID_UI, new FnTask(std::move(fn)));
 }
+
+// "#RRGGBB" (from core::ui_channel::SurroundColor) -> an opaque CEF colour.
+cef_color_t ColorFromHex(const std::string& hex) {
+  unsigned v = 0;
+  for (size_t i = 1; i < hex.size() && i < 7; ++i) {
+    char c = hex[i];
+    v = v * 16 + static_cast<unsigned>((c >= '0' && c <= '9')   ? c - '0'
+                                       : (c >= 'A' && c <= 'F') ? c - 'A' + 10
+                                       : (c >= 'a' && c <= 'f') ? c - 'a' + 10
+                                                                : 0);
+  }
+  return CefColorSetARGB(255, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF);
+}
+
+// The page card's inset from the window edge (Arc's look).
+constexpr int kCardInset = 8;
 
 }  // namespace
 
@@ -108,15 +125,24 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   row.horizontal = true;
   CefRefPtr<CefBoxLayout> layout = window_->SetToBoxLayout(row);
 
-  toolbar_ = new Toolbar(this);
   int width = static_cast<int>(ctx_.store->state().sidebar_width);
-  sidebar_ = new SidebarView(this, std::clamp(width, 180, 480), ctx_.is_private);
-  sidebar_->SetHeader(toolbar_->panel());
+  sidebar_ = std::make_unique<SidebarHost>(this, std::clamp(width, 180, 480),
+                                           ctx_.is_private);
+  // The page card sits inset in a panel of the space's colour, so it reads
+  // as a card on the same surface as the sidebar's gradient.
+  frame_ = CefPanel::CreatePanel(nullptr);
+  CefBoxLayoutSettings inset;
+  inset.horizontal = true;
+  inset.inside_border_insets = {kCardInset, 0, kCardInset, kCardInset};
+  CefRefPtr<CefBoxLayout> frame_layout = frame_->SetToBoxLayout(inset);
   content_ = CefPanel::CreatePanel(nullptr);
   content_->SetToFillLayout();
-  window_->AddChildView(sidebar_->panel());
-  window_->AddChildView(content_);
-  layout->SetFlexForView(content_, 1);
+  frame_->AddChildView(content_);
+  frame_layout->SetFlexForView(content_, 1);
+  window_->AddChildView(sidebar_->view());
+  window_->AddChildView(frame_);
+  layout->SetFlexForView(frame_, 1);
+  ApplySurroundColor();
 
   window_->SetAccelerator(kTabNew, 'T', false, true, false, true);
   window_->SetAccelerator(kTabClose, 'W', false, true, false, true);
@@ -199,7 +225,7 @@ bool MainWindow::RunCommand(const std::string& id) {
       CloseTab(*sel);
     }
   } else if (id == "tab.editURL") {
-    toolbar_->FocusAddress();
+    sidebar_->FocusAddress();
   } else if (id == "tab.reload") {
     Reload();
   } else if (id == "nav.back") {
@@ -228,6 +254,9 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
   for (Live& live : closing_) {
     ready = live.page->TryCloseForWindow() && ready;
   }
+  if (sidebar_) {
+    ready = sidebar_->page()->TryCloseForWindow() && ready;
+  }
   return ready;
 }
 
@@ -237,6 +266,7 @@ void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) {
   closing_.clear();
   window_ = nullptr;
   content_ = nullptr;
+  frame_ = nullptr;
   CefRefPtr<MainWindow> self(this);
   PostUi([self] { self->ctx_.host->WindowDestroyed(self.get()); });
 }
@@ -398,18 +428,54 @@ void MainWindow::PageClosed(TabObserver* observer) {
   });
 }
 
-// ---- toolbar and sidebar ---------------------------------------------------------------
+// ---- the sidebar ----------------------------------------------------------------------
 
 void MainWindow::Refresh() {
-  if (!toolbar_ || destroyed_) {
+  if (!sidebar_ || destroyed_) {
     return;
   }
+  PushSidebar();
+  UpdateTitle();
+}
+
+void MainWindow::PushSidebar() {
+  if (!sidebar_ || destroyed_) {
+    return;
+  }
+  const core::Space& space = ctx_.store->CurrentSpace(ctx_.session);
   std::optional<std::string> sel = selected_id();
   engine::Page* page = sel ? PageFor(*sel) : nullptr;
-  toolbar_->Update(sel ? UrlOf(*sel) : std::nullopt,
-                   page && page->CanGoBack(), page && page->CanGoForward());
-  UpdateTitle();
-  ScheduleSidebarRebuild();
+  std::optional<std::string> url = sel ? UrlOf(*sel) : std::nullopt;
+  core::ui_channel::SidebarState st;
+  st.space_title = space_title();
+  st.is_private = ctx_.is_private;
+  st.colors = space.theme.colors;
+  st.background = core::ui_channel::SurroundColor(st.colors, ctx_.is_private);
+  st.rows = ctx_.store->SidebarRows(space.id);
+  st.selected_id = sel.value_or(std::string());
+  st.address = core::AddressBoxFor(url);
+  st.full_url = url.value_or(std::string());
+  st.can_go_back = page && page->CanGoBack();
+  st.can_go_forward = page && page->CanGoForward();
+  st.can_reload = url.has_value();
+  st.loading = page && page->IsLoading();
+  sidebar_->Update(std::move(st));
+  ApplySurroundColor();
+}
+
+void MainWindow::ApplySurroundColor() {
+  if (!frame_ || !window_) {
+    return;
+  }
+  const core::Space& space = ctx_.store->CurrentSpace(ctx_.session);
+  std::string color =
+      core::ui_channel::SurroundColor(space.theme.colors, ctx_.is_private);
+  if (color == surround_) {
+    return;
+  }
+  surround_ = color;
+  frame_->SetBackgroundColor(ColorFromHex(color));
+  window_->SetBackgroundColor(ColorFromHex(color));
 }
 
 void MainWindow::ScheduleSidebarRebuild() {
@@ -417,17 +483,10 @@ void MainWindow::ScheduleSidebarRebuild() {
     return;
   }
   rebuild_pending_ = true;
-  // Rebuilt from a posted task: a click handler may be running inside one of
-  // the buttons being replaced.
+  // Coalesces bursts of page reports (titles, loading) into one push.
   PostUi([self = CefRefPtr<MainWindow>(this)] {
     self->rebuild_pending_ = false;
-    if (self->destroyed_ || !self->sidebar_) {
-      return;
-    }
-    const core::Space& space = self->ctx_.store->CurrentSpace(self->ctx_.session);
-    self->sidebar_->Rebuild(self->space_title(), self->ctx_.store->SidebarRows(space.id),
-                            self->selected_id().value_or(std::string()));
-    self->sidebar_->panel()->Layout();
+    self->PushSidebar();
   });
 }
 
@@ -439,7 +498,7 @@ std::string MainWindow::LayoutForTest() const {
   std::optional<std::string> sel = selected_id();
   engine::Page* page = sel ? PageFor(*sel) : nullptr;
   int page_width = page && page->view() ? page->view()->GetBounds().width : 0;
-  return "sidebar=" + std::to_string(sidebar_->panel()->GetBounds().width) +
+  return "sidebar=" + std::to_string(sidebar_->view()->GetBounds().width) +
          " content=" + std::to_string(content_->GetBounds().width) +
          " page=" + std::to_string(page_width) +
          " window=" + std::to_string(window_->GetBounds().width);
@@ -456,7 +515,7 @@ std::string MainWindow::space_title() const {
 // ---- WindowActions ---------------------------------------------------------------------
 
 void MainWindow::StartNewTab() {
-  toolbar_->BeginNewTab();
+  sidebar_->BeginNewTab();
 }
 
 void MainWindow::GoBack() {

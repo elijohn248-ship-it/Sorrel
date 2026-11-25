@@ -15,10 +15,16 @@ namespace {
 
 class BirchApp : public CefApp, public CefBrowserProcessHandler {
  public:
-  explicit BirchApp(AppCallbacks callbacks) : callbacks_(std::move(callbacks)) {}
+  explicit BirchApp(AppCallbacks callbacks)
+      : callbacks_(std::move(callbacks)),
+        renderer_(CreateRenderProcessHandler()) {}
 
   CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override {
     return this;
+  }
+  // Renderer processes: the UI channel's JS side (UI pages only).
+  CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override {
+    return renderer_;
   }
 
   void OnBeforeCommandLineProcessing(
@@ -36,6 +42,14 @@ class BirchApp : public CefApp, public CefBrowserProcessHandler {
   void OnRegisterCustomSchemes(
       CefRawPtr<CefSchemeRegistrar> registrar) override {
     RegisterBirchSchemeName(registrar);
+    RegisterUiSchemeName(registrar);
+  }
+
+  void OnBeforeChildProcessLaunch(
+      CefRefPtr<CefCommandLine> command_line) override {
+    if (platform::IsTestRun() && platform::Env("BIRCH_TEST") == "channel") {
+      command_line->AppendSwitch(kForgeSwitch);
+    }
   }
 
   void OnContextInitialized() override {
@@ -83,6 +97,7 @@ class BirchApp : public CefApp, public CefBrowserProcessHandler {
   }
 
   AppCallbacks callbacks_;
+  CefRefPtr<CefRenderProcessHandler> renderer_;
   IMPLEMENT_REFCOUNTING(BirchApp);
 };
 

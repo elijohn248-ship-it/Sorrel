@@ -80,10 +80,12 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "state.json written", "yes",
            YesNo(core::FileExists(ProfileFile("state.json"))));
   });
+  SidebarMatchesStep("shell", "fresh profile", M);
+  // Typed into the HTML sidebar's field: page -> UI channel -> app.
+  SidebarTypeStep("type into the sidebar's address field", M, "typed",
+                  pa + "/page1.html");
   Do(
-      "address field: type an address", [pa] {
-        M()->SubmitAddress(pa + "/page1.html", false);
-      },
+      "typed address loads", [] {},
       [] {
         return Settled(SelectedPage(M())) &&
                EndsWith(Committed(M()), "/page1.html");
@@ -95,6 +97,7 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "http page marked not secure", "yes",
            YesNo(M()->not_secure_shown()));
   });
+  SidebarMatchesStep("shell", "typed address", M);
   LoadStep("page 2", M, pa + "/page2.html",
            [](const std::string& u) { return EndsWith(u, "/page2.html"); });
   Then("layout", [] {
@@ -118,7 +121,8 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("layout", "page area gets the rest (wider than 300)", "yes",
            YesNo(content > 300));
   });
-  Do("back", [] { M()->GoBack(); },
+  SidebarClickStep("sidebar back button", M, "clickback", "#back");
+  Do("back", [] {},
      [] {
        return Settled(SelectedPage(M())) &&
               EndsWith(Committed(M()), "/page1.html");
@@ -129,13 +133,14 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "can go forward", "yes",
            YesNo(SelectedPage(M())->CanGoForward()));
   });
-  Do("forward", [] { M()->GoForward(); },
+  SidebarClickStep("sidebar forward button", M, "clickfwd", "#forward");
+  Do("forward", [] {},
      [] {
        return Settled(SelectedPage(M())) &&
               EndsWith(Committed(M()), "/page2.html");
      });
-  Do("reload", [] { M()->Reload(); },
-     [] { return Settled(SelectedPage(M())); });
+  SidebarClickStep("sidebar reload button", M, "clickreload", "#reload");
+  Do("reload", [] {}, [] { return Settled(SelectedPage(M())); });
   EvalStep("navigation type", M, "navtype",
            "performance.getEntriesByType('navigation')[0].type");
   Then("reloaded", [] {
@@ -161,6 +166,23 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "two live pages", "2", std::to_string(w->LivePageCount()));
     w->SelectTab(*b);
   });
+  SidebarMatchesStep("shell", "two tabs", M);
+  // A click on a sidebar row selects it (through the channel).
+  Do("click tab a in the sidebar", [a] {
+       SidebarClick(M(), "clickrow", RowSelector(*a));
+     },
+     [a] { return M()->selected_id() == *a && Value("clickrow") != "missing"; },
+     10000);
+  Then("row click selected", [a] {
+    Expect("shell", "clicking a sidebar row selects its tab", *a,
+           M()->selected_id().value_or("none"));
+    Expect("shell", "row click result", "clicked", Value("clickrow"));
+  });
+  Do("click tab b in the sidebar", [b] {
+       SidebarClick(M(), "clickrowb", RowSelector(*b));
+     },
+     [b] { return M()->selected_id() == *b && Value("clickrowb") != "missing"; },
+     10000);
   // U+0430 CYRILLIC SMALL LETTER A + "pple": a lookalike of "apple".
   LoadStep("lookalike host", M,
            "http://\xD0\xB0pple.birch.test:" + HttpPort() + "/page1.html",
@@ -169,6 +191,7 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "lookalike shown as punycode", "xn--pple-43d.birch.test",
            M()->address_text());
   });
+  SidebarMatchesStep("shell", "punycode", M);
 
   // A crashed renderer shows Birch's error page and the tab recovers.
   auto crash_start = std::make_shared<int64_t>(0);
@@ -202,6 +225,8 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "error page not saved as the tab's address", "yes",
            YesNo(item && item->url && EndsWith(*item->url, "/page2.html")));
   });
+  // A web page's renderer crash leaves the sidebar working.
+  SidebarMatchesStep("shell", "after a web page crash", M);
 
   // Web pages cannot reach birch:// (display-isolated scheme).
   EvalStep("page links to birch://", M, "spoof",
@@ -260,14 +285,16 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "tab.new puts the address field in new-tab mode", "yes",
            YesNo(M()->new_tab_mode()));
   });
-  Do("Enter in the new-tab field", [c] {
-       M()->TypeAddressForTest(Site("c") + "/page1.html");
-       *c = M()->selected_id().value_or("");
-     },
+  SidebarTypeStep("Enter in the sidebar's new-tab field", M, "newtabtyped",
+                  Site("c") + "/page1.html");
+  Do("new tab opens", [] {},
      [] {
        return Settled(SelectedPage(M())) && M()->sidebar_titles().size() == 3;
      });
-  Then("third tab", [] {
+  Then("third tab", [c] {
+    *c = M()->selected_id().value_or("");
+    Expect("shell", "tab.new focuses the sidebar's address field", "focused",
+           Value("newtabtyped"));
     Expect("shell", "Enter in new-tab mode opens a tab", "c.birch.test|3",
            M()->address_text() + "|" +
                std::to_string(M()->sidebar_titles().size()));
@@ -282,8 +309,14 @@ BIRCH_TEST_SCENARIO(shell) {
            M()->selected_id().value_or("none"));
   });
 
-  Do("close tab b", [b] { M()->CloseTab(*b); },
-     [b] { return !M()->PageFor(*b) && M()->sidebar_titles().size() == 1; },
+  SidebarMatchesStep("shell", "after tab.close", M);
+  // The × on a sidebar row closes it (through the channel).
+  Do("close tab b with the × in the sidebar",
+     [b] { SidebarClick(M(), "clickclose", RowSelector(*b) + " .close"); },
+     [b] {
+       return !M()->PageFor(*b) && M()->sidebar_titles().size() == 1 &&
+              Value("clickclose") != "missing";
+     },
      10000);
   Then("after close", [a] {
     Expect("shell", "one tab left", "1",
@@ -291,7 +324,9 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "remaining tab selected", *a,
            M()->selected_id().value_or("none"));
     Expect("shell", "address after close", "a.birch.test", M()->address_text());
+    Expect("shell", "× click result", "clicked", Value("clickclose"));
   });
+  SidebarMatchesStep("shell", "one tab left", M);
 
   Sleep(1500);  // the 0.8 s debounced save
   Then("state.json", [a] {

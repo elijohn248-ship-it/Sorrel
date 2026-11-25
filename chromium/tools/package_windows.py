@@ -15,7 +15,7 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKIP_EXT = (".pdb", ".lib", ".exp", ".ilk", ".log")
-SKIP = {"birch_spec_tests.exe"}
+SKIP = {"birch_spec_tests.exe", "birch_ui_channel_tests.exe"}
 
 
 def main():

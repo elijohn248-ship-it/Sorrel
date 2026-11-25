@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Birch sidebar</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/motion.css">
+<link rel="stylesheet" href="sidebar.css">
+<script src="shared/motion.js" defer></script>
+<script src="shared/channel.js" defer></script>
+<script src="sidebar.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <nav class="nav" aria-label="Navigation">
+    <button id="back" class="icon motion-glide" title="Back" aria-label="Back" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+    </button>
+    <button id="forward" class="icon motion-glide" title="Forward" aria-label="Forward" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+    </button>
+    <button id="reload" class="icon motion-glide" title="Reload" aria-label="Reload" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/></svg>
+    </button>
+  </nav>
+  <label class="address motion-glide" id="address-pill">
+    <span class="not-secure" id="not-secure" hidden>Not secure</span>
+    <input id="address" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Search or enter address" aria-label="Address">
+  </label>
+</header>
+<div class="space-title" id="space-title"></div>
+<ul class="tabs" id="tabs" aria-label="Tabs"></ul>
+<footer class="bottom">
+  <button id="new-tab" class="new-tab motion-glide">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+    <span>New Tab</span>
+  </button>
+</footer>
+</body>
+</html>

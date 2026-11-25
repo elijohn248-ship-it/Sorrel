@@ -4,7 +4,8 @@
 // (CEF Views is ui/'s widget toolkit), and hears about the page only through
 // PageObserver. Nothing here gives a web page a channel into the app
 // (AGENTS.md rule 4): there is no message router, no JS binding and no
-// script message handler.
+// script message handler. The one approved exception, for Birch's own UI
+// pages only, is engine/ui_page.h.
 //
 // Owners (CLAUDE.md ▸ Chromium edition ▸ module map): engine/cef/ shared
 // (wave-2 shell; coordinate changes), engine/privacy/ and engine/extensions/
@@ -130,6 +131,9 @@ class Page {
   bool DevToolsForTest(const std::string& method,
                        CefRefPtr<CefDictionaryValue> params,
                        DevToolsCallback callback);
+  // Test runs only: Chromium's id for the renderer process hosting the main
+  // frame ("" if unknown); UI pages must never share one with a web page.
+  std::string RendererKeyForTest() const;
 
   class Client;  // engine/cef/page.cc
 

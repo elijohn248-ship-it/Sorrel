@@ -75,6 +75,28 @@ std::string Value(const std::string& key);
 // A raw DevTools call on |w|'s selected page; the JSON lands in Raw(key).
 void DevToolsStep(const std::string& name, std::function<ui::MainWindow*()> w,
                   const std::string& key, const std::string& method);
+// The same, in |w|'s HTML sidebar (the UI host page). Test runs only, like
+// every DevTools read; the sidebar's own channel is not used for reading.
+void SidebarEvalStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                     const std::string& key, const std::string& expression,
+                     int timeout_ms = 15000);
+// Types |text| into the sidebar's address field and presses Enter, through
+// the page's own handlers (so it travels the UI channel). Waits up to 3 s for
+// the field to have focus first; Value(key) is "focused" or "not-focused".
+void SidebarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                     const std::string& key, const std::string& text);
+// Clicks the sidebar element |css| (a fixed selector) once it is enabled.
+void SidebarClickStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                      const std::string& key, const std::string& css);
+// The same, at once (inside a step's action, for ids known only then).
+void SidebarClick(ui::MainWindow* w, const std::string& key,
+                  const std::string& css);
+// Waits (up to 8 s) until the sidebar's DOM shows what the app last sent it
+// (tab rows, address box text, "Not secure"), then checks it.
+void SidebarMatchesStep(const std::string& area, const std::string& label,
+                        std::function<ui::MainWindow*()> w);
+// A CSS attribute selector for a sidebar row: li.tab[data-target="<id>"].
+std::string RowSelector(const std::string& item_id);
 bool EndsWith(const std::string& s, const std::string& suffix);
 bool StartsWith(const std::string& s, const std::string& prefix);
 

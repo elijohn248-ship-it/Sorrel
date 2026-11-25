@@ -162,6 +162,15 @@ class Page::Client : public CefClient,
     return this;
   }
 
+  // Web content never reaches the app: the UI channel's messages are
+  // accepted only from UI browsers (engine/cef/ui_page.cc), never here.
+  bool OnProcessMessageReceived(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+                                CefProcessId,
+                                CefRefPtr<CefProcessMessage> message) override {
+    NoteWebProcessMessage(message->GetName().ToString());
+    return true;
+  }
+
   // CefDisplayHandler
   void OnAddressChange(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
                        const CefString& url) override {
@@ -527,6 +536,13 @@ bool Page::TryCloseForWindow() {
     return true;
   }
   return client_->browser_->GetHost()->TryCloseBrowser();
+}
+
+std::string Page::RendererKeyForTest() const {
+  if (!platform::IsTestRun() || !client_->browser_) {
+    return std::string();
+  }
+  return RendererKeyOf(client_->browser_->GetMainFrame());
 }
 
 bool Page::DevToolsForTest(const std::string& method,

@@ -1,5 +1,6 @@
-// A Birch window (CEF Views, Alloy style): the sidebar (toolbar on top, then
-// the current space's tabs) beside the page area. It keeps the live pages of
+// A Birch window (CEF Views, Alloy style): the HTML sidebar (UI host page
+// "sidebar": nav buttons, address box, the current space's tabs) beside the
+// page card, inset in the space's colour. It keeps the live pages of
 // its tabs by item id, creates them when a tab is first selected, and turns
 // page reports into store updates. Normal windows share the profile's Store;
 // a private window has its own Store and private engine Profile, never saved.
@@ -22,8 +23,7 @@
 #include "core/settings.h"
 #include "core/store.h"
 #include "engine/engine.h"
-#include "ui/sidebar/sidebar_view.h"
-#include "ui/toolbar/toolbar.h"
+#include "ui/sidebar/sidebar_host.h"
 #include "ui/window_actions.h"
 
 namespace birch::ui {
@@ -81,15 +81,18 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   size_t LivePageCount() const { return pages_.size(); }
 
   CefRefPtr<CefWindow> cef_window() const { return window_; }
-  bool new_tab_mode() const { return toolbar_ && toolbar_->new_tab_mode(); }
+  bool new_tab_mode() const { return sidebar_ && sidebar_->new_tab_mode(); }
   // "Private", or the current space's icon and name.
   std::string space_title() const;
-  // Tests: as if |text| were typed into the address field and Enter pressed.
-  void TypeAddressForTest(const std::string& text) { toolbar_->Submit(text); }
+  // The HTML sidebar's page (tests drive and read it through DevTools).
+  engine::UiPage* sidebar_page() const {
+    return sidebar_ ? sidebar_->page() : nullptr;
+  }
 
-  // For tests: what the address field shows, and the sidebar's tab titles.
-  std::string address_text() const { return toolbar_->address_text(); }
-  bool not_secure_shown() const { return toolbar_->not_secure_shown(); }
+  // For tests: what the app last gave the sidebar (the address box text and
+  // the tab rows' titles); channel/shell tests compare the page's DOM to it.
+  std::string address_text() const { return sidebar_->address_text(); }
+  bool not_secure_shown() const { return sidebar_->not_secure_shown(); }
   // For tests: "sidebar=<w> content=<w>" from the laid-out views.
   std::string LayoutForTest() const;
   std::vector<std::string> sidebar_titles() const {
@@ -132,6 +135,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   void ShowPage(const std::string& item_id);
   void Refresh();
+  void PushSidebar();
+  void ApplySurroundColor();
   void UpdateTitle();
   void ScheduleSidebarRebuild();
   std::optional<std::string> UrlOf(const std::string& item_id) const;
@@ -139,9 +144,10 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   WindowContext ctx_;
   CefRefPtr<CefWindow> window_;
-  CefRefPtr<Toolbar> toolbar_;
-  CefRefPtr<SidebarView> sidebar_;
-  CefRefPtr<CefPanel> content_;
+  std::unique_ptr<SidebarHost> sidebar_;
+  CefRefPtr<CefPanel> frame_;    // the coloured surround of the page card
+  CefRefPtr<CefPanel> content_;  // the page card
+  std::string surround_;
   std::map<std::string, Live> pages_;
   std::vector<Live> closing_;
   bool rebuild_pending_ = false;

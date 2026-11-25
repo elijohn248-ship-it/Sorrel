@@ -78,6 +78,11 @@ add_executable(birch_spec_tests tests/spec/spec_runner.cc)
 birch_strict(birch_spec_tests)
 target_link_libraries(birch_spec_tests birch_core)
 
+# The UI-only channel's message checks (core/ui_channel), no engine needed.
+add_executable(birch_ui_channel_tests tests/unit/ui_channel_tests.cc)
+birch_strict(birch_ui_channel_tests)
+target_link_libraries(birch_ui_channel_tests birch_core)
+
 if(NOT BIRCH_WITH_CEF)
   return()
 endif()
@@ -86,7 +91,7 @@ endif()
 SET_CEF_TARGET_OUT_DIR()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # The spec runner beside the app, in out/Release on every generator.
-set_target_properties(birch_spec_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CEF_TARGET_OUT_DIR}")
+set_target_properties(birch_spec_tests birch_ui_channel_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CEF_TARGET_OUT_DIR}")
 
 # Every module folder is globbed, so wave-3 agents add files without editing
 # this list (fewer merge conflicts). Platform files are picked per OS.
@@ -95,6 +100,19 @@ file(GLOB_RECURSE BIRCH_APP_SRCS CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/hooks/*.cc")
 list(APPEND BIRCH_APP_SRCS app/shell.cc platform/platform.cc)
+
+# Birch's own UI pages (ui/web/) compiled into the app: the UI host serves
+# them from memory, never from disk, the network or the profile.
+file(GLOB_RECURSE BIRCH_UI_WEB CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/web/*")
+set(BIRCH_UI_RES "${CMAKE_BINARY_DIR}/generated/ui_resources.cc")
+add_custom_command(
+  OUTPUT "${BIRCH_UI_RES}"
+  COMMAND "${Python3_EXECUTABLE}" -I "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_ui.py"
+          "${CMAKE_CURRENT_SOURCE_DIR}/ui/web" "${BIRCH_UI_RES}"
+  DEPENDS ${BIRCH_UI_WEB} "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_ui.py"
+  COMMENT "Building Birch's UI pages into the app"
+  VERBATIM)
+list(APPEND BIRCH_APP_SRCS "${BIRCH_UI_RES}")
 
 # The icon: Resources/AppIcon.icns (the Mac app's, read only) -> .png/.ico.
 set(BIRCH_ICON_DIR "${CMAKE_BINARY_DIR}/icons")

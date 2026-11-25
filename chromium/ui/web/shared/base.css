@@ -1,0 +1,58 @@
+/* Shared tokens and type for Birch's UI pages. Space colours arrive from the
+   app and are set on :root by each page (--tint-a, --tint-b, --surround). */
+:root {
+  --tint-a: #d9d3f5;
+  --tint-b: #d4ecf3;
+  --surround: #ece9f7;
+  --text: #1d1d24;
+  --text-soft: rgba(29, 29, 36, 0.62);
+  --row-hover: rgba(255, 255, 255, 0.42);
+  --row-selected: rgba(255, 255, 255, 0.78);
+  --pill: rgba(255, 255, 255, 0.55);
+  --pill-focus: rgba(255, 255, 255, 0.92);
+  --not-secure: #c25a00;
+  --radius-row: 9px;
+  --radius-pill: 10px;
+  color-scheme: light;
+}
+
+:root.private {
+  --text: #ecebf2;
+  --text-soft: rgba(236, 235, 242, 0.62);
+  --row-hover: rgba(255, 255, 255, 0.08);
+  --row-selected: rgba(255, 255, 255, 0.16);
+  --pill: rgba(255, 255, 255, 0.08);
+  --pill-focus: rgba(255, 255, 255, 0.16);
+  --not-secure: #ff9f4a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font: 13px/1.35 system-ui, "Segoe UI", Ubuntu, Cantarell, sans-serif;
+  color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid rgba(80, 90, 255, 0.5);
+  outline-offset: 1px;
+}

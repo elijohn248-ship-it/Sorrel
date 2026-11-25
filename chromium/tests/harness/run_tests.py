@@ -137,6 +137,7 @@ def run_app(name, env_extra, timeout, marker=None, during=None, app=None,
     started = time.time()
     proc = subprocess.Popen([app or A.app, *args], env=env, stdout=stdout,
                             stderr=subprocess.STDOUT, cwd=scratch, **kwargs)
+    proc.birch_log = log
     during_result, timed_out = None, False
     try:
         if marker:
@@ -242,15 +243,44 @@ def screenshot(path):
 # ---- checks -------------------------------------------------------------------------------
 
 def test_shell():
-    shot = os.path.abspath(os.path.join(A.out, f"window-{A.platform}.png"))
+    shot = os.path.abspath(os.path.join(A.out, f"sidebar-{A.platform}.png"))
     run = run_app("shell", {"BIRCH_TEST": "shell", "BIRCH_HOLD": "5"}, 180,
                   marker="shell: hold", during=lambda _p: screenshot(shot))
-    ev = check_lines(run) + grep(run, "crash:") + grep(run, "popup:") + [
+    ev = check_lines(run) + grep(run, "crash:") + grep(run, "popup:") + grep(run, "ui:") + [
         f"screenshot taken: {run['during']}",
         f"exit={run['exit']} clean={run['clean_exit']}"]
     record("shell: tabs, sidebar, address box, shortcuts, state.json",
            "PASS" if passed(run) else "FAIL", ev)
     return run
+
+
+def wait_marker(proc, log, marker, timeout=60):
+    end = time.time() + timeout
+    while time.time() < end and proc.poll() is None:
+        if os.path.exists(log) and marker in open(log, encoding="utf-8", errors="replace").read():
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def test_channel():
+    """The UI host's channel: only Birch's own UI pages reach the app."""
+    shot = os.path.abspath(os.path.join(A.out, f"sidebar-channel-{A.platform}.png"))
+    pshot = os.path.abspath(os.path.join(A.out, f"sidebar-private-{A.platform}.png"))
+
+    def shots(proc):
+        got = {"sidebar": screenshot(shot)}
+        if wait_marker(proc, proc.birch_log, "channel: private hold"):
+            time.sleep(2)
+            got["private"] = screenshot(pshot)
+        return got
+
+    run = run_app("channel", {"BIRCH_TEST": "channel", "BIRCH_HOLD": "4"}, 240,
+                  marker="channel: hold", during=shots)
+    ev = check_lines(run) + grep(run, "channel:") + grep(run, "ui:") + [
+        f"screenshots: {run['during']}", f"exit={run['exit']} clean={run['clean_exit']}"]
+    record("channel: only Birch's UI pages reach the app; UI pages locked; "
+           "separate renderer processes", "PASS" if passed(run) else "FAIL", ev)
 
 
 def test_restore(shell_run):
@@ -609,6 +639,8 @@ def main():
         shell_run = test_shell() if want("shell") else None
         if want("restore") and shell_run:
             test_restore(shell_run)
+        if want("channel"):
+            test_channel()
         if want("corrupt"):
             test_corrupt()
         if want("private"):
