@@ -23,12 +23,16 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-### Control+Tab cycles through every tab in the space, not just the open ones (reported 2026-11-24, branch `ctrl-tab-open-tabs`)
+_None._
+
+## Fixed
+
+### Control+Tab cycles through every tab in the space, not just the open ones (fixed 2026-11-24, branch `ctrl-tab-open-tabs`)
 - **Repro:** in a space with several pinned or unpinned tabs, open only two or three of them (the others asleep: never opened since launch, put to sleep, or idle-slept). Hold Control and press Tab repeatedly (also with Settings ▸ Tabs ▸ "Switch tabs in most recently used order" off).
 - **Expected:** Control+Tab and its switcher list only the tabs that are open (have a loaded page), plus the selected tab. Sleeping tabs are skipped. ⌥⌘↓/↑ (Next/Previous Tab) still walk every tab in sidebar order.
 - **Actual:** after the recently visited tabs, the cycle and the switcher continue through every other tab in the space (favorites and pinned tabs included), waking each sleeping tab it lands on; with the sidebar-order setting it walks every tab.
-
-## Fixed
+- **Cause / fix:** `Store.cycleTab` built its order from `cycleOrder` (every tab in the space): the recent list, then a fallback that appended every other tab by `lastActive`, sleeping or never opened ones included; the sidebar-order setting reused `selectRelative` over the same full list. Both now use `Store.openCycleOrder` (`cycleOrder` filtered to tabs with a loaded page, plus the selected tab), so the cycle and its switcher hold only open tabs. `tab.next`/`tab.previous` keep the full sidebar order. Spec bumped to 2.0.0 (`tab-recency` expected output changed, two cases added).
+- **Verified:** new checks failed before the fix (4 recency, 2 switcher) and pass after: `SORREL_TABRECENCYTEST` 35/35 (28 old + 7 new: sleeping pinned tab and never-opened tab skipped with recency on and off, switcher lists only open tabs, one open tab = no-op, ⌥⌘↓/↑ still reach sleeping tabs), `SORREL_TABSWITCHERTEST` 20/20 (19 old, sidebar-order check now over open tabs, + sleeping-tabs-absent), `SORREL_WINDOWTEST` 22/22, after merging main. Only `tab-recency.json` changed in the regenerated spec fixtures. Same two release source warnings. Real keyboard feel not verified.
 
 ### D2L Brightspace says "Safari version 18 is no longer supported" on a Mac with Safari 26+ (fixed 2026-11-23, branch `safari-ua`)
 - **Repro:** Birch on another Mac (macOS 15, Safari 26 or newer per About Safari) opens a D2L Brightspace home page. Simulated here with `SORREL_FAKE_OS=15.7` (Safari unreadable): the user agent said `Version/18.7`.
