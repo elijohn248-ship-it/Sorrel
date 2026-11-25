@@ -21,9 +21,9 @@ CefRefPtr<CefImage> Corner(cef_color_t color, int corner) {
         double dy = (corner & 2) ? y + 0.5 : side - y - 0.5;
         double alpha = std::clamp(std::hypot(dx, dy) - side + 0.5, 0.0, 1.0);
         size_t i = static_cast<size_t>((y * side + x) * 4);
-        rgba[i] = CefColorGetR(color);
-        rgba[i + 1] = CefColorGetG(color);
-        rgba[i + 2] = CefColorGetB(color);
+        rgba[i] = static_cast<unsigned char>(CefColorGetR(color));
+        rgba[i + 1] = static_cast<unsigned char>(CefColorGetG(color));
+        rgba[i + 2] = static_cast<unsigned char>(CefColorGetB(color));
         rgba[i + 3] = static_cast<unsigned char>(std::lround(255 * alpha));
       }
     }
