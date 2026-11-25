@@ -46,11 +46,14 @@ async function testOne(f) {
   return r;
 }
 async function drm(keySystem, mime) {
+  let access;
   try {
-    await navigator.requestMediaKeySystemAccess(keySystem, [{ initDataTypes: ['cenc', 'webm'],
+    access = await navigator.requestMediaKeySystemAccess(keySystem, [{ initDataTypes: ['cenc', 'webm'],
       videoCapabilities: [{ contentType: mime }] }]);
-    return 'supported';
-  } catch (e) { return e.name; }
+  } catch (e) { return 'no:' + e.name; }
+  // createMediaKeys() actually loads the CDM; the access check alone only reads a registry.
+  try { await access.createMediaKeys(); return 'yes:cdm-loaded'; }
+  catch (e) { return 'registered-but-cdm-failed:' + e.name; }
 }
 async function runCodecTests() {
   const files = [];

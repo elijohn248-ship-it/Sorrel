@@ -423,7 +423,8 @@ void Gates::addPermissions()
                            const auto &asked = t->page->permissionRequests;
                            const int cam = asked.value(QStringLiteral("camera+microphone")) +
                                asked.value(QStringLiteral("camera")) + asked.value(QStringLiteral("microphone"));
-                           const QString want = QString::number(n);
+                           // Rounds 1-2 share one page (2 asks expected); round 3 is a fresh tab.
+                           const QString want = n == 3 ? QStringLiteral("1") : QString::number(n);
                            auto refused = [&o](const char *key) {
                                const QString r = o.value(QString::fromLatin1(key)).toString();
                                return (r.isEmpty() || r == QLatin1String("granted")) ? QStringLiteral("granted-or-missing")
@@ -443,12 +444,14 @@ void Gates::addPermissions()
                                  QString::number(asked.value(QStringLiteral("notifications"))));
                            check(QStringLiteral("perm"), QStringLiteral("notifications-page-result"),
                                  QStringLiteral("denied"), o.value(QStringLiteral("notif")).toString());
-                           if (n == 2)
+                           if (n == 3)
                                m_main->closeTab(t);
                            next();
                        });
             };
-            if (n == 1) {
+            if (n == 1 || n == 3) {
+                if (n == 3 && *tab)
+                    m_main->closeTab(*tab);
                 *tab = m_main->newTab(url);
                 waitLoaded(*tab, 0, 10000, run);
             } else {
@@ -458,6 +461,7 @@ void Gates::addPermissions()
     };
     add(QStringLiteral("perm-round-1"), round(1));
     add(QStringLiteral("perm-round-2-new-document-asks-again"), round(2));
+    add(QStringLiteral("perm-round-3-new-tab-asks-again"), round(3));
 }
 
 void Gates::addDownload()

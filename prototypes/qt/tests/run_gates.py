@@ -56,6 +56,12 @@ def page(title, body):
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionError, TimeoutError, ssl.SSLError):
+            pass  # the browser closed a connection (e.g. the hanging /hang request); not a test result
+
     def log_message(self, *args):  # keep CI logs short
         pass
 
@@ -328,6 +334,8 @@ def run_app(args, name, gates, extra_env=None, idle=0, netlog=True, strace=False
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="replace")  # Windows consoles are cp1252
     ap = argparse.ArgumentParser()
     ap.add_argument("--app", required=True)
     ap.add_argument("--out", required=True)
@@ -422,7 +430,11 @@ def main():
             summary.append(f"[{name}] info     netlog: ipv6-reachability-probe address={IPV6_PROBE} (UDP connect, see strace)")
         bad_addrs = sorted(a for a in addrs if a not in ("127.0.0.1", "::1", "", IPV6_PROBE) and not a.startswith("0.0.0.0"))
         harness_check(summary, name, "netlog", "recorded", 1, 1, f"hosts-seen={len(hosts)}")
-        harness_check(summary, name, "netlog", "non-fixture-hosts", 0, len(bad_hosts), f"list={bad_hosts[:20]}")
+        if name == "baseline":
+            # Qt's defaults without Birch's extra switches: this is what Birch has to switch off.
+            summary.append(f"[{name}] info     netlog: qt-default-non-fixture-hosts count={len(bad_hosts)} list={bad_hosts[:20]}")
+        else:
+            harness_check(summary, name, "netlog", "non-fixture-hosts", 0, len(bad_hosts), f"list={bad_hosts[:20]}")
         harness_check(summary, name, "netlog", "non-local-addresses", 0, len(bad_addrs), f"list={bad_addrs[:20]}")
         (out / f"{name}-netlog-hosts.json").write_text(json.dumps({"hosts": sorted(hosts), "addresses": sorted(addrs)},
                                                                  indent=1))
@@ -436,7 +448,7 @@ def main():
         st = out / f"{name}-strace.txt"
         if st.exists():
             local = ("127.0.0.1", "::1", "0.0.0.0", "::", "127.0.0.53")
-            socktype = {}
+            socktype, pending = {}, {}
             tcp, udp, sent = set(), set(), set()
             for line in st.read_text(errors="replace").splitlines():
                 parts = line.split(None, 1)
@@ -446,6 +458,14 @@ def main():
                 m = re.match(r"socket\((AF_INET6?), (SOCK_\w+).*\) = (\d+)", call)
                 if m:
                     socktype[(pid, m.group(3))] = m.group(2)
+                    continue
+                m = re.match(r"socket\((AF_INET6?), (SOCK_\w+).*<unfinished", call)
+                if m:
+                    pending[pid] = m.group(2)
+                    continue
+                m = re.match(r"<\.\.\. socket resumed>.*= (\d+)", call)
+                if m and pid in pending:
+                    socktype[(pid, m.group(1))] = pending.pop(pid)
                     continue
                 ip = re.search(r'inet_addr\("([\d.]+)"\)|inet_pton\(AF_INET6, "([^"]+)"', call)
                 if not ip:
