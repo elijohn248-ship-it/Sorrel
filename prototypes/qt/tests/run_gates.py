@@ -228,6 +228,26 @@ def netlog_hosts(path):
     return hosts, addrs
 
 
+def netlog_offenders(path):
+    """Event and source type names of NetLog events that mention a non-fixture host (no page data)."""
+    data = load_netlog(path)
+    if data is None:
+        return []
+    consts = data.get("constants", {})
+    ev_names = {v: k for k, v in consts.get("logEventTypes", {}).items()}
+    src_names = {v: k for k, v in consts.get("logSourceType", {}).items()}
+    out = {}
+    for ev in data.get("events", []):
+        text = json.dumps(ev.get("params", {}))
+        for h in re.findall(r'"(?:host|hostname|url|host_port)": "([^"]+)"', text):
+            hh = urllib.parse.urlsplit(h).hostname if "://" in h else h.rsplit(":", 1)[0]
+            if hh and not host_allowed(hh.lower()):
+                key = (hh, ev_names.get(ev.get("type"), str(ev.get("type"))),
+                       src_names.get(ev.get("source", {}).get("type"), "?"))
+                out[key] = out.get(key, 0) + 1
+    return [{"host": k[0], "event": k[1], "source": k[2], "count": v} for k, v in sorted(out.items())]
+
+
 def host_allowed(h):
     return h.endswith(".test") or h in ALLOWED_HOSTS
 
@@ -436,6 +456,9 @@ def main():
         else:
             harness_check(summary, name, "netlog", "non-fixture-hosts", 0, len(bad_hosts), f"list={bad_hosts[:20]}")
         harness_check(summary, name, "netlog", "non-local-addresses", 0, len(bad_addrs), f"list={bad_addrs[:20]}")
+        offenders = netlog_offenders(r["netlog"]) if bad_hosts else []
+        for o in offenders[:12]:
+            summary.append(f"[{name}] info     netlog: offender host={o['host']} event={o['event']} source={o['source']} count={o['count']}")
         (out / f"{name}-netlog-hosts.json").write_text(json.dumps({"hosts": sorted(hosts), "addresses": sorted(addrs)},
                                                                  indent=1))
         tcp = out / f"{name}-tcp.txt"

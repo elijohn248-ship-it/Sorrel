@@ -10,6 +10,8 @@
 #include "Log.h"
 
 #include <QApplication>
+#include <QNetworkProxy>
+#include <QNetworkProxyFactory>
 #include <QTimer>
 #include <QUrl>
 
@@ -23,6 +25,12 @@ int main(int argc, char **argv)
     QCoreApplication::setApplicationName(QStringLiteral("BirchQtPrototype"));
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc, argv);
+    if (qEnvironmentVariable("BIRCH_BASELINE") != QLatin1String("1")) {
+        // Qt WebEngine takes its proxy from Qt Network. Pin "no proxy" so nothing
+        // tries Windows' proxy auto-discovery (WPAD); see REPORT.md, gate 5.
+        QNetworkProxyFactory::setUseSystemConfiguration(false);
+        QNetworkProxy::setApplicationProxy(QNetworkProxy(QNetworkProxy::NoProxy));
+    }
 
     const bool testing = !qEnvironmentVariable("BIRCH_HOME").isEmpty();
     const bool quiet = !qEnvironmentVariable("BIRCH_SNAPSHOT").isEmpty();

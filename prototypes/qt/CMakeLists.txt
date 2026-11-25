@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets WebEngineCore WebEngineWidgets)
+find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Network Widgets WebEngineCore WebEngineWidgets)
 
 qt_add_executable(birch-qt-proto
     src/main.cpp
@@ -20,7 +20,7 @@ qt_add_executable(birch-qt-proto
 )
 
 target_link_libraries(birch-qt-proto PRIVATE
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::WebEngineCore Qt6::WebEngineWidgets)
+    Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets Qt6::WebEngineCore Qt6::WebEngineWidgets)
 
 # Zero warnings in Birch's own code (shared rule 8). Qt's headers come in as
 # system/external includes, so their warnings are not ours; any that still
