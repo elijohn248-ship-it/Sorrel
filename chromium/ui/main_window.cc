@@ -432,11 +432,17 @@ void MainWindow::ScheduleSidebarRebuild() {
 }
 
 std::string MainWindow::LayoutForTest() const {
-  if (!sidebar_ || !content_) {
+  if (!sidebar_ || !content_ || !window_) {
     return "none";
   }
+  window_->Layout();
+  std::optional<std::string> sel = selected_id();
+  engine::Page* page = sel ? PageFor(*sel) : nullptr;
+  int page_width = page && page->view() ? page->view()->GetBounds().width : 0;
   return "sidebar=" + std::to_string(sidebar_->panel()->GetBounds().width) +
-         " content=" + std::to_string(content_->GetBounds().width);
+         " content=" + std::to_string(content_->GetBounds().width) +
+         " page=" + std::to_string(page_width) +
+         " window=" + std::to_string(window_->GetBounds().width);
 }
 
 std::string MainWindow::space_title() const {

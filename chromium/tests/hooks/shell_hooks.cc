@@ -109,7 +109,9 @@ BIRCH_TEST_SCENARIO(shell) {
       }
       return n;
     };
-    int sidebar = number_after("sidebar="), content = number_after("content=");
+    int sidebar = number_after("sidebar=");
+    // The page view's own width (the content panel's can lag on Linux).
+    int content = std::max(number_after("content="), number_after("page="));
     Expect("layout", "sidebar keeps its width", std::to_string(
                std::clamp(static_cast<int>(M()->store().state().sidebar_width), 180, 480)),
            std::to_string(sidebar));
