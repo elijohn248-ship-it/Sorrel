@@ -7,12 +7,14 @@
       "windows64": {
         "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_windows64_minimal.tar.bz2",
         "size": 180772981,
-        "sha1": "a8634573a10fb514fb9e8bc9fcf39016a2fb17bd"
+        "sha1": "a8634573a10fb514fb9e8bc9fcf39016a2fb17bd",
+        "sha256": "a5659888cca36e3b7fde841c05c67f923065c3bb2d62609ba379c7f79986a02b"
       },
       "linux64": {
         "name": "cef_binary_158.0.3+g8c29be2+chromium-158.0.8127.18_linux64_minimal.tar.bz2",
         "size": 338967910,
-        "sha1": "620b80a02dfe93ed7884a9eb1b265ff34f799024"
+        "sha1": "620b80a02dfe93ed7884a9eb1b265ff34f799024",
+        "sha256": "2c5dfc7c1073f61f2511ab0183e835e0810d6ace7e17811ae9d375faa838fd25"
       }
     }
   },

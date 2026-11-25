@@ -49,8 +49,7 @@ def verify(path, size, **sums):
             os.remove(path)
             sys.exit(f"fetch: {os.path.basename(path)} {algo} {got} != pinned {want}")
     print(f"fetch: verified {os.path.basename(path)} size={size} "
-          + " ".join(f"{a}={w}" for a, w in sums.items())
-          + f" sha256={digest(path, 'sha256')}")
+          + " ".join(f"{a}={w}" for a, w in sums.items()))
 
 
 def main():
@@ -71,7 +70,10 @@ def main():
         arch = os.path.join(dl, cef["name"])
         if not os.path.exists(arch):
             download(CEF_CDN + urllib.parse.quote(cef["name"]), arch)
-        verify(arch, cef["size"], sha1=cef["sha1"])
+        sums = {"sha1": cef["sha1"]}
+        if cef.get("sha256"):
+            sums["sha256"] = cef["sha256"]
+        verify(arch, cef["size"], **sums)
         tmp = os.path.join(a.dest, "cef.unpack")
         shutil.rmtree(tmp, ignore_errors=True)
         with tarfile.open(arch, "r:bz2") as t:
