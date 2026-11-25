@@ -508,8 +508,12 @@ def inspect_linux(proc):
         except OSError:
             pass
         rows.append({"type": ptype(cmd), "pid": int(pid), "seccomp": seccomp,
+                     # Chromium's own unsandboxed helper zygote always carries
+                     # --no-zygote-sandbox (it hosts the GPU and network
+                     # processes, as in Chrome); only the switches a caller
+                     # could pass to weaken the sandbox count here.
                      "disabling_switch": bool(re.search(
-                         r"--(no-sandbox|disable-gpu-sandbox|disable-setuid-sandbox|no-zygote-sandbox|single-process)\b", cmd))})
+                         r"--(no-sandbox|disable-gpu-sandbox|disable-setuid-sandbox|single-process)\b", cmd))})
     return rows
 
 

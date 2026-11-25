@@ -75,23 +75,6 @@ BIRCH_TEST_SCENARIO(shell) {
     Expect("shell", "welcome page committed", "birch://welcome/", Committed(w));
     Expect("shell", "profile folder is BIRCH_HOME", platform::Env("BIRCH_HOME"),
            app::Shell::Get().profile_dir());
-    std::string layout = w->LayoutForTest();
-    platform::Log("layout: " + layout);
-    auto number_after = [&layout](const std::string& key) {
-      size_t pos = layout.find(key);
-      int n = 0;
-      for (pos = pos == std::string::npos ? layout.size() : pos + key.size();
-           pos < layout.size() && layout[pos] >= '0' && layout[pos] <= '9'; ++pos) {
-        n = n * 10 + (layout[pos] - '0');
-      }
-      return n;
-    };
-    int sidebar = number_after("sidebar="), content = number_after("content=");
-    Expect("layout", "sidebar keeps its width", std::to_string(
-               std::clamp(static_cast<int>(w->store().state().sidebar_width), 180, 480)),
-           std::to_string(sidebar));
-    Expect("layout", "page area gets the rest (wider than 300)", "yes",
-           YesNo(content > 300));
     Expect("shell", "settings.json written", "yes",
            YesNo(core::FileExists(ProfileFile("settings.json"))));
     Expect("shell", "state.json written", "yes",
@@ -114,6 +97,25 @@ BIRCH_TEST_SCENARIO(shell) {
   });
   LoadStep("page 2", M, pa + "/page2.html",
            [](const std::string& u) { return EndsWith(u, "/page2.html"); });
+  Then("layout", [] {
+    std::string layout = M()->LayoutForTest();
+    platform::Log("layout: " + layout);
+    auto number_after = [&layout](const std::string& key) {
+      size_t pos = layout.find(key);
+      int n = 0;
+      for (pos = pos == std::string::npos ? layout.size() : pos + key.size();
+           pos < layout.size() && layout[pos] >= '0' && layout[pos] <= '9'; ++pos) {
+        n = n * 10 + (layout[pos] - '0');
+      }
+      return n;
+    };
+    int sidebar = number_after("sidebar="), content = number_after("content=");
+    Expect("layout", "sidebar keeps its width", std::to_string(
+               std::clamp(static_cast<int>(M()->store().state().sidebar_width), 180, 480)),
+           std::to_string(sidebar));
+    Expect("layout", "page area gets the rest (wider than 300)", "yes",
+           YesNo(content > 300));
+  });
   Do("back", [] { M()->GoBack(); },
      [] {
        return Settled(SelectedPage(M())) &&
