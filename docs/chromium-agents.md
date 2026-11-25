@@ -28,7 +28,7 @@ Waves 1 and 2 are done (CEF picked; `chromium-shell` merged 2026-11-25). The own
 | — | **Owner tests Windows once** | wave 5 is merged |
 
 Notes for every agent from wave 3 on:
-- "CI on Windows and Linux" still means both, every time. Screenshots, the "things for the owner to try" list and feel checks are written for **Ubuntu** (state the Ubuntu version tested in CI). Windows owner checks are collected for wave 5, not asked for now.
+- "CI on Windows and Linux" still means both, every time. Screenshots, the "things for the owner to try" list and feel checks are written for **Ubuntu** (the owner runs Zorin OS 18.1 = Ubuntu 24.04 base, so CI uses the `ubuntu-24.04` runner). Windows owner checks are collected for wave 5, not asked for now.
 - **UI is HTML (owner, 2026-11-25: "I want it to work like Arc did; however that works is fine").** Sidebar, command bar, Peek chrome, Library, switcher and settings are Birch's own bundled HTML/CSS pages in the UI host from prompt 4b, talking to the app only through its UI-only channel. Rule 4 still holds for everything else: no web page, extension or site ever reaches that channel.
 - Model choice (owner, 2026-11-25: fewest tokens that fit the job): Opus for 4b, 7, 9, 10 and 11's updater; Sonnet for 5, 6, 8.
 
@@ -240,7 +240,7 @@ Write chromium/SECURITY-AUDIT.md: each finding with severity, evidence and a fix
 
 ### Prompt 11: Linux edition (branch `chromium-linux`)
 
-> **Changed 2026-11-25 (see Change of order):** this now runs in wave 4, before Windows. Agent 9 hasn't run, so you design the signed update feed yourself, following prompt 9 ▸ 2 (editions can never cross; ask the owner whether to reuse the existing update key; signing stays on this Mac), for linux-x64 first. The owner uses Ubuntu: propose the package format (a .deb that installs an AppArmor profile, an AppImage, or both) with how each one updates itself, and ask before choosing. Ignore "The Windows edition is merged" below.
+> **Changed 2026-11-25 (see Change of order):** this now runs in wave 4, before Windows. Agent 9 hasn't run, so you design the signed update feed yourself, following prompt 9 ▸ 2 (editions can never cross; ask the owner whether to reuse the existing update key; signing stays on this Mac), for linux-x64 first. The owner uses Ubuntu and chose a **.deb** (2026-11-25): it installs Birch and an AppArmor profile so Chromium's sandbox works on Ubuntu 23.10+. **The owner's machine runs Zorin OS 18.1, which is based on Ubuntu 24.04 LTS**: build and test the .deb for Ubuntu 24.04 (pin the `ubuntu-24.04` CI runner rather than `ubuntu-latest`), make it install cleanly on Zorin (same packages; don't assume stock Ubuntu's desktop or that the userns restriction is on or off: check both), and write owner checks for Zorin. Propose how the .deb edition updates itself (with the signed feed above) and ask before building that part; an AppImage is not needed for now. Ignore "The Windows edition is merged" below.
 
 ```text
 Follow docs/chromium-agents.md ▸ Shared rules. Your branch: chromium-linux. The Windows edition is merged; CI has built chromium/ on Linux since wave 2. Your job is a Linux download people can install, with the same privacy and update guarantees.
