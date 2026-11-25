@@ -189,6 +189,21 @@ void BirchApp::OnBeforeCommandLineProcessing(
     }
     command_line->AppendSwitchWithValue("disable-features", features);
   }
+#if defined(_WIN32)
+  // Hardening: Chromium 158 leaves the network service unsandboxed on
+  // Windows by default (chrome://sandbox: "Not Sandboxed"). Turn on its LPAC
+  // sandbox (the build grants the app folder to restricted app packages).
+  {
+    std::string enable = "NetworkServiceSandbox";
+    std::string current =
+        command_line->GetSwitchValue("enable-features").ToString();
+    if (!current.empty()) {
+      enable = current + "," + enable;
+      command_line->RemoveSwitch("enable-features");
+    }
+    command_line->AppendSwitchWithValue("enable-features", enable);
+  }
+#endif
 
   if (!IsTestRun()) {
     return;

@@ -189,7 +189,7 @@ def grep(run, prefix, limit=40):
 
 def gate_tabs(label):
     run = run_app(f"tabs-{label}", {"BIRCH_TEST": "tabs",
-                                    "BIRCH_SNAPSHOT": os.path.join(A.out, f"tabs-{label}.png")},
+                                    "BIRCH_SNAPSHOT": os.path.abspath(os.path.join(A.out, f"tabs-{label}.png"))},
                   150)
     gate(f"1 tabs ({label})", verdict_from_checks(run),
          check_lines(run) + grep(run, "crash:") + [f"exit={run['exit']} clean={run['clean_exit']}"])
@@ -424,6 +424,12 @@ def gate_sandbox(label):
         gpu_note = ("GPU: " + ", ".join(json.dumps(r, sort_keys=True) for r in gpus)
                     if gpus else "GPU: no separate GPU process seen")
         ev.append(gpu_note)
+        net = [r for r in rows if r["type"] == "utility(NetworkService)"]
+        ev.append("network service: " + (", ".join(
+            f"integrity={r.get('integrity')} appcontainer={r.get('appcontainer')}" for r in net)
+            or "not seen"))
+        ok = ok and all(r.get("appcontainer") or r.get("integrity") in ("untrusted", "low")
+                        for r in net)
     else:
         ok = renderers and all(r["seccomp"] == "2" for r in renderers) and not any_flag
     ev.append(f"renderers={len(renderers)} processes={len(rows)} no-sandbox flag present={any_flag}")
@@ -524,7 +530,8 @@ def gate_netlog(label, privacy_on=True):
         gate(f"5 network ({label})", "PASS" if ok else "FAIL", ev)
         shutil.copy(netlog, os.path.join(A.out, f"{name}.json"))
     else:
-        gate(f"5 network ({label})", "INFO", ev, required=False)
+        gate(f"5 network baseline, stock CEF ({label}, informational)", "INFO", ev,
+             required=False)
 
 
 # ---- gate 6, 7 ----------------------------------------------------------------

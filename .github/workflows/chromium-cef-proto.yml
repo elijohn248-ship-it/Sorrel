@@ -144,8 +144,19 @@ jobs:
           else
             echo "apparmor: restriction not active on this runner; no profile needed"
           fi
+      - name: Core dumps off for test runs
+        run: |
+          # Ubuntu pipes core dumps of crashed processes to apport, even for
+          # sandboxed (non-dumpable) renderers (fs.suid_dumpable=2). That kept
+          # a deliberately crashed renderer alive for minutes. Test
+          # environment only; the browser and its sandbox are unchanged.
+          echo "before: core_pattern=$(cat /proc/sys/kernel/core_pattern) suid_dumpable=$(cat /proc/sys/fs/suid_dumpable)"
+          sudo sysctl -q -w kernel.core_pattern=core fs.suid_dumpable=0
+          echo "after: core_pattern=$(cat /proc/sys/kernel/core_pattern) suid_dumpable=$(cat /proc/sys/fs/suid_dumpable)"
       - name: Gates
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" python3 -I prototypes/cef/tools/gates.py --app out/Release/birch_cef --platform linux --out results --only tabs,storage,netlog,sandbox,cost
+        run: |
+          ulimit -c 0
+          xvfb-run -a -s "-screen 0 1280x1024x24" python3 -I prototypes/cef/tools/gates.py --app out/Release/birch_cef --platform linux --out results --only tabs,storage,netlog,sandbox,cost
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
