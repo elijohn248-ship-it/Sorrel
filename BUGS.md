@@ -23,12 +23,17 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-### Sidebar mini player shows tabs that have no audio playing (reported 2026-11-24, branch `media-silent-tabs`)
+_None._
+
+## Fixed
+
+### Sidebar mini player shows tabs that have no audio playing (fixed 2026-11-24, branch `media-silent-tabs`)
 - **Repro:** open a page holding an unplayed `<audio>`, a muted autoplay video or a video without sound (canvas stream). `SORREL_MEDIATEST=1` now opens such fixtures beside the real silent-WAV source.
 - **Expected:** the card appears only for a tab that played audible media (then stays while it is paused or muted).
 - **Actual:** every such tab became a source (`sources=4` instead of 1); the card followed them and pause/resume/background checks failed.
+- **Cause / fix:** WebKit's `requestMediaPlaybackState` answers `.playing` for any page holding a media element that isn't paused, even one that never loaded (unplayed `<audio>`, background-tab video) or plays muted/without an audio track; the player took every `.playing` tab as a source. A tab now becomes a source only while WebKit's `_isPlayingAudio` (audible playback) is also true; pauses and mutes keep a real source as before. The same gate stops silent pages counting as "playing" for tab sleep.
+- **Verified:** `SORREL_MEDIATEST=1 SORREL_MEDIASEEKTEST=1` (`SORREL_DELAY=32`): the three silent fixtures are still `.playing` to WebKit but never sources or sleep-protected (18 checks, in background and on screen), unmuting the muted video makes it the source, and all earlier media/seek checks pass; `SORREL_MEMORYTEST` 17/17. Real sites (YouTube previews, muted video ads) are the owner's to check.
 
-## Fixed
 
 ### D2L Brightspace says "Safari version 18 is no longer supported" on a Mac with Safari 26+ (fixed 2026-11-23, branch `safari-ua`)
 - **Repro:** Birch on another Mac (macOS 15, Safari 26 or newer per About Safari) opens a D2L Brightspace home page. Simulated here with `SORREL_FAKE_OS=15.7` (Safari unreadable): the user agent said `Version/18.7`.
