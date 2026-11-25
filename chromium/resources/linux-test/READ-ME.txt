@@ -1,0 +1,43 @@
+Birch Chromium Test — Zorin OS 18.1 / Ubuntu 24.04, Intel/AMD 64-bit
+
+This is an early interface test, not the finished private browser. It has
+basic tabs, the HTML sidebar, navigation and private windows. Spaces editing,
+ad/tracker blocking, production extensions, permission prompts and updates
+are not finished. Use it to test the interface, not sensitive daily browsing.
+
+INSTALL
+1. Extract the downloaded GitHub artifact ZIP.
+2. Double-click Birch-Chromium-Test-amd64.deb.
+3. Choose Install in Software (enter your Zorin password if asked).
+4. Open Birch Chromium Test from the Zorin app menu.
+
+Official Zorin instructions:
+https://help.zorin.com/docs/apps-games/install-apps/#apps-in-deb-files
+
+TRY
+Type an address; switch and close tabs; use Ctrl+T and Ctrl+L; resize the
+window. Check the sidebar colors, rounded page corners, focus and animations.
+Camera/microphone/location/notifications are refused in this early build.
+H.264/AAC and DRM video are unavailable in the official CEF engine build.
+
+YOUR DATA
+This installs separately as birch-chromium-test, under
+/opt/birch-chromium-test. Its launcher uses only a separate test profile:
+$XDG_DATA_HOME/birch-chromium-test (normally ~/.local/share/birch-chromium-test).
+Test tabs/settings survive reopening; website cookies/logins stay in memory
+and disappear when it quits. Test downloads stay in that folder's Downloads.
+It does not import or open your other browsers' profiles, make itself the
+default browser, register website link handlers, add an update source, or
+change the Mac app.
+
+SANDBOX
+The package installs a per-app AppArmor profile so Ubuntu/Zorin permits this
+executable to create Chromium's sandbox namespaces. It does not disable
+AppArmor, change system-wide namespace restrictions, add a setuid helper,
+or disable Chromium's sandbox.
+
+REMOVE
+Remove Birch Chromium Test through Software. The separate test profile is
+left in place so you do not lose test tabs/downloads by uninstalling.
+This test package has no automatic updater; replace it with a newer test
+package when offered. It is not a published Birch release.

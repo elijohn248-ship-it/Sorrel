@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Birch Chromium Test
+Comment=Early Birch interface test; browser features are incomplete
+Exec=/usr/bin/birch-chromium-test
+Icon=birch-chromium-test
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true

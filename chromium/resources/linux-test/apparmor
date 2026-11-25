@@ -1,0 +1,8 @@
+# Per-executable user-namespace permission, following Ubuntu 24.04's Chrome
+# example. Chromium's namespace and seccomp sandboxes remain enabled.
+abi <abi/4.0>,
+include <tunables/global>
+profile birch-chromium-test /opt/birch-chromium-test/birch flags=(unconfined) {
+  userns,
+  include if exists <local/birch-chromium-test>
+}

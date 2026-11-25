@@ -2,7 +2,7 @@
 # and its UI-only channel; adapted from chromium-shell.yml). Builds chromium/ on
 # Windows x64 and Linux x64 (Ubuntu 24.04, the owner's Zorin OS 18.1 base) against the pinned CEF distribution, runs core's
 # spec-fixture tests and the app tests against local fixtures, and uploads a
-# Windows zip as a CI artifact ("Birch (Chromium) for Windows"; not a
+# Windows zip and a Zorin/Ubuntu test .deb as CI artifacts (not a
 # release). Never runs on main, publishes nothing, uses no repository
 # secrets. Downloads are verified against chromium/deps.json.
 name: chromium-ui-host
@@ -98,7 +98,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libx11-dev xvfb libnss3 libgbm1 libxkbcommon0 libxcomposite1 \
             libxdamage1 libxrandr2 libasound2t64 libatk-bridge2.0-0t64 libcups2t64 \
-            libpango-1.0-0 libgtk-3-0t64 imagemagick >/dev/null
+            libpango-1.0-0 libgtk-3-0t64 imagemagick dpkg-dev >/dev/null
           lsb_release -ds; gcc --version | head -1; cmake --version | head -1
       - id: deps-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -133,9 +133,18 @@ jobs:
         run: |
           set -o pipefail
           out/Release/birch_ui_channel_tests | tee ui-channel-linux.txt | grep -E 'summary|FAIL'
+      - name: Package the Zorin and Ubuntu test deb
+        run: |
+          python3 -I chromium/tools/package_linux_test.py out/Release linux-package-work dist-linux "${{ github.sha }}"
+          dpkg-deb --field dist-linux/Birch-Chromium-Test-amd64.deb Package Version Architecture Depends
+          dpkg-deb --extract dist-linux/Birch-Chromium-Test-amd64.deb linux-unpacked
+          for file in linux-package-work/root/DEBIAN/postinst linux-package-work/root/DEBIAN/postrm linux-unpacked/usr/bin/birch-chromium-test; do
+            sh -n "$file"
+          done
+          apparmor_parser -Q -T linux-unpacked/etc/apparmor.d/birch-chromium-test
       - name: AppArmor profile so the Chromium sandbox can use user namespaces (tests only)
         run: |
-          APP=$GITHUB_WORKSPACE/out/Release/birch
+          APP=$GITHUB_WORKSPACE/linux-unpacked/opt/birch-chromium-test/birch
           printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile birch "%s" flags=(unconfined) {\n  userns,\n  include if exists <local/birch>\n}\n' "$APP" > birch.apparmor
           cat birch.apparmor
           if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = "1" ]; then
@@ -154,7 +163,12 @@ jobs:
       - name: App tests
         run: |
           ulimit -c 0
-          xvfb-run -a -s "-screen 0 1440x900x24" python3 -I chromium/tests/harness/run_tests.py --app out/Release/birch --platform linux --out results
+          xvfb-run -a -s "-screen 0 1440x900x24" python3 -I chromium/tests/harness/run_tests.py --app linux-unpacked/opt/birch-chromium-test/birch --platform linux --out results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Birch Chromium Test for Zorin and Ubuntu
+          path: dist-linux
+          retention-days: 30
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
