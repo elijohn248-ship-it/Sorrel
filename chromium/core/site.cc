@@ -206,8 +206,8 @@ std::optional<std::string> SiteKey(const std::optional<std::string>& host) {
   }
   static const char* const kSecondLevel[] = {"co",  "com", "org", "net",
                                              "ac",  "gov", "edu"};
-  const std::string& last = labels.back();
-  const std::string& second = labels[labels.size() - 2];
+  const std::string last = labels.back();
+  const std::string second = labels[labels.size() - 2];
   bool second_level = false;
   for (const char* s : kSecondLevel) {
     second_level = second_level || second == s;

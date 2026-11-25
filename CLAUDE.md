@@ -296,3 +296,60 @@ One bug per session where possible.
 ## Working with the owner
 
 Medical student, daily Safari user, former heavy Arc user. Wants Arc's feel (Spaces, hover sidebar, Peek, mini window) with Helium's privacy. Prefers plain, short explanations of what changed and what was verified versus not. Keep test output short and batched. Commit locally when asked; don't push or deploy anything without a go-ahead.
+
+## Chromium edition
+
+The Windows and Linux edition of Birch lives in `chromium/` (C++20, CMake, **CEF**: owner's choice 2026-11-24 after the wave-1 prototypes; Qt WebEngine failed the sandbox, blocking and security-update gates). It shares **no code** with the Mac app; it shares behaviour through `spec/` (fixtures produced by the Mac's real Swift code). Plan and waves: `docs/dual-engine-plan.md`, `docs/chromium-agents.md`. Third-party pins: `chromium/THIRD_PARTY.md`. Everything is built and tested in GitHub Actions (`.github/workflows/<branch>.yml`); the owner has no Windows machine yet and this Mac only compiles `core/` (below).
+
+### Module map (wave 2, `chromium-shell`): folder -> what -> owner
+
+| Folder | What | Owner (wave 3) |
+|---|---|---|
+| `core/` | The spec model, engine-free and UI-free: `model` (spaces, items, windows, themes, bundled pages), `state_file` (state.json + launch rule), `settings` (settings.json; every Mac field, one X-macro line per setting), `archive_history` (file formats), `site` (address box, Site.key/isIn/same, punycode), `store` (in-memory profile + window sessions + tab operations), `codec`/`decoder`/`json` (UUIDs, ISO dates, strict JSON reading), `typed_url` (stand-in, no bangs) | spaces/favorites/folders/pinning/archive/sleep in `model`+`store`+theme math: **agent 5**; `typed_url` -> resolver, bangs, keybindings, commands, Control+Tab recency: **agent 6**; HTTPS-first and URL-cleaner policy: **agent 7**; downloads list, history behaviour, splits, Peek decisions: **agent 8**. `codec`, `decoder`, `json`, `settings`, `site`, `state_file`: shared, change with care |
+| `engine/` | The **only** code that touches CEF's browser API. `engine.h` is the boundary (Profile, Page, PageObserver, downloads, stats). `cef/` app + command line, page client (navigation, errors, crash, pop-ups, permissions), `birch://` scheme, downloads. `privacy/` Google-service switches and prefs | `engine/privacy/` and a new `engine/extensions/`: **agent 7**; `engine/cef/downloads.cc`: **agent 8**; rest of `engine/cef/`: shared (keep diffs small) |
+| `ui/` | Windows and controls in **CEF Views** (Chromium's own toolkit, used as a native widget kit; no HTML UI). `main_window` (window, page hosting, shortcuts: shared hotspot), `toolbar/` (back/forward/reload, address field, "Not secure"), `sidebar/` (plain list of the current space's tabs), `window_actions.h` (what views ask the window to do) | `ui/sidebar/`: **agent 5** (may replace it: native views, or HTML only after the owner approves a UI-only channel, rule 4); `ui/commandbar/`: **agent 6**; `ui/peek/`, `ui/split/`, `ui/library/`: **agent 8**; Privacy/Extensions settings pages in `ui/settings/`: **agent 7** |
+| `platform/` | OS services: env, profile/Downloads folders, test logging, Mark of the Web / origin attributes, the Windows LPAC folder grant | shared; file pickers and "show in folder": **agent 8** |
+| `app/` | Entry points (`main_win.cc`, `main_linux.cc`) and `Shell` (load profile, open windows, debounced save, quit) | shared; keep thin |
+| `tests/` | `spec/spec_runner.cc` (core vs `spec/fixtures`), `hooks/` (BIRCH_TEST scenarios compiled into the app), `harness/run_tests.py` (CI orchestrator) + `netlog_check.py`, `fixtures/` (local server, pages) | each agent adds its own `hooks/<area>_hooks.cc`, a `test_<area>()` in `run_tests.py` and handlers for its fixtures in `spec_runner.cc` |
+| `tools/` | `fetch_deps.py` (pinned downloads), `make_icons.py` (icns -> png/ico), `set_exe_icon.py` (Windows exe icon), `package_windows.py` | wave 4 adds release tooling here |
+
+Rules for the layout: `core/` includes nothing from CEF, `engine/`, `ui/` or `platform/` (it has its own UTF-8 file helpers); `ui/` creates pages only through `engine::Page` and reacts to `PageObserver`; nothing gives web content a channel into the app (no message router, no JS binding; test hooks read pages through the DevTools protocol with fixed expressions, test runs only). CMake globs every module folder, so new files need no CMake edit.
+
+### Build
+
+```
+python3 -I chromium/tools/fetch_deps.py --dest deps --platform windows64   # or linux64
+cmake -S chromium -B out -DBIRCH_DEPS=$PWD/deps -DCEF_ROOT=$PWD/deps/cef [-A x64 on Windows]
+cmake --build out --config Release      # out/Release/birch(.exe), birch_spec_tests
+```
+
+Without `-DCEF_ROOT` only `core/` and `birch_spec_tests` build. On this Mac (Command Line Tools only, no CMake), `core/` can be checked directly: `python3 -I chromium/tools/fetch_deps.py --dest <scratch> --json-only`, then `clang++ -std=c++20 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -Ichromium -isystem <scratch>/nlohmann/include chromium/core/*.cc chromium/tests/spec/spec_runner.cc -o <scratch>/birch_spec_tests && <scratch>/birch_spec_tests spec/fixtures`. Engine/ui code can be syntax-checked with `-fsyntax-only` against a CEF distribution's headers in a scratch folder; it can't run here.
+
+Windows: `birch.exe` is CEF's prebuilt windowed **bootstrap** (needed for the sandbox since M138) with Birch's icon put in by `set_exe_icon.py`; Birch's code is `birch.dll` (`RunWinMain`). The build refuses `USE_SANDBOX=OFF`; the app refuses to start without sandbox info. Linux: one `birch` executable. Compiler: CEF's flags (C++20, no exceptions, no RTTI; `/MT` on Windows) minus its warning suppressions, plus `/W4 /WX` or `-Wall -Wextra -Werror`; CEF's and nlohmann's headers are external/system headers. **Birch's own code has 0 warnings; CI fails on any.** Third-party warning lines (CEF's wrapper library, built with CEF's own flags) are counted in the CI log, not fixed.
+
+### Profile, data and private windows
+
+- Profile: `%LOCALAPPDATA%\Birch` (Windows), `$XDG_DATA_HOME/birch` = `~/.local/share/birch` (Linux); `BIRCH_HOME` replaces it for tests. Birch's JSON files (`state.json`, `settings.json`, later `history.json`…) sit at the top, in the spec's formats; Chromium's data is under `Chromium/` (`Chromium/Default` for the normal profile). With `BIRCH_HOME` set, site data stays in memory (`BIRCH_PERSIST=1` puts it on disk inside the scratch folder, for the private-window scan's positive control).
+- state.json: decoded strictly per spec (an unreadable file is copied to `state.unreadable-<unix>.json` and a fresh profile starts); saved 0.8 s after a change and on quit, written atomically. Bundled pages are saved as `birch://name` (Chromium reports `birch://name/`). Birch's error page never replaces a tab's saved address. settings.json: as the Mac, plus a `settings.unreadable-<unix>.json` copy before a reset.
+- Private windows: Chromium's off-the-record storage (a request context with an empty cache path), their own in-memory `Store`, never saved. Their downloads still go to Downloads (the person's file) but Birch removes the source/referrer address from the file's mark afterwards (Windows keeps `ZoneId=3`; Linux drops the `user.xdg.*` attributes).
+- Downloads: straight into the Downloads folder (known folder / XDG), safe unique names, no dialog; Chromium writes Windows' Mark of the Web itself (Birch writes `ZoneId=3` if it ever didn't).
+
+### Privacy and security defaults (carried over from the prototype; never weaken)
+
+- Google/Chromium background services off: switches and `--disable-features` merged into CEF's own list (a second switch replaced CEF's and crashed windows), the "AI Mode" folae check off, profile and Local State prefs (`engine/privacy/privacy.cc`). Proven by the NetLog test: only the fixture server may be contacted, with a positive control that must be caught.
+- **Proxy: follows the operating system's settings** (owner decision 2026-11-24), including Windows' "Automatically detect settings" (one DNS lookup of `wpad`). `--no-proxy-server` is never added; the NetLog check tolerates only that `wpad` lookup.
+- Sandbox: never off. `--no-sandbox`, `--disable-gpu-sandbox`, `--disable-setuid-sandbox`, `--no-zygote-sandbox`, `--disable-seccomp-filter-sandbox`, `--disable-namespace-sandbox`, `--single-process`, `--in-process-gpu` are stripped from the command line. Windows: Chromium's network-service sandbox (LPAC) turned on; at start the browser grants "ALL RESTRICTED APPLICATION PACKAGES" read/execute on its own folder when missing (a zip loses the build's ACL). Linux (Ubuntu 23.10+): the sandbox needs an AppArmor profile allowing user namespaces; CI installs a per-binary one, real packaging is wave 5's decision.
+- Permissions (camera, microphone, location, notifications) are refused, never granted; agent 7 adds asking. Certificate errors always cancel and show Birch's error page. Pop-ups without a user gesture are blocked; links opened in a new tab become tabs. Other apps' links are not opened (CEF's default refuses OS execution). `birch://` is display-isolated (pages can't link to, frame or fetch it). No crash uploads (`--disable-breakpad`, no `crash_reporter.cfg`).
+- Codecs/DRM: official CEF builds, so no H.264/AAC/Widevine (owner decision 2026-11-24); don't build CEF from source or load another browser's Widevine.
+- Identity: CEF's default (honest Chrome) user agent for now; agent 7 proposes the reduced client hints to the owner. Never copy the Mac's Safari identity.
+
+### Testing
+
+- `birch_spec_tests <spec/fixtures>`: core against the spec; `spec: <fixture> <case> expected=… got=… -> PASS|FAIL|INFO`, a summary per fixture, exit 1 on failure. Covered now: `state-decode`, `state-derived`, `settings-fields`, `settings-decode`, `archive-history-decode`, `site` (197 cases + 2 checks). Listed as "not covered yet" with their owner: resolver, bangs, keybindings, tab-recency (agent 6); theme, theme-math, tab-lifecycle (agent 5); https-first, url-cleaner (agent 7); peek, split-view, history-behaviour (agent 8).
+- App hooks (honoured only with `BIRCH_HOME` set): `BIRCH_TEST=<scenario>` (shell, restore, corrupt, private, download, perm, tls, netlog, netlogcontrol, sandbox, smoke), `BIRCH_LOG` (log file; the GUI exe has no console), `BIRCH_DELAY` (quit after N s), `BIRCH_HOLD` (pause for screenshots/process inspection), `BIRCH_SHOW=1` (show the window; test windows otherwise start minimized so they never take focus), `BIRCH_PERSIST`, `BIRCH_DOWNLOADS`, `BIRCH_NETLOG`, `BIRCH_HOSTMAP`, `BIRCH_FAKE_MEDIA`, `BIRCH_CEF_LOG`, `BIRCH_HTTP_PORT`/`BIRCH_HTTPS_PORT`, `BIRCH_NONCE`, `BIRCH_EXPECT_ROWS`/`BIRCH_EXPECT_SUFFIX`. Lines: `<area>: <what> expected=… got=… -> PASS|FAIL`, then `summary: scenario=<name> checks=N failed=M`. `*.birch.test` maps to 127.0.0.1 in test runs.
+- `tests/harness/run_tests.py --app <exe> --platform windows|linux --out <dir> [--zip <zip>]` runs every scenario with a fresh scratch profile against `tests/fixtures/server.py`, scans the profile after the private run, checks the downloads' marks from outside, reads the NetLog, inspects every process's sandbox (Windows tokens, Linux seccomp) with sandbox-disabling switches passed on purpose, and on Windows unpacks the zip fresh and runs it. CI on Linux needs the AppArmor profile and core dumps off (a crashed renderer otherwise hangs in apport); both are test-environment settings only.
+- CI uploads `Birch (Chromium) for Windows` (the app folder, zipped by GitHub; 30 days) and `results-windows`/`results-linux` (summaries, logs with fixture hosts only, NetLogs, screenshots of the window).
+
+### Not done in wave 2
+
+Spaces UI, favorites/folders editing, the command bar, bangs, keybindings file, Control+Tab, Peek, splits, Library/history/downloads list, extensions and uBlock Origin Lite, permission prompts, HTTPS-first, settings UI, updater, installer, Linux packaging. Multiple normal windows: state.json keeps the spec's `windows` list, but the shell restores only the first window.

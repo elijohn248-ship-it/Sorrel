@@ -134,7 +134,9 @@ void SidebarView::SizeList() {
 
 CefSize SidebarView::GetPreferredSize(CefRefPtr<CefView> view) {
   if (view->IsSame(root_)) {
-    return CefSize(width_, 0);
+    // CEF ignores an "empty" size (a zero width or height); the height is
+    // stretched to the window by the layout anyway.
+    return CefSize(width_, 400);
   }
   return CefSize();  // everything else: its own preferred size
 }

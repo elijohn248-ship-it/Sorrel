@@ -33,6 +33,12 @@ constexpr const char kSpecMajor[] = "2.";
 
 int g_total_pass = 0, g_total_fail = 0, g_total_info = 0;
 
+// The case list, copied: GCC 13's -Wdangling-reference flags references bound
+// to operator[] results.
+Json Cases(const Json& doc) {
+  return doc.contains("cases") ? doc.at("cases") : Json::array();
+}
+
 std::string Short(const Json& v, size_t limit = 160) {
   std::string s = v.dump(-1, ' ', false, Json::error_handler_t::replace);
   if (s.size() > limit) {
@@ -168,9 +174,9 @@ const char kSeedWords[] =
     "seed fresh profile; copy file to state.unreadable-<unix time>.json";
 
 void StateDecode(const std::string& fx, const Json& doc, Counts* c) {
-  for (const Json& cs : doc["cases"]) {
+  for (const Json& cs : Cases(doc)) {
     const std::string name = cs["name"].get<std::string>();
-    const Json& exp = cs["expected"];
+    const Json exp = cs["expected"];
     std::string text = InputText(cs["input"], "state_json", "state_json_text");
     AppState s;
     std::string error;
@@ -214,9 +220,9 @@ void StateDecode(const std::string& fx, const Json& doc, Counts* c) {
 }
 
 void StateDerived(const std::string& fx, const Json& doc, Counts* c) {
-  for (const Json& cs : doc["cases"]) {
+  for (const Json& cs : Cases(doc)) {
     const std::string name = cs["name"].get<std::string>();
-    const Json& in = cs["input"];
+    const Json in = cs["input"];
     Json got = Json::object();
     if (in.contains("item")) {
       Item item;
@@ -226,7 +232,8 @@ void StateDerived(const std::string& fx, const Json& doc, Counts* c) {
                                                        : Json("decode error: " + error);
     } else if (in.contains("fractions")) {
       SplitLayout split;
-      for (const Json& f : in["fractions"]) {
+      const Json fractions = in["fractions"];
+      for (const Json& f : fractions) {
         split.fractions.push_back(f.get<double>());
       }
       got["normalized"] =
@@ -280,7 +287,7 @@ void SettingsFieldsFixture(const std::string& fx, const Json& doc, Counts* c) {
     types[f.name] = f.swift_type;
   }
   std::vector<std::string> fixture_fields;
-  for (const Json& cs : doc["cases"]) {
+  for (const Json& cs : Cases(doc)) {
     const std::string field = cs["input"]["field"].get<std::string>();
     fixture_fields.push_back(field);
     Json got = Json::object();
@@ -297,9 +304,9 @@ void SettingsFieldsFixture(const std::string& fx, const Json& doc, Counts* c) {
 }
 
 void SettingsDecodeFixture(const std::string& fx, const Json& doc, Counts* c) {
-  for (const Json& cs : doc["cases"]) {
-    const Json& exp = cs["expected"];
-    const Json& text = cs["input"]["settings_json_text"];
+  for (const Json& cs : Cases(doc)) {
+    const Json exp = cs["expected"];
+    const Json text = cs["input"]["settings_json_text"];
     std::string dir = ScratchDir();
     std::string path = JoinPath(dir, kSettingsFileName);
     if (text.is_string()) {
@@ -339,9 +346,9 @@ void SettingsDecodeFixture(const std::string& fx, const Json& doc, Counts* c) {
 }
 
 void ArchiveHistoryFixture(const std::string& fx, const Json& doc, Counts* c) {
-  for (const Json& cs : doc["cases"]) {
-    const Json& in = cs["input"];
-    const Json& exp = cs["expected"];
+  for (const Json& cs : Cases(doc)) {
+    const Json in = cs["input"];
+    const Json exp = cs["expected"];
     std::string error;
     Json got = Json::object();
     bool ok = false;
@@ -372,9 +379,9 @@ std::optional<std::string> OptStr(const Json& v) {
 Json FromOpt(const std::optional<std::string>& s) { return s ? Json(*s) : Json(); }
 
 void SiteFixture(const std::string& fx, const Json& doc, Counts* c) {
-  for (const Json& cs : doc["cases"]) {
-    const Json& in = cs["input"];
-    const Json& exp = cs["expected"];
+  for (const Json& cs : Cases(doc)) {
+    const Json in = cs["input"];
+    const Json exp = cs["expected"];
     Json got = Json::object();
     if (exp.contains("key")) {
       got["key"] = FromOpt(SiteKey(OptStr(in["host"])));
@@ -382,7 +389,8 @@ void SiteFixture(const std::string& fx, const Json& doc, Counts* c) {
       got["display"] = FromOpt(SiteDisplay(OptStr(in["host"])));
     } else if (exp.contains("is_in")) {
       std::vector<std::string> list;
-      for (const Json& e : in["list"]) {
+      const Json entries = in["list"];
+      for (const Json& e : entries) {
         list.push_back(e.get<std::string>());
       }
       got["is_in"] = SiteHostIsIn(OptStr(in["host"]), list);

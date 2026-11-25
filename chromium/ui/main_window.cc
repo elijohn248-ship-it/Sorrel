@@ -169,35 +169,51 @@ cef_runtime_style_t MainWindow::GetWindowRuntimeStyle() {
 bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {
   switch (command_id) {
     case kTabNew:
-      StartNewTab();
-      return true;
+      return RunCommand("tab.new");
     case kTabClose:
-      if (std::optional<std::string> sel = selected_id()) {
-        CloseTab(*sel);
-      }
-      return true;
+      return RunCommand("tab.close");
     case kTabEditUrl:
-      toolbar_->FocusAddress();
-      return true;
+      return RunCommand("tab.editURL");
     case kTabReload:
     case kTabReloadF5:
-      Reload();
-      return true;
+      return RunCommand("tab.reload");
     case kNavBack:
-      GoBack();
-      return true;
+      return RunCommand("nav.back");
     case kNavForward:
-      GoForward();
-      return true;
+      return RunCommand("nav.forward");
     case kPrivateNew:
-      ctx_.host->OpenPrivateWindow();
-      return true;
+      return RunCommand("private.new");
     case kWindowClose:
-      Close();
-      return true;
+      return RunCommand("window.close");
     default:
       return false;
   }
+}
+
+bool MainWindow::RunCommand(const std::string& id) {
+  platform::Log("command: " + id);
+  if (id == "tab.new") {
+    StartNewTab();
+  } else if (id == "tab.close") {
+    if (std::optional<std::string> sel = selected_id()) {
+      CloseTab(*sel);
+    }
+  } else if (id == "tab.editURL") {
+    toolbar_->FocusAddress();
+  } else if (id == "tab.reload") {
+    Reload();
+  } else if (id == "nav.back") {
+    GoBack();
+  } else if (id == "nav.forward") {
+    GoForward();
+  } else if (id == "private.new") {
+    ctx_.host->OpenPrivateWindow();
+  } else if (id == "window.close") {
+    Close();
+  } else {
+    return false;
+  }
+  return true;
 }
 
 bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
@@ -402,6 +418,14 @@ void MainWindow::ScheduleSidebarRebuild() {
                             self->selected_id().value_or(std::string()));
     self->sidebar_->panel()->Layout();
   });
+}
+
+std::string MainWindow::LayoutForTest() const {
+  if (!sidebar_ || !content_) {
+    return "none";
+  }
+  return "sidebar=" + std::to_string(sidebar_->panel()->GetBounds().width) +
+         " content=" + std::to_string(content_->GetBounds().width);
 }
 
 std::string MainWindow::space_title() const {

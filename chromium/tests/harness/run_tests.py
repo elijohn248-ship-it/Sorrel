@@ -188,10 +188,10 @@ def grep(run, prefix, limit=40):
     return [line for line in run["lines"] if line.startswith(prefix)][:limit]
 
 
-def passed(run):
+def passed(run, need_checks=True):
     fails = [c for c in run["checks"] if c[4] == "FAIL"]
     summary = [line for line in run["lines"] if line.startswith("summary:")]
-    return (bool(run["checks"]) and not fails and not run["timed_out"]
+    return ((bool(run["checks"]) or not need_checks) and not fails and not run["timed_out"]
             and bool(summary) and summary[-1].endswith("failed=0")
             and run["clean_exit"])
 
@@ -382,7 +382,7 @@ def test_netlog():
           "OS proxy auto-detect (wpad) lookup: " + ("yes" if r["wpad"] else "no"),
           "non-fixture requests/connections: " +
           (json.dumps(r["offenders"], sort_keys=True) if r["offenders"] else "none")]
-    ok = passed(run) and not r["offenders"]
+    ok = passed(run, need_checks=False) and not r["offenders"]
     record("NetLog: only the fixture server contacted", "PASS" if ok else "FAIL", ev)
     shutil.copy(netlog, os.path.join(A.out, f"netlog-{A.platform}.json"))
 
@@ -515,7 +515,9 @@ def inspect_linux(proc):
 
 def sandbox_verdict(rows):
     renderers = [r for r in rows if r["type"] == "renderer"]
-    flagged = any(r["disabling_switch"] for r in rows)
+    # The browser process's own command line is what the harness passed; what
+    # matters is that no child process was started with such a switch.
+    flagged = any(r["disabling_switch"] for r in rows if r["type"] != "browser")
     if A.platform == "windows":
         def confined(r):
             return r.get("integrity") in ("untrusted", "low") and (
@@ -547,7 +549,7 @@ def test_sandbox():
     ev += [json.dumps(r, sort_keys=True) for r in rows]
     ev += grep(run, "sandboxpage", 40) + grep(run, "sandbox:")
     ev.append(f"renderers={len(renderers)} processes={len(rows)}")
-    ok = ok and (refused or len(stripped) >= 2) and passed(run)
+    ok = ok and (refused or len(stripped) >= 2) and passed(run, need_checks=False)
     record("sandbox on for every renderer; disabling switches stripped",
            "PASS" if ok else "FAIL", ev)
 

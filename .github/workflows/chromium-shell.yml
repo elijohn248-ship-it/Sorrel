@@ -110,7 +110,7 @@ jobs:
       - name: Build
         run: |
           start=$(date +%s)
-          cmake --build out --parallel 2>&1 | tee build.log
+          cmake --build out --parallel 4 2>&1 | tee build.log
           test ${PIPESTATUS[0]} -eq 0
           echo "build: seconds=$(( $(date +%s) - start ))"
           own=$(grep -cE 'chromium/(core|engine|ui|platform|app|tests)/.*warning' build.log || true)

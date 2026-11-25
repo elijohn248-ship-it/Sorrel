@@ -69,6 +69,11 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   core::Store& store() { return *ctx_.store; }
   std::optional<std::string> selected_id() const;
 
+  // Runs a command by its Mac command id (spec/keybindings.md): tab.new,
+  // tab.close, tab.editURL, tab.reload, nav.back, nav.forward, private.new,
+  // window.close. Shortcuts call this; agent 6's registry replaces the list.
+  bool RunCommand(const std::string& id);
+
   // A new tab with |url| at the top of the current space. Returns its id.
   std::string NewTab(const std::string& url, bool foreground);
   // The live page of a tab (nullptr when not loaded).
@@ -85,6 +90,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   // For tests: what the address field shows, and the sidebar's tab titles.
   std::string address_text() const { return toolbar_->address_text(); }
   bool not_secure_shown() const { return toolbar_->not_secure_shown(); }
+  // For tests: "sidebar=<w> content=<w>" from the laid-out views.
+  std::string LayoutForTest() const;
   std::vector<std::string> sidebar_titles() const {
     return sidebar_->RowTitles();
   }
