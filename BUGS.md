@@ -23,6 +23,8 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
+- **Chromium UI host blank on first launch (Prompt 4b, 2026-11-25):** Repro: run `chromium-ui-host` CI with a fresh `BIRCH_HOME` on Windows or Ubuntu 24.04. Expected: HTML sidebar ready, 250 px wide, page card visible. Actual: startup times out, sidebar DOM is empty, sidebar takes the full window width. Reproduced in run 45697971243 on both platforms. Cause: scheme registration deferred until the asynchronous context-initialized callback; preferred size has zero height, which CEF treats as empty. Fix being verified: register the scheme before creating the BrowserView; return a nonempty preferred size.
+
 _None._
 
 ## Fixed

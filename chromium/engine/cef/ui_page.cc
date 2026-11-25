@@ -40,7 +40,6 @@ class UiContextHandler : public CefRequestContextHandler {
  public:
   void OnRequestContextInitialized(
       CefRefPtr<CefRequestContext> context) override {
-    RegisterUiSchemeHandler(context);
     privacy::ApplyProfilePrefs(context, "ui");
   }
 
@@ -54,7 +53,12 @@ class UiContextHandler : public CefRequestContextHandler {
 CefRefPtr<CefRequestContext> UiContext() {
   static CefRefPtr<CefRequestContext> context = [] {
     CefRequestContextSettings settings;  // empty cache path: memory only
-    return CefRequestContext::CreateContext(settings, new UiContextHandler());
+    auto ctx = CefRequestContext::CreateContext(settings, new UiContextHandler());
+    // Initialization notifications are posted asynchronously by CEF. Register
+    // before creating the first BrowserView, so its initial navigation cannot
+    // race ahead of the scheme handler and leave the sidebar blank.
+    RegisterUiSchemeHandler(ctx);
+    return ctx;
   }();
   return context;
 }
@@ -364,7 +368,9 @@ class UiPage::Client : public CefClient,
     view->SetPreferAccelerators(true);  // Ctrl+T etc. work from the sidebar
   }
   CefSize GetPreferredSize(CefRefPtr<CefView>) override {
-    return CefSize(width_, 0);
+    // CEF ignores an empty preferred size (either dimension zero), falling
+    // back to the browser's width and squeezing the page card out of view.
+    return CefSize(width_, 1);
   }
 
   // State read by UiPage.
