@@ -233,7 +233,7 @@ std::string FormatIso8601(int64_t seconds) {
   int64_t y = 0;
   unsigned m = 0, d = 0;
   CivilFromDays(days, &y, &m, &d);
-  char buf[40];
+  char buf[128];  // roomy enough for GCC's worst-case format check
   std::snprintf(buf, sizeof(buf), "%04lld-%02u-%02uT%02lld:%02lld:%02lldZ",
                 static_cast<long long>(y), m, d,
                 static_cast<long long>(rem / 3600),

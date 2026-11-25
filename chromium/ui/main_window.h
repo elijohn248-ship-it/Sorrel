@@ -132,6 +132,7 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   void ShowPage(const std::string& item_id);
   void Refresh();
+  void UpdateTitle();
   void ScheduleSidebarRebuild();
   std::optional<std::string> UrlOf(const std::string& item_id) const;
   void SetIcon();

@@ -356,10 +356,20 @@ void MainWindow::PageTitle(const std::string& id, const std::string& title) {
   ctx_.store->UpdatePage(id, std::nullopt, title);
   ctx_.host->StoreChanged(this);
   ScheduleSidebarRebuild();
-  if (selected_id() == id && window_) {
-    window_->SetTitle((title.empty() ? std::string() : title + " - ") +
-                      (ctx_.is_private ? "Birch Private" : "Birch"));
+  if (selected_id() == id) {
+    UpdateTitle();
   }
+}
+
+void MainWindow::UpdateTitle() {
+  if (!window_) {
+    return;
+  }
+  std::optional<std::string> sel = selected_id();
+  const core::Item* item = sel ? ctx_.store->FindItem(*sel) : nullptr;
+  std::string title = item ? item->DisplayTitle() : std::string();
+  window_->SetTitle((title.empty() ? std::string() : title + " - ") +
+                    (ctx_.is_private ? "Birch Private" : "Birch"));
 }
 
 void MainWindow::PageLoading(const std::string& id) {
@@ -398,6 +408,7 @@ void MainWindow::Refresh() {
   engine::Page* page = sel ? PageFor(*sel) : nullptr;
   toolbar_->Update(sel ? UrlOf(*sel) : std::nullopt,
                    page && page->CanGoBack(), page && page->CanGoForward());
+  UpdateTitle();
   ScheduleSidebarRebuild();
 }
 
