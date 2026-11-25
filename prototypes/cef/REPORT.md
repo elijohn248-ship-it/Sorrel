@@ -4,7 +4,7 @@ Branch `chromium-cef-proto`, worktree `~/sorrel-chromium-cef-proto`, 2026-11-25.
 
 - **Engine:** CEF `158.0.3+g8c29be2+chromium-158.0.8127.18` (stable, built 2026-11-20): the official "minimal" binary distributions for Windows x64 and Linux x64, pinned by size, SHA-1 and SHA-256 (`deps.json`, `chromium/THIRD_PARTY.md`).
 - **Extension:** uBlock Origin Lite `2026.1122.1948`, Chromium MV3 build, unmodified, pinned by SHA-256.
-- **Green CI run with every gate below:** https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45522413210 (commit `b8890ed`). The final run after the docs commit is listed in PROGRESS.md.
+- **Green CI runs with every gate below:** https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45525460574 (commit `3911509`, the last code change) and https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45522413210 (commit `b8890ed`). Numbers in this report are from those runs; build times vary by ±40% between runs.
 
 ## Gate table
 
