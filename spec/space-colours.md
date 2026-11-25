@@ -1,6 +1,6 @@
 # Space colours
 
-Spec 1.0.0. Fixtures: `theme` (100 cases: all 10 presets × light/dark × brightness unset/0.5/1, plus edge cases), `theme-math` (55: hex parsing, OKLab both ways, soft bases, soften, blending, the grain tile). Sources: `ThemeLook.swift`, `Support.swift` (Theme, NSColor hex/luminance). **Tolerance: 1e-6 absolute** on every float (README).
+Spec 2.0.0. Fixtures: `theme` (100 cases: all 10 presets × light/dark × brightness unset/0.5/1, plus edge cases), `theme-math` (55: hex parsing, OKLab both ways, soft bases, soften, blending, the grain tile). Sources: `ThemeLook.swift`, `Support.swift` (Theme, NSColor hex/luminance). **Tolerance: 1e-6 absolute** on every float (README).
 
 ## Theme
 

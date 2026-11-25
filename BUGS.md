@@ -23,7 +23,10 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-_None._
+### Control+Tab cycles through every tab in the space, not just the open ones (reported 2026-11-24, branch `ctrl-tab-open-tabs`)
+- **Repro:** in a space with several pinned or unpinned tabs, open only two or three of them (the others asleep: never opened since launch, put to sleep, or idle-slept). Hold Control and press Tab repeatedly (also with Settings ▸ Tabs ▸ "Switch tabs in most recently used order" off).
+- **Expected:** Control+Tab and its switcher list only the tabs that are open (have a loaded page), plus the selected tab. Sleeping tabs are skipped. ⌥⌘↓/↑ (Next/Previous Tab) still walk every tab in sidebar order.
+- **Actual:** after the recently visited tabs, the cycle and the switcher continue through every other tab in the space (favorites and pinned tabs included), waking each sleeping tab it lands on; with the sidebar-order setting it walks every tab.
 
 ## Fixed
 

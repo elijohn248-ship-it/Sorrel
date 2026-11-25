@@ -1,6 +1,6 @@
 # Security and privacy invariants
 
-Spec 1.0.0. Sources: AGENTS.md 2.2–2.4, CLAUDE.md ▸ Security invariants and ▸ Security behaviour, `Web.swift`, `Extensions.swift`, `MiniWindow.swift`, the updater. Each statement must hold in every edition. "Mac proof" names the existing check; "Chromium test" says how an edition's automated test proves it (BIRCH_* hooks, fresh `BIRCH_HOME`, local fixture server, in CI). These are rules, not fixtures, except where a fixture is named.
+Spec 2.0.0. Sources: AGENTS.md 2.2–2.4, CLAUDE.md ▸ Security invariants and ▸ Security behaviour, `Web.swift`, `Extensions.swift`, `MiniWindow.swift`, the updater. Each statement must hold in every edition. "Mac proof" names the existing check; "Chromium test" says how an edition's automated test proves it (BIRCH_* hooks, fresh `BIRCH_HOME`, local fixture server, in CI). These are rules, not fixtures, except where a fixture is named.
 
 | # | Invariant (checkable) | Mac proof | Chromium test |
 |---|---|---|---|

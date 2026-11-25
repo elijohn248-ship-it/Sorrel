@@ -853,7 +853,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let store = controller.store
                 let hud = controller.tabSwitcher
                 let space = store.addSpace(name: "Switcher test")
+                // Two tabs that were never opened sit below the twelve open ones; the switcher must leave them out.
+                let asleep = (1...2).map { store.newTab(url: "sorrel://welcome", title: "Asleep tab \($0)", select: false) }
                 let tabs = (1...12).map { store.newTab(url: "sorrel://welcome", title: "Test tab \($0)", select: false) }
+                for t in tabs { _ = Engine.shared.ensurePage(for: t) }
                 func event(_ code: UInt16, _ flags: NSEvent.ModifierFlags, type: NSEvent.EventType = .keyDown) {
                     if let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
                                                timestamp: 0, windowNumber: controller.window!.windowNumber,
@@ -867,6 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 check("recent-order", Array(hud.itemIDs.prefix(3)) == [tabs[1].id, tabs[2].id, tabs[0].id])
                 check("selection-matches", hud.selectedID == store.selected?.id && store.selected === tabs[2])
                 let frozen = hud.itemIDs
+                check("sleeping-tabs-absent", frozen.count == 12 && !asleep.contains { frozen.contains($0.id) || $0.page != nil })
                 event(48, [.control]); check("held-order-stable", hud.itemIDs == frozen && hud.selectedID == tabs[0].id)
                 event(48, [.control, .shift]); check("reverse", hud.itemIDs == frozen && hud.selectedID == tabs[2].id)
                 controller.root.layoutSubtreeIfNeeded()
@@ -893,7 +897,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 check("focus-loss-dismisses", !hud.isPresented)
                 Settings.current.controlTabUsesRecency = false
                 store.select(store.cycleOrder[0]); event(48, [.control])
-                check("sidebar-order-setting", hud.itemIDs == store.cycleOrder.map { $0.id } && hud.selectedID == store.cycleOrder[1].id)
+                let openOrder = store.cycleOrder.filter { $0.page != nil }
+                check("sidebar-order-setting", hud.itemIDs == openOrder.map { $0.id } && hud.selectedID == openOrder[1].id
+                      && !asleep.contains { hud.itemIDs.contains($0.id) })
                 event(59, [], type: .flagsChanged)
                 store.cycleTab(1)
                 check("unheld-command-no-popup", !hud.isPresented)
@@ -1015,6 +1021,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 check("no-selection-recovers", store.selected != nil)
                 store.switchSpace(to: store.addSpace(name: "Empty shortcut space"))
                 store.cycleTab(1); check("empty-space-noop", store.selected == nil)
+
+                // Only open tabs take part: a never-opened tab and a pinned tab put to sleep are skipped.
+                _ = store.addSpace(name: "Sleeping shortcut space")
+                let never = store.newTab(url: "sorrel://welcome", select: false)
+                let napping = store.newTab(url: "sorrel://welcome", select: false)
+                let openA = store.newTab(url: "sorrel://welcome", select: false)
+                let openB = store.newTab(url: "sorrel://welcome", select: false)
+                store.togglePin(napping)
+                store.select(napping); store.select(openA); store.select(openB)
+                store.close(napping)
+                check("pinned-close-sleeps", napping.page == nil && never.page == nil && openA.page != nil && store.selected === openB)
+                var landed: [Item?] = []
+                for _ in 0..<4 { key(); landed.append(store.selected) }
+                check("recency-skips-sleeping", landed.map { $0?.id } == [openA.id, openB.id, openA.id, openB.id] && napping.page == nil && never.page == nil)
+                check("switcher-lists-open-tabs", window.tabSwitcher.itemIDs == [openB.id, openA.id])
+                release()
+                Settings.current.controlTabUsesRecency = false
+                store.select(openB); landed = []
+                for _ in 0..<3 { key(); landed.append(store.selected) }
+                check("sidebar-order-skips-sleeping", landed.map { $0?.id } == [openA.id, openB.id, openA.id] && napping.page == nil && never.page == nil)
+                release()
+                Settings.current.controlTabUsesRecency = true
+                _ = store.addSpace(name: "One open tab space")
+                let asleep = store.newTab(url: "sorrel://welcome", select: false)
+                let lone = store.newTab(url: "sorrel://welcome")
+                key(); check("one-open-tab-noop", store.selected === lone && asleep.page == nil && !window.tabSwitcher.isPresented)
+                release()
+                store.select(openA)
+                Commands.shared.run("tab.next")
+                check("next-command-includes-sleeping", store.selected === never)
+                store.select(openB)
+                Commands.shared.run("tab.previous")
+                check("previous-command-includes-sleeping", store.selected === napping)
 
                 // Exercise the actual checkbox without showing or focusing the Settings window.
                 func findBox(_ view: NSView) -> NSButton? {

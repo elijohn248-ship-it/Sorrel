@@ -1,6 +1,6 @@
 # Birch behaviour spec
 
-**Spec version: 1.0.0** (2026-11-23). Generated from the Mac (WebKit) edition at the commit that adds this folder.
+**Spec version: 2.0.0** (2026-11-24). Generated from the Mac (WebKit) edition. 2.0.0: Control+Tab and its switcher take only open tabs (loaded page, or selected); `tab-recency` expected output changed and two cases were added. 1.0.0 (2026-11-23): first version.
 
 Birch has two editions: the existing Mac app (Swift, AppKit, WebKit) and a Chromium edition (C++, Windows first, then Linux). They share no code. This folder is the contract between them: plain-language rules plus JSON fixtures (input → expected output) produced by running the Mac app's **real Swift functions**. An edition proves it behaves like Birch by loading every fixture and getting the same answers.
 
@@ -24,7 +24,7 @@ Every file in `fixtures/` is one JSON object:
 
 ```json
 {
-  "spec_version": "1.0.0",
+  "spec_version": "2.0.0",
   "fixture": "resolver",
   "area": "address-and-search",
   "generated_by": "SORREL_SPECDUMP (Sources/Sorrel/SpecDump.swift)",

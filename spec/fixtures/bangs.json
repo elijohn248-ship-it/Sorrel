@@ -1285,7 +1285,7 @@
   "sources" : [
     "Data.swift Bangs.reload/ingest/resolve on Bangs.shared (real; custom file in the scratch profile)"
   ],
-  "spec_version" : "1.0.0",
+  "spec_version" : "2.0.0",
   "table" : {
     "bundled_file" : "Resources/bangs.json",
     "line_format" : "<trigger>\\t<url for \"!<trigger> a b&c/é\">\\t<url for \"!<trigger>\">\\n, triggers sorted by Swift String order (Unicode scalar order), \"-\" when no URL",

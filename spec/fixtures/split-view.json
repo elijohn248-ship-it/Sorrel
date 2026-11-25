@@ -932,5 +932,5 @@
   "sources" : [
     "Models.swift Store makeSplit/close/removeFromSplit/unsplit/togglePin/toggleFavorite/move/setSplitFractions/rotatePanes/focusPane/closeAndUnpin (real, live scratch store)"
   ],
-  "spec_version" : "1.0.0"
+  "spec_version" : "2.0.0"
 }

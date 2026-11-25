@@ -7,7 +7,7 @@ import CryptoKit
 /// cases say "transcribed" in their `source` and still use the real helper functions for every comparison. Never
 /// reads a real profile; logs file names and case counts only.
 enum SpecDump {
-    static let specVersion = "1.0.0"
+    static let specVersion = "2.0.0"
 
     private typealias Case = [String: Any]
     private typealias Log = (String) -> Void
@@ -1032,10 +1032,11 @@ enum SpecDump {
         let now = Date()
         // One physical Control+Tab press is cycleTab(±1, holdingControl: true); letting go of Control ends the cycle.
         func run(_ name: String, recency: Bool = true, tabs labels: [String], idleMinutes: [String: Double] = [:],
-                 setup: ((Lab) -> Void)? = nil, visits: [String], steps: [String], selectAfter: [Int: String] = [:]) {
+                 loaded: [String] = [], setup: ((Lab) -> Void)? = nil, visits: [String], steps: [String], selectAfter: [Int: String] = [:]) {
             Settings.current.controlTabUsesRecency = recency
             let lab = Lab(store, "Spec recency")
             lab.tabs(labels)
+            for l in loaded { _ = Engine.shared.ensurePage(for: lab[l]) }
             setup?(lab)
             for l in labels { lab[l].lastActive = now.addingTimeInterval(-(idleMinutes[l] ?? 60) * 60) }
             let before = lab.snapshot
@@ -1056,7 +1057,8 @@ enum SpecDump {
             }
             store.endTabCycle()
             cases.append(["name": name, "input": ["controlTabUsesRecency": recency, "sidebar_before": before, "idle_minutes_default": 60,
-                                                  "idle_minutes": idleMinutes, "visits_in_order": visits, "steps": steps],
+                                                  "idle_minutes": idleMinutes, "loaded_without_visit": loaded,
+                                                  "visits_in_order": visits, "steps": steps],
                           "expected": ["after_each_step": out]])
             lab.done()
         }
@@ -1067,8 +1069,14 @@ enum SpecDump {
         run("Shift walks back", tabs: ["a", "b", "c", "d"], visits: ["a", "d", "b"],
             steps: ["press", "press", "shift-press", "shift-press", "shift-press", "release"])
         run("tabs never visited follow by last use, ties in sidebar order", tabs: ["a", "b", "c", "d", "e"],
-            idleMinutes: ["a": 30, "b": 10, "c": 30, "d": 5, "e": 30], visits: ["e"],
+            idleMinutes: ["a": 30, "b": 10, "c": 30, "d": 5, "e": 30], loaded: ["a", "b", "c", "d"], visits: ["e"],
             steps: ["press", "press", "press", "press", "press", "release"])
+        run("sleeping and never-opened tabs are left out", tabs: ["a", "b", "c", "d", "e"], setup: { lab in
+            store.togglePin(lab["b"])
+        }, visits: ["a", "b", "c", "d"], steps: ["close b", "press", "press", "press", "release"])
+        run("recency off: sleeping and never-opened tabs are left out", recency: false, tabs: ["a", "b", "c", "d", "e"], setup: { lab in
+            store.togglePin(lab["b"])
+        }, visits: ["a", "b", "d", "c"], steps: ["close b", "press", "press", "press", "release"])
         run("a click ends the held cycle", tabs: ["a", "b", "c"], visits: ["a", "c", "b"], steps: ["press", "click a", "press", "release"])
         run("a tab closed mid-cycle is skipped", tabs: ["a", "b", "c", "d"], visits: ["a", "c", "d", "b"],
             steps: ["press", "close d", "press", "release"])
@@ -1087,7 +1095,9 @@ enum SpecDump {
         store.onTabCycleChanged = previous
         write("tab-recency", area: "behaviour",
               sources: ["Models.swift Store.cycleTab/endTabCycle/select/cycleOrder (real, live scratch store)"],
-              notes: ["press = Control+Tab key down (holdingControl true), shift-press = Control+Shift+Tab, release = Control let go,",
+              notes: ["Only open tabs take part: tabs with a loaded page (visited, or listed in loaded_without_visit, i.e. opened in the background) plus the selected tab.",
+                      "Tabs never opened, and pinned tabs put to sleep (close on a pinned tab), are left out of the cycle and the switcher.",
+                      "press = Control+Tab key down (holdingControl true), shift-press = Control+Shift+Tab, release = Control let go,",
                       "menu-next = tab.cycleNext from a menu or the command bar (holdingControl false).",
                       "switcher = the order the Control+Tab switcher shows after the step ([] = hidden).",
                       "Each case is its own space; favorites are shared, so the favorites row may hold other cases' favorites only while that case runs."],

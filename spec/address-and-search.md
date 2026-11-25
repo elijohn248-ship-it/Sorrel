@@ -1,6 +1,6 @@
 # Address box, search, bangs, URL cleaning, HTTPS-first
 
-Spec 1.0.0. Fixtures: `resolver`, `bangs`, `url-cleaner`, `site`, `https-first`. Sources: `Data.swift` (Resolver, Bangs, URLCleaner), `Peek.swift` (Site), `Web.swift` (Engine.canUpgrade, navigation policy), `Sidebar.swift` (address pill).
+Spec 2.0.0. Fixtures: `resolver`, `bangs`, `url-cleaner`, `site`, `https-first`. Sources: `Data.swift` (Resolver, Bangs, URLCleaner), `Peek.swift` (Site), `Web.swift` (Engine.canUpgrade, navigation policy), `Sidebar.swift` (address pill).
 
 URL strings in fixtures are the final address Birch loads (`absoluteString`). Where an edition's URL library formats differently (e.g. adds a trailing `/` to `https://example.com`), normalize the same way in the test runner and say so; the loaded page must be the same.
 
