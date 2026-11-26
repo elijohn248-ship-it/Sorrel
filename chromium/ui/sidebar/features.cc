@@ -1,6 +1,10 @@
 #include "ui/main_window.h"
 #include <algorithm>
 #include <functional>
+#include <cmath>
+#include <chrono>
+#include "include/cef_task.h"
+#include "ui/sidebar/pointer.h"
 #include "core/json.h"
 
 namespace birch::ui {
@@ -115,12 +119,90 @@ void MainWindow::SidebarAction(const core::ui_channel::Message& m) {
     MaintainTabs(true,false);
   } else if (m.action == "tabs.sleepNow") {
     MaintainTabs(false,true);
+  } else if (m.action == "sidebar.hold") {
+    sidebar_hold_ = m.value == 1;
+    sidebar_outside_since_=0;return;
+  } else if (m.action == "sidebar.settings") {
+    if(ctx_.is_private) return;
+    core::Json values;
+    if(!core::ParseJson(m.extra,&values) || !values.is_object() || values.size()!=4) return;
+    for(const char* key:{"sidebarHoverEdgeWidth","sidebarOvershootReach","sidebarHideDelay","sidebarAnimationDuration"})
+      if(!values.contains(key) || !values[key].is_number() || !std::isfinite(values[key].get<double>())) return;
+    double edge=values["sidebarHoverEdgeWidth"], reach=values["sidebarOvershootReach"],
+      delay=values["sidebarHideDelay"], speed=values["sidebarAnimationDuration"];
+    if(edge<2 || edge>80 || reach<0 || reach>300 || delay<0 || delay>2 || speed<0 || speed>1) return;
+    ctx_.host->UpdateSidebarSettings(edge,reach,delay,speed);
   } else if (m.action == "sidebar.mode") {
     if (m.text!="pinned" && m.text!="hidden" && m.text!="peeking") return;
+    const bool was_collapsed=ctx_.store->state().sidebar_collapsed;
     sidebar_mode_=m.text;
     if(m.text!="peeking") ctx_.store->SetSidebarCollapsed(m.text=="hidden");
     LayoutSidebar(); window_->Layout();
+    WatchSidebar();Refresh();
+    if(was_collapsed!=ctx_.store->state().sidebar_collapsed) ctx_.host->StoreChanged(this);
+    return;
   }
-  ctx_.host->StoreChanged(this); Refresh();
+  SynchronizeSidebar();ctx_.host->StoreChanged(this); Refresh();
 }
 }  // namespace birch::ui
+
+namespace birch::ui {
+void MainWindow::SynchronizeSidebar() {
+  if(destroyed_ || closing_window_) return;
+  const auto selections=ctx_.session.selections;
+  for(const auto& pair:selections) {
+    const auto* owner=ctx_.store->SpaceOf(pair.second);
+    if(!ctx_.store->FindSpace(pair.first) ||
+       (!ctx_.store->IsFavorite(pair.second) && (!owner || owner->id!=pair.first)))
+      ctx_.session.SetSelected(pair.first,std::nullopt);
+  }
+  if(!selected_id()) for(auto& pair:pages_) if(auto view=pair.second.page->view()) view->SetVisible(false);
+  LayoutSidebar();if(window_) window_->Layout();Refresh();
+}
+}
+
+namespace birch::ui {
+namespace {
+class HoverTask : public CefTask {
+ public:
+  explicit HoverTask(std::function<void()> fn):fn_(std::move(fn)) {}
+  void Execute() override { fn_(); }
+ private:
+  std::function<void()> fn_;
+  IMPLEMENT_REFCOUNTING(HoverTask);
+};
+}
+void MainWindow::WatchSidebar() {
+  if(sidebar_watch_ || !window_ || closing_window_ || destroyed_ || sidebar_mode_=="pinned") return;
+  sidebar_watch_=true;
+  CefPostDelayedTask(TID_UI,new HoverTask([self=CefRefPtr<MainWindow>(this)] {
+    self->sidebar_watch_=false;
+    if(!self->window_ || self->closing_window_ || self->destroyed_ || self->sidebar_mode_=="pinned") return;
+    auto cursor=SidebarCursor();
+    const auto bounds=self->window_->GetBoundsInScreen();
+    const auto& settings=*self->ctx_.settings;
+    bool allowed=settings.sidebarHoverWhenInactive || self->window_->IsActive();
+    if(cursor && allowed && !self->window_->IsMinimized()) {
+      int x=cursor->x-bounds.x,y=cursor->y-bounds.y;
+      double reach=std::clamp(settings.sidebarOvershootReach,0.0,300.0);
+      bool beside=y>=-1 && y<=bounds.height+1;
+      bool reveal=beside && x>=-reach && x<=settings.sidebarHoverEdgeWidth;
+      bool inside=beside && x>=-std::max(1.0,reach) &&
+        x<=self->ctx_.store->state().sidebar_width+settings.sidebarExitTolerance;
+      core::ui_channel::Message message;message.action="sidebar.mode";
+      if(self->sidebar_mode_=="hidden" && reveal) {
+        message.text="peeking";self->SidebarAction(message);
+      } else if(self->sidebar_mode_=="peeking") {
+        int64_t now=std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now().time_since_epoch()).count();
+        if(inside || self->sidebar_hold_) self->sidebar_outside_since_=0;
+        else if(self->sidebar_outside_since_==0) self->sidebar_outside_since_=now;
+        else if(now-self->sidebar_outside_since_>=settings.sidebarHideDelay*1000) {
+          message.text="hidden";self->sidebar_outside_since_=0;self->SidebarAction(message);
+        }
+      }
+    }
+    self->WatchSidebar();
+  }),40);
+}
+}

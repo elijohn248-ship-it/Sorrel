@@ -300,11 +300,19 @@ class UiPage::Client : public CefClient,
       Registry()[browser->GetIdentifier()] = page_;
     }
     NoteBrowserCreated();
+    if (closing_detached_) browser->GetHost()->CloseBrowser(false);
     if (platform::IsTestRun()) {
       devtools_ = browser->GetHost()->AddDevToolsMessageObserver(this);
     }
   }
-  bool DoClose(CefRefPtr<CefBrowser>) override { return false; }
+  bool DoClose(CefRefPtr<CefBrowser>) override {
+    if (!closing_detached_) return false;
+    // The overlay has already left its window. Release our BrowserView as
+    // well; there is no parent native window left to complete this close.
+    CefRefPtr<Client> self(this);
+    PostUI([self] { self->view_ = nullptr; });
+    return true;
+  }
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
     {
       std::lock_guard<std::mutex> lock(RegistryLock());
@@ -317,6 +325,8 @@ class UiPage::Client : public CefClient,
     ready_ = false;
     pending_.clear();
     NoteBrowserClosed();
+    CefRefPtr<Client> self(this);
+    PostUI([self] { if (self->observer_) self->observer_->OnUiClosed(); });
   }
   void OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
                                  TerminationStatus status, int,
@@ -380,6 +390,7 @@ class UiPage::Client : public CefClient,
   CefRefPtr<CefBrowserView> view_;
   CefRefPtr<CefBrowser> browser_;
   CefRefPtr<CefRegistration> devtools_;
+  bool closing_detached_ = false;
   bool ready_ = false, closed_ = false;
   std::map<int, DevToolsCallback> pending_;
   int next_message_id_ = 1000;
@@ -442,6 +453,11 @@ void UiPage::Focus() {
   if (client_->view_) {
     client_->view_->RequestFocus();
   }
+}
+void UiPage::CloseDetached() {
+  if (client_->closed_ || client_->closing_detached_) return;
+  client_->closing_detached_ = true;
+  if (client_->browser_) client_->browser_->GetHost()->CloseBrowser(false);
 }
 bool UiPage::TryCloseForWindow() {
   if (!client_->browser_ || client_->closed_) {

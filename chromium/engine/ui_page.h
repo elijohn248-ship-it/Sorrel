@@ -41,6 +41,7 @@ class UiPageObserver {
   virtual void OnUiMessage(const core::ui_channel::Message& message) = 0;
   // The page's renderer ended; the page reloads itself (ui.ready follows).
   virtual void OnUiCrashed() {}
+  virtual void OnUiClosed() {}
 };
 
 struct UiPageStats {
@@ -75,6 +76,8 @@ class UiPage {
 
   // Same window-closing protocol as engine::Page.
   bool TryCloseForWindow();
+  // Close a UI page detached from its overlay; completion is OnUiClosed.
+  void CloseDetached();
   bool closed() const;
 
   // Test runs only: what engine::Page::DevToolsForTest does, on the UI page.

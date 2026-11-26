@@ -158,9 +158,10 @@ if(OS_WINDOWS)
   # does this at start for folders unpacked from a zip).
   SET_LPAC_ACLS(birch)
 elseif(OS_LINUX)
+  find_package(X11 REQUIRED)
   add_executable(birch ${BIRCH_APP_SRCS} app/main_linux.cc platform/platform_linux.cc)
   SET_EXECUTABLE_TARGET_PROPERTIES(birch)
-  target_link_libraries(birch libcef_lib libcef_dll_wrapper birch_core ${CEF_STANDARD_LIBS})
+  target_link_libraries(birch libcef_lib libcef_dll_wrapper birch_core ${CEF_STANDARD_LIBS} X11::X11)
   set_target_properties(birch PROPERTIES
     INSTALL_RPATH "$ORIGIN"
     BUILD_WITH_INSTALL_RPATH TRUE

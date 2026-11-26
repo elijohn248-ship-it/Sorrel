@@ -177,7 +177,8 @@ def run_app(name, env_extra, timeout, marker=None, during=None, app=None,
           flush=True)
     return {"lines": lines, "checks": checks, "exit": proc.returncode,
             "timed_out": timed_out, "scratch": scratch, "home": home,
-            "during": during_result, "clean_exit": "app: exited" in lines}
+            "during": during_result, "clean_exit": ("app: exited" in lines and "app: all browsers closed" in lines
+                           and not any("shutdown forced" in line for line in lines))}
 
 
 def check_lines(run, areas=None):

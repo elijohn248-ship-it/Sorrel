@@ -11,6 +11,7 @@ namespace birch::ui {
 class WindowActions {
  public:
   virtual ~WindowActions() = default;
+  virtual void SidebarClosed() {}
   virtual void SidebarAction(const core::ui_channel::Message&) {}
   virtual void SelectTab(const std::string& item_id) = 0;
   virtual void CloseTab(const std::string& item_id) = 0;

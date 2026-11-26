@@ -43,6 +43,7 @@ class SidebarHost : public engine::UiPageObserver {
   // engine::UiPageObserver
   void OnUiMessage(const core::ui_channel::Message& message) override;
   void OnUiCrashed() override;
+  void OnUiClosed() override { actions_->SidebarClosed(); }
 
  private:
   bool IsShownTab(const std::string& id) const;

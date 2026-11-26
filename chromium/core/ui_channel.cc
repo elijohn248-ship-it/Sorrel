@@ -140,7 +140,7 @@ ParseResult Parse(const std::string& name, const std::string& args_json) {
         !a.contains("value") || !a["value"].is_number() || !std::isfinite(a["value"].get<double>()))
       return Refuse("bad sidebar number");
     static const std::set<std::string> actions = {"space.select", "space.create", "space.edit",
-      "space.move", "folder.create", "folder.toggle", "item.move", "sidebar.mode", "archive.now", "tabs.sleepNow"};
+      "space.move", "folder.create", "folder.toggle", "item.move", "sidebar.mode", "sidebar.settings", "sidebar.hold", "archive.now", "tabs.sleepNow"};
     if (!actions.count(a["action"].get<std::string>())) return Refuse("unknown sidebar action");
     Message m; m.kind = Kind::kSidebarAction; m.name = name;
     m.action = a["action"]; m.id = a["id"]; m.target = a["target"];
@@ -238,7 +238,7 @@ std::string SidebarStateJson(const SidebarState& s) {
   for (const Space& sp : s.spaces) spaces.push_back({{"id",sp.id},{"name",sp.name},{"icon",sp.icon}});
   out["spaces"] = spaces; out["currentSpace"] = s.current_space; out["sidebarMode"] = s.sidebar_mode;
   out["settings"] = {{"sidebarHoverEdgeWidth",s.reveal_width},{"sidebarOvershootReach",s.overshoot},
-    {"sidebarHideDelay",s.hide_delay},{"sidebarAnimationDuration",s.slide_speed}};
+    {"sidebarHideDelay",s.hide_delay},{"sidebarAnimationDuration",s.slide_speed},{"nativeHover",s.native_hover}};
   out["theme"] = {{"colors",s.theme.colors},{"angle",s.theme.angle},{"intensity",s.theme.intensity},
     {"grain",GrainAmount(s.theme)},{"brightness",s.theme.brightness.value_or(0)},
     {"separateLogins",false}};

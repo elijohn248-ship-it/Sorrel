@@ -73,6 +73,7 @@ struct SidebarState {
   std::vector<Space> spaces;
   std::string current_space, sidebar_mode = "pinned";
   Theme theme;
+  bool native_hover = false;
   double reveal_width = 14, overshoot = 90, hide_delay = .12, slide_speed = .2;
   bool is_private = false;
   std::vector<std::string> colors;  // the space's "#RRGGBB" colours

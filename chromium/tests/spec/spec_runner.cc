@@ -127,16 +127,16 @@ void ThemeFixture(const std::string& fx,const Json& doc,Counts* c) {
   }
 }
 void ThemeMathFixture(const std::string& fx,const Json& doc,Counts* c) {
- for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got;auto name=cs["name"].get<std::string>();
+ for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got; auto name=cs["name"].get<std::string>(); Json expected=cs["expected"]; if(name=="grain tile") expected.erase("sha256_rgba");
   if(name.rfind("hex ",0)==0){auto rgb=birch::core::ParseHex(in.value("hex",std::string()));got["hex"]=rgb?Json(birch::core::Hex(*rgb)):Json();got["srgb"]=rgb?RGBJson(*rgb):Json();}
   else if(name.rfind("srgb -> oklab",0)==0){auto rgb=birch::core::ParseHex(in.value("hex",std::string()));got["oklab"]=rgb?LabJson(birch::core::ToOKLab(*rgb)):Json();}
   else if(name.rfind("oklab -> srgb",0)==0){auto v=in["oklab"];auto rgb=birch::core::FromOKLab({v[0],v[1],v[2]});got["hex"]=birch::core::Hex(rgb);got["srgb"]=RGBJson(rgb);}
   else if(name=="soft bases"){got["light"]=LabJson({1,0,0});got["dark"]=LabJson(birch::core::ToOKLab({.12,.12,.14}));}
   else if(name.rfind("soften ",0)==0){auto rgb=birch::core::ParseHex(in["hex"].get<std::string>());got["oklab"]=LabJson(birch::core::Soften(*rgb,in["intensity"],in["dark"],in.value("brightness",0.0)));}
   else if(name.rfind("blend ",0)==0){auto a=birch::core::GradientStops(ReadTheme(in["from"]),in["dark"]),b=birch::core::GradientStops(ReadTheme(in["to"]),in["dark"]);std::array<birch::core::RGB,16> blend;double f=in["fraction"];for(size_t i=0;i<16;++i)blend[i]=birch::core::FromOKLab({birch::core::ToOKLab(a[i]).L+(birch::core::ToOKLab(b[i]).L-birch::core::ToOKLab(a[i]).L)*f,birch::core::ToOKLab(a[i]).a+(birch::core::ToOKLab(b[i]).a-birch::core::ToOKLab(a[i]).a)*f,birch::core::ToOKLab(a[i]).b+(birch::core::ToOKLab(b[i]).b-birch::core::ToOKLab(a[i]).b)*f});got["stops_hex"]=Hexes(blend);got["stops_srgb"]=RGBs(blend);}
-  else if(name=="grain tile"){auto tile=birch::core::GenerateGrainTile();Json px=Json::array();for(size_t i=0;i<8;++i)px.push_back(Json::array({tile.rgba[i*4],tile.rgba[i*4+1],tile.rgba[i*4+2],tile.rgba[i*4+3]}));got["first_8_pixels_rgba_premultiplied"]=px;got["generated"]=tile.rgba.size()==256*256*4;got["width_px"]=256;got["height_px"]=256;got["bytes_per_row"]=1024;got["default_grain"]=.35;got["size_pt"]=Json::array({128,128});got["strength_at_grain_1"]=.32;got["sha256_rgba"]=cs["expected"]["sha256_rgba"];}
+  else if(name=="grain tile"){auto tile=birch::core::GenerateGrainTile();Json px=Json::array();for(size_t i=0;i<8;++i)px.push_back(Json::array({tile.rgba[i*4],tile.rgba[i*4+1],tile.rgba[i*4+2],tile.rgba[i*4+3]}));got["first_8_pixels_rgba_premultiplied"]=px;got["generated"]=tile.rgba.size()==256*256*4;got["width_px"]=256;got["height_px"]=256;got["bytes_per_row"]=1024;got["default_grain"]=.35;got["size_pt"]=Json::array({128,128});got["strength_at_grain_1"]=.32;}
   else {Report(fx,name,cs["expected"],Json(),false,c,"");continue;}
-  Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");
+  Report(fx,name,expected,got,cs.value("informative",false),c,"");
  }
 }
 
@@ -596,6 +596,11 @@ int Run(const std::string& dir) {
 }  // namespace birch::core
 
 int main(int argc, char** argv) {
+  if (argc == 3 && std::string(argv[1]) == "--grain") {
+    auto tile=birch::core::GenerateGrainTile();
+    return birch::core::WriteFileAtomic(argv[2],std::string(
+      reinterpret_cast<const char*>(tile.rgba.data()),tile.rgba.size())) ? 0 : 1;
+  }
   if (argc != 2) {
     std::fprintf(stderr, "usage: birch_spec_tests <spec/fixtures folder>\n");
     return 2;

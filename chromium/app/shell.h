@@ -35,6 +35,7 @@ class Shell : public ui::WindowHost {
   // The first normal window (nullptr when none is open).
   ui::MainWindow* main_window() const;
   ui::MainWindow* OpenPrivate();
+  ui::MainWindow* OpenNormal();
   std::vector<ui::MainWindow*> windows() const;
   bool quitting() const { return quitting_; }
 
@@ -43,6 +44,8 @@ class Shell : public ui::WindowHost {
 
   // ui::WindowHost
   void StoreChanged(ui::MainWindow* window) override;
+  void OpenNormalWindow() override { OpenNormal(); }
+  void UpdateSidebarSettings(double edge,double overshoot,double delay,double speed) override;
   void OpenPrivateWindow() override { OpenPrivate(); }
   std::set<std::string> ProtectedTabs(bool archive = true) const override;
   bool FocusExistingTab(ui::MainWindow* source,const std::string& id) override;

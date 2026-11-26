@@ -203,12 +203,48 @@ BIRCH_TEST_SCENARIO(sidebar) {
     return folder && !folder->expanded;
   });
   SidebarMatchesStep("sidebar", "folder collapsed", Main);
-  Then("save the sidebar profile", [] { app::Shell::Get().SaveNow(); });
+  Then("space shortcut commands and sidebar modes", [ids] {
+    Main()->RunCommand("space.next");
+    Check("next-space command selects Home",Main()->session().current_space_id==ids->home);
+    Main()->RunCommand("space.previous");
+    Check("previous-space command selects Lab",Main()->session().current_space_id==ids->lab);
+    Main()->RunCommand("sidebar.toggle");
+    Check("hide mode persists",Main()->store().state().sidebar_collapsed);
+    Action("sidebar.mode", {}, {}, "peeking");
+    Check("hover peek keeps hidden preference",Main()->store().state().sidebar_collapsed);
+    Main()->RunCommand("sidebar.toggle");
+    Check("pin mode restores sidebar preference",!Main()->store().state().sidebar_collapsed);
+    core::ui_channel::Message message;message.action="sidebar.settings";
+    message.extra=R"({"sidebarHoverEdgeWidth":18,"sidebarOvershootReach":70,"sidebarHideDelay":0.24,"sidebarAnimationDuration":0.3})";
+    Main()->SidebarAction(message);
+    Check("sidebar settings applied",app::Shell::Get().settings().sidebarHoverEdgeWidth==18 &&
+      app::Shell::Get().settings().sidebarHideDelay==.24);
+  });
+  const auto second=std::make_shared<CefRefPtr<ui::MainWindow>>();
+  Do("open a second normal window",[second] {*second=app::Shell::Get().OpenNormal();},
+     [second] {return *second && (*second)->sidebar_page() && (*second)->sidebar_page()->ready();});
+  Do("second window selects Home independently",[second,ids] {
+    (*second)->SelectSpace(ids->home);(*second)->SelectTab(ids->home_tab);
+  },[second,ids] {return (*second)->selected_id()==ids->home_tab && Settled(SelectedPage(second->get()));});
+  Then("window selections stay independent",[second,ids] {
+    Check("two normal windows are alive",app::Shell::Get().windows().size()==2);
+    Check("windows keep different spaces",Main()->session().current_space_id==ids->lab &&
+      (*second)->session().current_space_id==ids->home);
+  });
+  Then("save the sidebar profile", [] {
+    app::Shell::Get().SaveNow();
+    const auto& state=Main()->store().state();
+    Check("both window sessions saved",state.windows && state.windows->size()==2);
+  });
 }
 
 BIRCH_TEST_SCENARIO(sidebarrestore) {
   Then("check restored sidebar structures and session", [] {
     const auto& spaces = Main()->store().state().spaces;
+    const auto windows=app::Shell::Get().windows();
+    Check("both normal windows restored",windows.size()==2);
+    if(windows.size()==2) Check("window spaces restored independently",
+      windows[0]->session().current_space_id!=windows[1]->session().current_space_id);
     Check("space order restored", spaces.size() == 2 &&
           spaces[0].name == "Lab" && spaces[1].name == "Home");
     if (spaces.size() != 2) {

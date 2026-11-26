@@ -23,7 +23,7 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-_None._
+- **Chromium overlay sidebar stalls window close (prompt 5):** Repro: `cx-spaces-sidebar` CI 45736392089, private/download scenarios, close a private window. Expected: its browsers and native window close within the hook timeout. Actual: the close times out, then shutdown reaches its 15 s fallback. The detached sidebar browser still uses the parent-window close protocol; investigate its independent overlay lifecycle.
 
 ## Fixed
 

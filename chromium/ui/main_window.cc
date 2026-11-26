@@ -3,6 +3,9 @@
 #include <algorithm>
 
 #include "include/cef_image.h"
+#include "include/cef_color_ids.h"
+#include "core/theme.h"
+#include "ui/sidebar/pointer.h"
 #include "include/cef_task.h"
 #include "include/views/cef_box_layout.h"
 #include "include/views/cef_fill_layout.h"
@@ -29,7 +32,9 @@ enum Command {
   kNavBack,         // nav.back       Alt+Left
   kNavForward,      // nav.forward    Alt+Right
   kPrivateNew,      // private.new    Ctrl+Shift+N
-  kWindowClose,     // window.close   Ctrl+Shift+W
+  kWindowClose,
+  kWindowNew, kSpaceNext, kSpacePrevious, kSidebarToggle,
+  kSpaceFirst = 100,     // window.close   Ctrl+Shift+W
 };
 
 // Windows virtual-key codes (CEF uses them on every OS).
@@ -161,6 +166,11 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   window_->SetAccelerator(kPrivateNew, 'N', true, true, false, true);
   window_->SetAccelerator(kWindowClose, 'W', true, true, false, true);
 
+  window_->SetAccelerator(kWindowNew,'N',false,true,false,true);
+  window_->SetAccelerator(kSpaceNext,kVkRight,false,true,true,true);
+  window_->SetAccelerator(kSpacePrevious,kVkLeft,false,true,true,true);
+  window_->SetAccelerator(kSidebarToggle,'S',false,true,false,true);
+  for(int i=0;i<9;++i) window_->SetAccelerator(kSpaceFirst+i,'1'+i,false,true,true,true);
   if (std::optional<std::string> sel = selected_id()) {
     SelectTab(*sel);
   } else if (ctx_.is_private) {
@@ -168,6 +178,7 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   }
   Refresh();
   ScheduleMaintenance(20000);
+  WatchSidebar();
   window_->Show();
 }
 
@@ -204,10 +215,17 @@ void MainWindow::OnThemeChanged(CefRefPtr<CefView> view) {
   // CEF clears custom backgrounds when attaching views and changing themes.
   // This delegate serves both the window and the page's surround panel.
   if (!surround_.empty()) view->SetBackgroundColor(ColorFromHex(surround_));
+  if(window_ && view->IsSame(window_) && sidebar_) ScheduleSidebarRebuild();
 }
 
 bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {
+  if(command_id>=kSpaceFirst && command_id<kSpaceFirst+9)
+    return RunCommand("space."+std::to_string(command_id-kSpaceFirst+1));
   switch (command_id) {
+    case kWindowNew: return RunCommand("window.new");
+    case kSpaceNext: return RunCommand("space.next");
+    case kSpacePrevious: return RunCommand("space.previous");
+    case kSidebarToggle: return RunCommand("sidebar.toggle");
     case kTabNew:
       return RunCommand("tab.new");
     case kTabClose:
@@ -232,7 +250,23 @@ bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {
 
 bool MainWindow::RunCommand(const std::string& id) {
   platform::Log("command: " + id);
-  if (id == "tab.new") {
+  if (id == "window.new") {
+    if(!ctx_.is_private) ctx_.host->OpenNormalWindow();
+  } else if (id == "space.next" || id == "space.previous") {
+    const auto& spaces=ctx_.store->state().spaces;
+    for(size_t i=0;i<spaces.size();++i) if(spaces[i].id==ctx_.session.current_space_id) {
+      auto next=id=="space.next"?(i+1)%spaces.size():(i+spaces.size()-1)%spaces.size();
+      SelectSpace(spaces[next].id);break;
+    }
+  } else if (id.size()==7 && id.rfind("space.",0)==0 && id[6]>='1' && id[6]<='9') {
+    size_t index=static_cast<size_t>(id[6]-'1');
+    if(index<ctx_.store->state().spaces.size()) SelectSpace(ctx_.store->state().spaces[index].id);
+  } else if (id == "sidebar.toggle") {
+    core::ui_channel::Message message;message.action="sidebar.mode";
+    message.text=sidebar_mode_=="pinned"?"hidden":"pinned";SidebarAction(message);
+  } else if (id == "archive.now" || id == "tabs.sleepNow") {
+    MaintainTabs(id=="archive.now",id=="tabs.sleepNow");
+  } else if (id == "tab.new") {
     StartNewTab();
   } else if (id == "tab.close") {
     if (std::optional<std::string> sel = selected_id()) {
@@ -265,22 +299,20 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
       sidebar_overlay_->Destroy();
       sidebar_overlay_ = nullptr;
     }
+    sidebar_->page()->CloseDetached();
     ctx_.host->WindowClosing(this);
   }
   bool ready = true;
   for (auto& kv : pages_) {
     bool r = kv.second.page->TryCloseForWindow();
-    if (!r) platform::Log("close: tab page not ready");
     ready = r && ready;
   }
   for (Live& live : closing_) {
     bool r = live.page->TryCloseForWindow();
-    if (!r) platform::Log("close: closing page not ready");
     ready = r && ready;
   }
   if (sidebar_) {
-    bool r = sidebar_->page()->TryCloseForWindow();
-    if (!r) platform::Log("close: sidebar page not ready");
+    bool r = sidebar_->page()->closed();
     ready = r && ready;
   }
   return ready;
@@ -487,13 +519,14 @@ void MainWindow::PushSidebar() {
   st.space_title = space_title();
   st.spaces = ctx_.store->state().spaces; st.current_space = space.id;
   st.theme = space.theme; st.sidebar_mode = sidebar_mode_;
+  st.native_hover = SidebarCursor().has_value();
   st.reveal_width = ctx_.settings->sidebarHoverEdgeWidth;
   st.overshoot = ctx_.settings->sidebarOvershootReach;
   st.hide_delay = ctx_.settings->sidebarHideDelay;
   st.slide_speed = ctx_.settings->sidebarAnimationDuration;
   st.is_private = ctx_.is_private;
   st.colors = space.theme.colors;
-  st.background = core::ui_channel::SurroundColor(st.colors, ctx_.is_private);
+  st.background = ThemeSurround();
   st.rows = ctx_.store->SidebarRows(space.id);
   st.selected_id = sel.value_or(std::string());
   st.address = core::AddressBoxFor(url);
@@ -510,9 +543,7 @@ void MainWindow::ApplySurroundColor() {
   if (!frame_ || !window_) {
     return;
   }
-  const core::Space& space = ctx_.store->CurrentSpace(ctx_.session);
-  std::string color =
-      core::ui_channel::SurroundColor(space.theme.colors, ctx_.is_private);
+  std::string color = ThemeSurround();
   if (color == surround_) {
     return;
   }
@@ -625,5 +656,20 @@ void MainWindow::SleepPage(const std::string& id) {
   if(auto view=it->second.page->view()) view->SetVisible(false);
   it->second.page->Close();
   closing_.push_back(std::move(it->second));pages_.erase(it);
+}
+}
+
+namespace birch::ui {
+void MainWindow::SidebarClosed() {
+  if (closing_window_ && window_ && !destroyed_) window_->Close();
+}
+}
+
+namespace birch::ui {
+std::string MainWindow::ThemeSurround() const {
+  if(ctx_.is_private) return "#26232E";
+  auto color=window_?window_->GetThemeColor(CEF_ColorPrimaryBackground):CefColorSetARGB(255,255,255,255);
+  bool dark=(CefColorGetR(color)+CefColorGetG(color)+CefColorGetB(color))<384;
+  return core::Hex(core::GradientStops(ctx_.store->CurrentSpace(ctx_.session).theme,dark).back());
 }
 }

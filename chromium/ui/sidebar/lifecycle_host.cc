@@ -58,9 +58,10 @@ void MainWindow::SleepTabs(core::SleepTrigger trigger) {
   for(const auto& id:sleep) SleepPage(id);
   Refresh();
 }
-void MainWindow::MaintainTabs(bool manual_archive,bool manual_sleep) {
+void MainWindow::MaintainTabs(bool manual_archive,bool manual_sleep,bool include_sleep) {
   if(destroyed_ || closing_window_) return;
-  SleepTabs(manual_sleep?core::SleepTrigger::kManual:core::SleepTrigger::kMaintenance);
+  if(manual_sleep) {SleepTabs(core::SleepTrigger::kManual);return;}
+  if(include_sleep && !manual_archive) SleepTabs(core::SleepTrigger::kMaintenance);
   if(ctx_.is_private) return;
   double hours=ctx_.settings->archiveAfterHours;
   if(manual_archive && hours<=0) hours=24;
@@ -80,9 +81,10 @@ void MainWindow::MaintainTabs(bool manual_archive,bool manual_sleep) {
 }
 void MainWindow::ScheduleMaintenance(int64_t delay_ms) {
   CefRefPtr<MainWindow> self(this);
-  CefPostDelayedTask(TID_UI,new MaintenanceTask([self] {
+  CefPostDelayedTask(TID_UI,new MaintenanceTask([self,delay_ms] {
     if(self->destroyed_ || self->closing_window_) return;
-    self->MaintainTabs();self->ScheduleMaintenance(300000);
+    self->MaintainTabs(false,false,delay_ms!=20000);
+    self->ScheduleMaintenance(delay_ms==20000?280000:300000);
   }),delay_ms);
 }
 } // namespace birch::ui

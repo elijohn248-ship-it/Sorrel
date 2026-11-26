@@ -121,6 +121,9 @@ ui::MainWindow* Shell::OpenPrivate() {
 }
 
 void Shell::StoreChanged(ui::MainWindow* window) {
+  for (const auto& other:windows_) if (other.get()!=window && !other->destroyed() &&
+      other->is_private()==window->is_private() && &other->store()==&window->store())
+    other->SynchronizeSidebar();
   if (window->is_private() || save_pending_) {
     return;  // private windows are never saved
   }
@@ -161,10 +164,13 @@ void Shell::SaveNow() {
 }
 
 void Shell::WindowClosing(ui::MainWindow* window) {
-  if (!window->is_private()) {
-    SnapshotOpenWindows(window);
-    core::SaveState(profile_dir_, store_->state());
-  }
+  if (window->is_private() || quitting_) return;
+  std::vector<core::WindowSession> remaining;
+  for(const auto& other:windows_) if(other.get()!=window && !other->is_private() && !other->destroyed())
+    remaining.push_back(other->session());
+  if(remaining.empty()) SnapshotOpenWindows(window);
+  else store_->SnapshotWindows(remaining,remaining.front());
+  core::SaveState(profile_dir_,store_->state());
 }
 
 void Shell::WindowDestroyed(ui::MainWindow* window) {
@@ -202,6 +208,7 @@ void Shell::Quit(const std::string& why) {
   if (quitting_) {
     return;
   }
+  SaveNow();  // Freeze all normal-window selections before native teardown.
   quitting_ = true;
   platform::Log("app: shutdown (" + why + ")");
   std::vector<CefRefPtr<ui::MainWindow>> windows = windows_;
@@ -264,5 +271,23 @@ bool Shell::HasLiveTab(const std::string& id) const {
 namespace birch::app {
 void Shell::EvictTab(const std::string& id) {
   for(const auto& window:windows_) window->SleepPage(id);
+}
+}
+
+namespace birch::app {
+ui::MainWindow* Shell::OpenNormal() {
+  if(quitting_) return nullptr;
+  ui::WindowContext ctx;
+  ctx.store=store_.get();ctx.session.id=core::NewUuid();
+  ctx.session.current_space_id=store_->state().spaces.front().id;
+  ctx.profile=engine::Profile::Normal();ctx.settings=&settings_;ctx.host=this;
+  CefRefPtr<ui::MainWindow> window=new ui::MainWindow(ctx);
+  windows_.push_back(window);window->Open();return window.get();
+}
+void Shell::UpdateSidebarSettings(double edge,double overshoot,double delay,double speed) {
+  settings_.sidebarHoverEdgeWidth=edge;settings_.sidebarOvershootReach=overshoot;
+  settings_.sidebarHideDelay=delay;settings_.sidebarAnimationDuration=speed;
+  core::SaveSettings(profile_dir_,settings_);
+  for(const auto& window:windows_) if(!window->destroyed()) window->SynchronizeSidebar();
 }
 }

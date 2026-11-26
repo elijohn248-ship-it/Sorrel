@@ -61,6 +61,8 @@ jobs:
         run: |
           out/Release/birch_spec_tests.exe spec/fixtures | Tee-Object -FilePath spec-windows.txt | Select-String -Pattern 'passed=|not covered|FAIL|INFO'
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -I chromium/tests/spec/check_grain.py out/Release/birch_spec_tests.exe spec/fixtures/theme-math.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: UI channel message checks (core)
         shell: pwsh
         run: |
@@ -131,6 +133,7 @@ jobs:
         run: |
           set -o pipefail
           out/Release/birch_spec_tests spec/fixtures | tee spec-linux.txt | grep -E 'passed=|not covered|FAIL|INFO'
+          python3 -I chromium/tests/spec/check_grain.py out/Release/birch_spec_tests spec/fixtures/theme-math.json
       - name: UI channel message checks (core)
         run: |
           set -o pipefail

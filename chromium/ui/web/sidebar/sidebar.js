@@ -380,6 +380,7 @@
   function endDrag() {
     drag?.element.classList.remove("drag-source");
     drag = null;
+    updateHoverHold();
     clearDropIndicator();
   }
 
@@ -389,6 +390,7 @@
     const { item, space } = element.dataset;
     if (!item && !space) return;
     drag = { element, item, space };
+    updateHoverHold();
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/x-birch-sidebar", "move");
     element.classList.add("drag-source");
@@ -553,6 +555,7 @@
 
   function scheduleHide() {
     cancelHide();
+    if(state?.settings?.nativeHover) return;
     if (state?.sidebarMode !== "peeking" || editors.some((editor) => editor.open) || drag) return;
     const delay = clamp(state.settings?.sidebarHideDelay ?? 0.12, 0, 3) * 1000;
     hideTimer = setTimeout(() => {
@@ -641,6 +644,12 @@
     });
   }
   for (const editor of editors) editor.addEventListener("close", () => { if (!sidebar.matches(":hover")) scheduleHide(); });
+
+  function updateHoverHold() {
+    action("sidebar.hold", { value: Number(Boolean(drag) || editors.some((editor) => editor.open)) });
+  }
+  const editorObserver = new MutationObserver(updateHoverHold);
+  for (const editor of editors) editorObserver.observe(editor, { attributes: true, attributeFilter: ["open"] });
 
   // ---- state from the app ---------------------------------------------------------------
 

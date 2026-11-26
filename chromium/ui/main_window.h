@@ -41,6 +41,8 @@ class WindowHost {
   // The window's store changed (debounced save for normal windows).
   virtual void StoreChanged(MainWindow* window) = 0;
   virtual void OpenPrivateWindow() = 0;
+  virtual void OpenNormalWindow() = 0;
+  virtual void UpdateSidebarSettings(double edge,double overshoot,double delay,double speed) = 0;
   virtual std::set<std::string> ProtectedTabs(bool archive = true) const = 0;
   virtual bool FocusExistingTab(MainWindow* source, const std::string& id) = 0;
   virtual void EvictTab(const std::string& id) = 0;
@@ -109,10 +111,12 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   // WindowActions
   void SelectTab(const std::string& item_id) override;
+  void SidebarClosed() override;
   void SidebarAction(const core::ui_channel::Message& message) override;
   void SelectSpace(const std::string& id);
+  void SynchronizeSidebar();
   void SleepTabs(core::SleepTrigger trigger);
-  void MaintainTabs(bool manual_archive = false, bool manual_sleep = false);
+  void MaintainTabs(bool manual_archive = false, bool manual_sleep = false, bool include_sleep = true);
   std::set<std::string> VisibleTabs() const;
   void SleepPage(const std::string& id);
   void CloseTab(const std::string& item_id) override;
@@ -155,6 +159,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   void PushSidebar();
   void ApplySurroundColor();
   void LayoutSidebar();
+  void WatchSidebar();
+  std::string ThemeSurround() const;
   void ScheduleMaintenance(int64_t delay_ms);
   void UpdateTitle();
   void ScheduleSidebarRebuild();
@@ -171,6 +177,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   std::unique_ptr<RoundedCard> rounded_card_;
   std::string surround_;
   std::string sidebar_mode_ = "pinned";
+  bool sidebar_watch_ = false, sidebar_hold_ = false;
+  int64_t sidebar_outside_since_ = 0;
   std::map<std::string, Live> pages_;
   std::vector<Live> closing_;
   bool rebuild_pending_ = false;
