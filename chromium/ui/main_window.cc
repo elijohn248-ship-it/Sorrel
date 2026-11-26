@@ -259,6 +259,12 @@ bool MainWindow::RunCommand(const std::string& id) {
 bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
   if (!closing_window_) {
     closing_window_ = true;
+    // An overlay hosting a browser view must be gone before the window
+    // closes, or its browser never finishes closing.
+    if (sidebar_overlay_) {
+      sidebar_overlay_->Destroy();
+      sidebar_overlay_ = nullptr;
+    }
     ctx_.host->WindowClosing(this);
   }
   bool ready = true;
