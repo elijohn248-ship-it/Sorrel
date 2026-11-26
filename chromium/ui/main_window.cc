@@ -269,13 +269,19 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
   }
   bool ready = true;
   for (auto& kv : pages_) {
-    ready = kv.second.page->TryCloseForWindow() && ready;
+    bool r = kv.second.page->TryCloseForWindow();
+    if (!r) platform::Log("close: tab page not ready");
+    ready = r && ready;
   }
   for (Live& live : closing_) {
-    ready = live.page->TryCloseForWindow() && ready;
+    bool r = live.page->TryCloseForWindow();
+    if (!r) platform::Log("close: closing page not ready");
+    ready = r && ready;
   }
   if (sidebar_) {
-    ready = sidebar_->page()->TryCloseForWindow() && ready;
+    bool r = sidebar_->page()->TryCloseForWindow();
+    if (!r) platform::Log("close: sidebar page not ready");
+    ready = r && ready;
   }
   return ready;
 }
