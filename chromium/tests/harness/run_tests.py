@@ -291,6 +291,34 @@ def test_channel():
            "separate renderer processes", "PASS" if passed(run) else "FAIL", ev)
 
 
+def test_sidebar():
+    """Spaces, favorites, folders, separate logins, sleep, archive; then a relaunch."""
+    shot = os.path.abspath(os.path.join(A.out, f"spaces-sidebar-{A.platform}.png"))
+
+    def shots(proc):
+        if wait_marker(proc, proc.birch_log, "sidebar: hold"):
+            time.sleep(1.5)
+            return {"sidebar": screenshot(shot)}
+        return {}
+
+    scratch, home = new_home()
+    run = run_app("sidebar", {"BIRCH_TEST": "sidebar", "BIRCH_HOLD": "3"}, 240,
+                  marker="sidebar: hold", during=shots, scratch=scratch, home=home)
+    state = os.path.join(home, "state.json")
+    ev = check_lines(run) + [f"screenshots: {run['during']}",
+                             f"exit={run['exit']} clean={run['clean_exit']}"]
+    ok = passed(run) and os.path.exists(state)
+    if ok:
+        scratch2, home2 = new_home()
+        shutil.copy(state, os.path.join(home2, "state.json"))
+        run2 = run_app("sidebarrestore", {"BIRCH_TEST": "sidebarrestore"}, 120,
+                       home=home2, scratch=scratch2)
+        ev += check_lines(run2) + [f"relaunch exit={run2['exit']}"]
+        ok = passed(run2)
+    record("sidebar: spaces, favorites, folders, separate logins, sleep, archive, restore",
+           "PASS" if ok else "FAIL", ev)
+
+
 def test_restore(shell_run):
     state = os.path.join(shell_run["home"], "state.json")
     if not os.path.exists(state):
@@ -649,6 +677,8 @@ def main():
             test_restore(shell_run)
         if want("channel"):
             test_channel()
+        if want("sidebar"):
+            test_sidebar()
         if want("corrupt"):
             test_corrupt()
         if want("private"):
