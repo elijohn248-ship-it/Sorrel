@@ -2,13 +2,14 @@
 
 This file is for AI coding agents picking up Birch. **The app was renamed from Sorrel to Birch on 2026-11-17, but only what users see changed**: the bundle id (`app.sorrel.browser`), code names (`Sources/Sorrel`, `SORREL_*`, `SorrelTest.app`), the profile folder and `~/.config/sorrel` kept the old name on purpose (`CLAUDE.md` ▸ Name). So this file still says "Sorrel" for code; the built app is `build/Birch.app`. Read all of it before you change anything. It is written as plain rules and checklists on purpose: follow them literally. When this file says "ask the owner", stop and ask. Do not guess.
 
-Three other files matter:
+Four other files matter:
 
 | File | What it is | When to read it |
 |---|---|---|
 | `AGENTS.md` (this file) | Rules, goals, current state, step-by-step recipes | First, every session |
 | `CLAUDE.md` | The detailed technical handbook: how every part works, every test hook, every past pitfall | Before touching a part of the app, read that part's section there |
 | `BUGS.md` | Bug list: Open (to fix) and Fixed (with causes) | Before fixing a bug; update it after |
+| `PARITY.md` | Changes another edition (Chromium, iOS, later Android) still needs | Start of session; update it with every change |
 | `PROGRESS.md` | Unfinished work handed between sessions | Start of session; update it at the end. **Warning:** on `main` it is partly out of date (see "Current state") |
 
 If this file and `CLAUDE.md` seem to disagree about a **rule**, the stricter one wins. If they disagree about a **technical fact**, trust the code, then `CLAUDE.md`, then tell the owner the docs disagree.
@@ -55,6 +56,7 @@ Break none of these. If a task seems to need breaking one, **stop and ask the ow
 2. **Free to run.** No paid Apple developer account ($99/yr), no paid services, no paid tiers. The app is self-signed. Online pieces (tab sync relay) run on **Cloudflare's free tier**. Do not suggest the App Store, notarization, CloudKit/iCloud sync or anything that costs money unless the owner asks.
 3. **The existing macOS WebKit edition shows sites this Mac's Safari.** The user agent's `Version/` is the installed Safari's version (`Engine.safariVersion`), never the macOS version. The only exception: sites that a Chrome-store extension lists under `externally_connectable` (today only Proton's `account.proton.me` and `pass.proton.me`) see a Chrome user agent and get a `chrome.runtime` bridge. Identity policies for new engines/platforms must be reviewed before implementation; do not copy Safari spoofing into Chromium by assumption.
 4. **As private as Helium.** No analytics, no crash reporting, no telemetry, ever. Ads and trackers blocked by default.
+5. **Every change goes to every edition** (owner rule, 2026-11-25), batched to save cost: change one edition per session and add a `PARITY.md` row for the editions still needing it; the owner runs catch-up sessions later. Security/privacy fixes go to every edition at once. Platform-specific changes are exempt with the reason written down. Full rule: `CLAUDE.md` ▸ Every change goes to every edition.
 
 ### 2.2 Hard rules for code (the owner wrote these)
 
@@ -282,13 +284,13 @@ Check each candidate against the hard rules before proposing it, and tell the ow
 
 ## 6. Bug workflow (follow every step)
 
-1. **Write it down.** Find the bug in `BUGS.md` ▸ Open, or add it there: **Repro** (steps), **Expected**, **Actual**.
+1. **Write it down.** Find the bug in `BUGS.md` ▸ Open, or add it there: **Repro** (steps), **Expected**, **Actual**, **Editions** (`all`, or `Mac only: <reason>`).
 2. **Make a worktree** for it (section 3.2). One bug per session where possible.
 3. **Reproduce it first**, with `SorrelTest.app` and the test hooks (section 7) or a written repro. If you can't reproduce it, **say so** to the owner. Do not "fix" something you haven't seen fail unless the owner agrees.
 4. **Find the root cause.** Read the code path. Add temporary logging if needed (remove it after). Don't guess-and-patch.
 5. **Fix the root cause with the smallest change that works.** Don't refactor around it.
 6. **Verify:** `swift build` passes with no new warnings; the repro now behaves correctly; nearby features still work (run their hooks too).
-7. **Record it:** move the entry to `BUGS.md` ▸ Fixed with a one-line **Cause** and what fixed it. Put anything unfinished in `PROGRESS.md`.
+7. **Record it:** move the entry to `BUGS.md` ▸ Fixed with a one-line **Cause** and what fixed it. Put anything unfinished in `PROGRESS.md`, and other editions that still need the fix in `PARITY.md` (rule 2.1.5).
 8. **Report** to the owner (section 2.5 style). If the bug only shows in their profile or by feel, hand them a specific check.
 
 **When a bug only shows in the owner's real profile** (as happened with Proton Pass): a temporary on-device diagnostics output that records **layout/state facts only, never page text or personal data**, which you read yourself, worked better than asking the owner to use Web Inspector. Remove it afterwards. If the owner is running a build from your worktree, put test builds in a separate folder (e.g. `build-fix/`) so you don't delete the app they're running.
@@ -546,6 +548,7 @@ Go through every line. If any answer is "no" or "not sure", fix it or tell the o
   git diff main -- . ':!*.md' | grep '^+' | grep -nE 'NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads|URLCredential\s*\(\s*trust:|SecTrustSetExceptions|serverTrust|addScriptMessageHandler|WKScriptMessageHandler|allowFileAccessFromFileURLs|allowUniversalAccessFromFileURLs|allowingReadAccessTo|WKWebsiteDataStore\s*\.\s*default\s*\(|isFraudulentWebsiteWarningEnabled\s*=\s*false|javaScriptCanOpenWindowsAutomatically\s*=\s*true|\.grant\b|removeAllContentRuleLists|removeContentRuleList|URLSession|URLRequest\s*\(|sorrel-insecure|temporary-exception|files\.all|network\.server|cs\.allow-jit|disable-library-validation|get-task-allow'
   ```
   Every hit must be justified against section 2. **List every hit in your report to the owner** so they can review it.
+- [ ] Other editions that need this change have a `PARITY.md` row (or it's platform-specific and I wrote why; security fixes went to every edition). Shared spec behaviour: fixtures regenerated, version bumped.
 - [ ] Committed on my branch; merged `main` in; rebuilt and retested after the merge.
 - [ ] Updated `BUGS.md` / `PROGRESS.md` / the right `CLAUDE.md` section (and section 4 of this file if the state changed).
 - [ ] Nothing committed contains secrets or personal data (the repo is public).

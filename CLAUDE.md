@@ -43,6 +43,16 @@ Sorrel runs in the macOS **App Sandbox** (`Resources/Sorrel.entitlements`, self-
 - **Test windows must stay in the background.** The owner uses the Mac while work happens. Test runs (any run with `SORREL_SNAPSHOT` set) open behind other windows, take no focus and show no Dock icon. Keep that behaviour; `SORREL_LOUD=1` is the only override. Warn before anything that will take focus.
 - **Don't loop on state only the owner can see.** Signed-in extension behaviour, hover feel, drag and drop: after one or two rounds, stop and give the owner a specific thing to try and what to paste back.
 
+## Every change goes to every edition (owner rule, 2026-11-25; batched to save cost)
+
+Editions: **Mac** (`Sources/`), **Chromium** (`chromium/`, Windows + Linux), **iOS** (`~/birch-mobile`), later **Android**. Every feature, behaviour change or bug fix must reach every edition that has the feature, unless it is platform-specific (its cause or feature exists in only one edition: AppKit, macOS sandbox/TCC, the Mac updater, CEF switches, LPAC, AppArmor, UIKit gestures); write the reason down. The budget is tight, so this is done in batches:
+
+- **Change one edition per session.** Don't open the other codebases. Add a `PARITY.md` row (date, change, editions still needing it) in the same commit, and an **Editions:** line to its `BUGS.md` entry (`all`, or `Mac only: <reason>`).
+- **Shared behaviour:** if `spec/` covers it, update the Mac code, regenerate fixtures (`SORREL_SPECDUMP`) and bump the spec version, so the other editions' fixture tests flag it.
+- **Exception, do it now:** a security or privacy fix goes to every edition in the same piece of work.
+- **Catch-up sessions** (when the owner asks, e.g. before a release): one session per edition, on a cheaper model, clears that edition's `PARITY.md` rows (this file and `~/birch-mobile/docs/PARITY.md`), verifies them, and deletes the rows.
+- **Not owed:** a feature an edition doesn't have yet. Its port takes the feature as it is then.
+
 ## Working in parallel (several agents at once)
 
 The owner runs several Claude sessions at the same time. **Sessions must not share a working folder**: one session's half-finished edit breaks every other session's build (it happened twice on 2026-11-14).
@@ -274,11 +284,11 @@ Sorrel is basically built. The job now is fixing bugs and hardening it into a co
 - Manual tests: run build/SorrelTest.app with the env-var hooks in the Testing section. Use a fresh folder per run (`mktemp -d /private/tmp/sorrel-test.XXXXXX`; the sandboxed test build can only write under /private/tmp) rather than deleting old ones.
 
 ### Bug workflow
-1. Take the bug from BUGS.md (create it if missing: repro steps, expected, actual).
+1. Take the bug from BUGS.md (create it if missing: repro steps, expected, actual, and an Editions: line; ▸ Every change goes to every edition).
 2. Reproduce it first, using the SorrelTest.app hooks (e.g. SORREL_SNAPSHOT) or a written repro. Say so if you can't.
 3. Fix the root cause with the smallest change that works.
 4. Verify: the build passes, the repro now behaves correctly, and nearby features still work.
-5. Mark it fixed in BUGS.md with a one-line cause, and put anything unfinished in PROGRESS.md.
+5. Mark it fixed in BUGS.md with a one-line cause; anything unfinished goes in PROGRESS.md, and editions not yet fixed go in PARITY.md.
 One bug per session where possible.
 
 ### Hooks (.claude/)
