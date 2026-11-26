@@ -17,3 +17,5 @@ The iPhone/iPad app keeps the same list for its own changes in `~/birch-mobile/d
 | Date | Change (branch / commit) | Still needed by | Why not done yet / what's left |
 |---|---|---|---|
 | | _none_ | | |
+
+Prompt 5 (`cx-spaces-sidebar`, 2026-11-25) ports existing Mac space/sidebar behavior. Its overlay shutdown, address focus, engine storage and native cursor fixes are specific to CEF/HTML UI; they create no owed change in Mac or iOS. Shared spec behavior was preserved.
