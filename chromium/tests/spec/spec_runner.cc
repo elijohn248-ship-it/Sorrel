@@ -27,6 +27,8 @@
 #include "core/state_file.h"
 #include "core/theme.h"
 #include "core/lifecycle.h"
+#include "core/store.h"
+#include <set>
 
 namespace birch::core {
 namespace {
@@ -137,7 +139,69 @@ void ThemeMathFixture(const std::string& fx,const Json& doc,Counts* c) {
   Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");
  }
 }
-void LifecycleFixture(const std::string& fx,const Json& doc,Counts* c){for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got;std::string name=cs["name"].get<std::string>();if(in.contains("minutes_idle")){std::string tr=in.value("trigger",std::string());birch::core::SleepTrigger trigger=tr.find("critical")!=std::string::npos?birch::core::SleepTrigger::kCriticalPressure:tr.find("warning")!=std::string::npos?birch::core::SleepTrigger::kWarningPressure:tr.find("normal")!=std::string::npos?birch::core::SleepTrigger::kNormalPressure:tr.find("manual")!=std::string::npos?birch::core::SleepTrigger::kManual:birch::core::SleepTrigger::kMaintenance;Json asleep=Json::array(),awake=Json::array();int64_t now=1000000000;for(auto it=in["minutes_idle"].begin();it!=in["minutes_idle"].end();++it){double age=it.value().get<double>();birch::core::SleepPageState page;page.has_page=true;page.on_screen=in.value("on_screen",false);page.playing_media=in.value("playing_media",false);bool sleeps=birch::core::ShouldSleep(page,now-static_cast<int64_t>(age*60),now,in.value("setting_sleepTabsAfterMinutes",0.0),trigger);(sleeps?asleep:awake).push_back(it.key());}got["asleep"]=asleep;got["awake"]=awake;got["slept_count"]=asleep.size();}else{got=Json();}Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");}}
+
+// tab-lifecycle "archive after N hours": builds one space from the fixture's
+// "before" lists (ids are the names), runs the real Store::ArchiveStale.
+birch::core::Item ArchiveItem(const Json& v, const Json& hours, int64_t now, std::map<std::string,std::string>* names) {
+  birch::core::Item it;
+  if (v.is_string()) {
+    std::string n = v.get<std::string>();
+    it = birch::core::Item::NewTab(n.rfind("old-birch", 0) == 0 ? "birch://welcome" : "https://" + n + ".example/", n);
+    it.id = n;
+    it.last_active = now - static_cast<int64_t>(hours.value(n, 0.0) * 3600);
+  } else if (v.contains("folder")) {
+    it.is_folder = true; it.title = v["folder"].get<std::string>(); it.id = "folder:" + it.title;
+    for (const Json& c : v["children"]) it.children.push_back(ArchiveItem(c, hours, now, names));
+  } else {
+    it.id = "split:" + v["split"][0].get<std::string>();
+    birch::core::SplitLayout l; l.stacked = v.value("stacked", false);
+    for (const Json& f : v["fractions"]) l.fractions.push_back(f.get<double>());
+    it.split = l;
+    for (const Json& c : v["split"]) it.children.push_back(ArchiveItem(c, hours, now, names));
+  }
+  return it;
+}
+Json ArchiveShape(const birch::core::Item& it) {
+  if (it.IsTab()) return it.id;
+  Json o = Json::object();
+  if (it.is_folder) { o["folder"] = it.title; Json c = Json::array(); for (const auto& x : it.children) c.push_back(ArchiveShape(x)); o["children"] = c; }
+  else { Json c = Json::array(); for (const auto& x : it.children) c.push_back(it.id.empty() ? Json() : Json(x.id)); o["split"] = c; o["stacked"] = it.split->stacked; Json f = Json::array(); for (double d : it.split->fractions) f.push_back(d); o["fractions"] = f; }
+  return o;
+}
+Json ArchiveCase(const Json& in) {
+  const int64_t now = 1000000000;
+  birch::core::AppState st;
+  birch::core::Space sp; sp.id = "lab"; sp.name = "Lab";
+  const Json& b = in["before"]; const Json& hours = in["hours_idle"];
+  std::map<std::string,std::string> names;
+  for (const Json& v : b["favorites"]) st.favorites.push_back(ArchiveItem(v, hours, now, &names));
+  for (const Json& v : b["pinned"]) sp.pinned.push_back(ArchiveItem(v, hours, now, &names));
+  for (const Json& v : b["today"]) sp.today.push_back(ArchiveItem(v, hours, now, &names));
+  sp.selected_id = in.value("selected", std::string());
+  st.spaces.push_back(sp); st.current_space_id = "lab";
+  birch::core::Store store(st);
+  std::vector<std::string> removed;
+  const double h = in.value("setting_archiveAfterHours", 24.0);
+  std::set<std::string> prot{in.value("selected", std::string())};
+  birch::core::Store never(st);
+  size_t never_count = never.ArchiveStale(now, 0, prot).size();
+  auto arch = store.ArchiveStale(now, h, prot, &removed);
+  Json got = Json::object(), after = Json::object();
+  const birch::core::Space& s = store.state().spaces[0];
+  auto list = [](const std::vector<birch::core::Item>& v) { Json a = Json::array(); for (const auto& x : v) a.push_back(ArchiveShape(x)); return a; };
+  after["favorites"] = list(store.state().favorites);
+  after["pinned"] = list(s.pinned);
+  after["today"] = list(s.today);
+  after["selected"] = s.selected_id.value_or("");
+  got["after"] = after;
+  Json ent = Json::array();
+  for (const auto& a : arch) { Json e = Json::object(); e["url"] = a.url; e["title"] = a.title; e["space_is_lab"] = a.space_id == "lab"; ent.push_back(e); }
+  got["archive_entries_added_newest_first"] = ent;
+  got["archived_count"] = removed.size();
+  got["never_setting_0_archives"] = never_count;
+  return got;
+}
+void LifecycleFixture(const std::string& fx,const Json& doc,Counts* c){for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got;std::string name=cs["name"].get<std::string>();if(in.contains("minutes_idle")){std::string tr=in.value("trigger",std::string());birch::core::SleepTrigger trigger=tr.find("critical")!=std::string::npos?birch::core::SleepTrigger::kCriticalPressure:tr.find("warning")!=std::string::npos?birch::core::SleepTrigger::kWarningPressure:tr.find("normal")!=std::string::npos?birch::core::SleepTrigger::kNormalPressure:tr.find("manual")!=std::string::npos?birch::core::SleepTrigger::kManual:birch::core::SleepTrigger::kMaintenance;Json asleep=Json::array(),awake=Json::array();int64_t now=1000000000;for(auto it=in["minutes_idle"].begin();it!=in["minutes_idle"].end();++it){double age=it.value().get<double>();birch::core::SleepPageState page;page.has_page=true;page.on_screen=false;if(in.contains("on_screen")){for(const Json& x:in["on_screen"])if(x==it.key())page.on_screen=true;}page.playing_media=in.contains("playing_media")&&in["playing_media"]==it.key();bool sleeps=birch::core::ShouldSleep(page,now-static_cast<int64_t>(age*60),now,in.value("setting_sleepTabsAfterMinutes",0.0),trigger);(sleeps?asleep:awake).push_back(it.key());}got["asleep"]=asleep;got["awake"]=awake;got["slept_count"]=asleep.size();}else if(in.contains("before")){got=ArchiveCase(in);}else{got=Json();}Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");}}
 
 void Report(const std::string& fixture, const std::string& name,
             const Json& expected, const Json& got, bool informative,
