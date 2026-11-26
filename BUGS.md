@@ -23,9 +23,11 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-- **Linux test candidate preparation stops on a transient artifact timeout:** Repro: prepare successful updater CI run 45753526693; GitHub artifact transfer returns a read timeout. Expected: retry the safe read-only download, then verify its full size/hash. Actual: preparation exits before a candidate is signed. Cause: no retry around the streamed artifact GET. Fixed with three bounded fresh-redirect GET attempts; no publication mutation is retried. Seven local regression tests pass; real candidate preparation verification pending. **Editions:** Linux test-release tooling only (local Mac publication script).
+_None._
 
 ## Fixed
+
+- **Linux test candidate preparation stops on a transient artifact timeout:** Repro: prepare successful updater CI run 45753526693; GitHub artifact transfer returns a read timeout. Expected: retry the safe read-only download, then verify its full size/hash. Actual: preparation exits before a candidate is signed. Cause: no retry initially, then Python 3.9's distinct socket.timeout exception escaped a TimeoutError-only handler. Fixed with three bounded fresh-redirect GET attempts catching both timeout forms; no publication mutation is retried. Seven local regressions pass, including the reproduced socket.timeout failure, and the real signed candidate for build 45760158451 was downloaded, hashed, inspected and prepared successfully. **Editions:** Linux test-release tooling only (local Mac publication script).
 
 - **Chromium overlay sidebar stalls window close (prompt 5):** Repro: `cx-spaces-sidebar` CI 45736392089, private/download scenarios, close a private window. Expected: its browsers and native window close within the hook timeout. Actual: the close times out, then shutdown reaches its 15 s fallback. Cause: detached UI browsers still used the parent-window close protocol; fixed with independent close completion and a native-window retry. Verified on Windows and Ubuntu 24.04 in CI [45742266536](https://github.com/elijohn248-ship-it/Sorrel/actions/runs/45742266536): private/download closure passes; every app scenario finishes with all browsers closed and no forced-shutdown fallback. **Editions:** Chromium only (CEF overlay lifecycle).
 

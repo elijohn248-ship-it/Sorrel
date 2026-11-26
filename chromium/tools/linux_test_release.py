@@ -7,6 +7,7 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
@@ -327,7 +328,7 @@ def prepare(args):
                 with client.request(download) as source, archive_path.open("wb") as target:
                     size, digest = copy_checked(source, target)
                 break
-            except (TimeoutError, URLError):
+            except (TimeoutError, socket.timeout, URLError):
                 if attempt == 2:
                     raise
                 print("Retrying the read-only artifact download", flush=True)

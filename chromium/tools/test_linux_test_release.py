@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import stat
 import subprocess
+import socket
 import sys
 import tarfile
 import tempfile
@@ -230,7 +231,7 @@ class ReleaseTests(unittest.TestCase):
         def flaky(url, *, authenticated=True):
             requests.append(url)
             if len(requests) == 1:
-                raise TimeoutError("transient read timeout")
+                raise socket.timeout("transient read timeout")
             return original(url, authenticated=authenticated)
         with patch.object(self.github, "request", side_effect=flaky), patch.object(release.time, "sleep"):
             candidate = self.prepare(11)
