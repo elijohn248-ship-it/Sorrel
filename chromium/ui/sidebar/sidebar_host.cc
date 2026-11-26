@@ -19,6 +19,9 @@ void SidebarHost::Update(uc::SidebarState state) {
   page_->Send("state", uc::SidebarStateJson(state_));
 }
 
+void SidebarHost::UpdateStatus(const std::string& json) {
+  update_status_=json;page_->Send("update.state",json);
+}
 void SidebarHost::BeginNewTab() {
   new_tab_mode_ = true;
   SendFocus();
@@ -65,10 +68,14 @@ bool SidebarHost::IsShownTab(const std::string& id) const {
 
 void SidebarHost::OnUiMessage(const uc::Message& m) {
   switch (m.kind) {
+    case uc::Kind::kUpdateAutomatic: actions_->SetAutomaticUpdateChecks(m.enabled); break;
+    case uc::Kind::kUpdateCheck: actions_->CheckForUpdates(); break;
+    case uc::Kind::kUpdateInstall: actions_->InstallUpdate(); break;
     case uc::Kind::kSidebarAction:
       actions_->SidebarAction(m);
       break;
     case uc::Kind::kUiReady:
+      page_->Send("update.state",update_status_);
       page_->Send("state", uc::SidebarStateJson(state_));
       if (focus_pending_ || new_tab_mode_) {
         SendFocus();

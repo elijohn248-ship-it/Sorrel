@@ -292,6 +292,14 @@ def test_channel():
            "separate renderer processes", "PASS" if passed(run) else "FAIL", ev)
 
 
+def test_updateui():
+    shot = os.path.abspath(os.path.join(A.out, f"linux-updater-{A.platform}.png"))
+    run = run_app("updateui", {"BIRCH_TEST": "updateui"}, 90,
+                  marker="updateui: hold", during=lambda _p: screenshot(shot))
+    record("Linux updater UI: typed actions and app-side install gating",
+           "PASS" if passed(run) else "FAIL", check_lines(run))
+
+
 def test_sidebar():
     """Spaces, favorites, folders, separate logins, sleep, archive; then a relaunch."""
     shot = os.path.abspath(os.path.join(A.out, f"spaces-sidebar-{A.platform}.png"))
@@ -678,6 +686,8 @@ def main():
             test_restore(shell_run)
         if want("channel"):
             test_channel()
+        if want("updateui"):
+            test_updateui()
         if want("sidebar"):
             test_sidebar()
         if want("corrupt"):

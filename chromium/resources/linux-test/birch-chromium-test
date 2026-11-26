@@ -7,5 +7,5 @@ unset BIRCH_CHANNEL_EXTENSION BIRCH_HTTP_PORT BIRCH_HTTPS_PORT BIRCH_NONCE
 unset BIRCH_EXPECT_ROWS BIRCH_EXPECT_SUFFIX
 test_data="${XDG_DATA_HOME:-$HOME/.local/share}/birch-chromium-test"
 mkdir -p "$test_data"
-export BIRCH_HOME="$test_data" BIRCH_SHOW=1
+export BIRCH_HOME="$test_data" BIRCH_SHOW=1 BIRCH_INTERACTIVE_TEST=1
 exec /opt/birch-chromium-test/birch "$@"

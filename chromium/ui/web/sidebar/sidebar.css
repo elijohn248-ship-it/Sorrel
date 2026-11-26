@@ -410,3 +410,9 @@ dialog h1 { font-size: 14px; margin: 0 0 9px; }
 .dialog-actions button { padding: 5px 10px; border-radius: 6px; }
 .dialog-actions button:hover { background: var(--row-hover); }
 .dialog-actions .primary { background: var(--row-selected); }
+
+.test-update { margin: 6px 2px; padding: 9px; border-radius: 10px; background: var(--pill); font-size: 11px; }
+.test-update[hidden] { display: none; }
+.test-update p { margin: 5px 0; line-height: 1.4; }
+.test-update small { display: block; overflow-wrap: anywhere; margin-bottom: 4px; }
+.test-update button { margin: 3px 3px 0 0; padding: 5px; border-radius: 5px; background: var(--row-hover); color: inherit; }

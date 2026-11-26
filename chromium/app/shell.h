@@ -11,6 +11,7 @@
 #include "core/settings.h"
 #include "core/store.h"
 #include "ui/main_window.h"
+#include "ui/update/update_host.h"
 
 namespace birch::app {
 
@@ -46,6 +47,15 @@ class Shell : public ui::WindowHost {
   void StoreChanged(ui::MainWindow* window) override;
   void OpenNormalWindow() override { OpenNormal(); }
   void UpdateSidebarSettings(double edge,double overshoot,double delay,double speed) override;
+  void SetAutomaticUpdateChecks(bool enabled) override;
+  void CheckForUpdates() override {if(updater_) updater_->Check();}
+  void InstallUpdate() override {if(updater_) updater_->Install();}
+  bool UpdateInstalling() const override {return updater_ && updater_->installing();}
+  std::string UpdateStatus() const override {
+    core::Json state;
+    if(!updater_ || !core::ParseJson(updater_->Status(),&state)) return "{\"supported\":false}";
+    state["automatic"]=settings_.checkForUpdates;return state.dump();
+  }
   void OpenPrivateWindow() override { OpenPrivate(); }
   std::set<std::string> ProtectedTabs(bool archive = true) const override;
   bool FocusExistingTab(ui::MainWindow* source,const std::string& id) override;
@@ -55,9 +65,11 @@ class Shell : public ui::WindowHost {
   void WindowDestroyed(ui::MainWindow* window) override;
 
  private:
+  void ScheduleUpdateCheck(int64_t delay_ms);
   void SnapshotOpenWindows(ui::MainWindow* closing);
   void MaybeQuit();
 
+  std::unique_ptr<ui::UpdateHost> updater_;
   std::string profile_dir_;
   core::Settings settings_;
   std::unique_ptr<core::Store> store_;

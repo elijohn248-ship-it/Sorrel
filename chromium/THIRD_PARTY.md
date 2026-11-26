@@ -38,3 +38,17 @@ decision, 2026-11-24).
 
 Same CEF pins as above, recorded on that branch with uBlock Origin Lite
 `2026.1122.1948` (see `git show chromium-cef-proto:chromium/THIRD_PARTY.md`).
+
+## Linux test updater (`codex/linux-test-updater`)
+
+No third-party code is copied or bundled. Runtime uses Ubuntu/Zorin's signed
+OS packages: Python 3 standard library (PSF), OpenSSL 3 command-line Ed25519
+verification (Apache-2.0), dpkg/dpkg-deb (GPL-2.0-or-later), and pkexec/polkit
+(LGPL-2.0-or-later/GPL components). These OS security components follow distro
+security updates; package dependencies are resolved by the system, not fetched
+or replaced by Birch. Their exact observed versions appear in this branch's CI
+log on the pinned Ubuntu 24.04 runner. CEF and JSON retain the pins above.
+Local signing uses Apple's shipped CryptoKit; the private key never enters CI.
+Primary behavior references: [OpenSSL Ed25519](https://docs.openssl.org/3.1/man1/openssl-pkeyutl/),
+[Linux immutable memfd seals](https://man7.org/linux/man-pages/man2/memfd_create.2.html),
+[pkexec authorization](https://www.freedesktop.org/software/polkit/docs/master/pkexec.1.html).

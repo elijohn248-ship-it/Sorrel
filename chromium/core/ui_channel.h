@@ -29,6 +29,7 @@ constexpr size_t kMaxTextBytes = 4096;
 
 // UI -> app.
 enum class Kind {
+  kUpdateCheck, kUpdateInstall, kUpdateAutomatic,
   kSidebarAction,   // sidebar.action: typed sidebar operation
   kUiReady,         // ui.ready        {}
   kTabSelect,       // tab.select      {id: uuid}
@@ -50,6 +51,7 @@ struct Message {
   std::string action, target, extra;
   size_t index = 0;
   double value = 0;
+  bool enabled = false;
 };
 
 struct ParseResult {

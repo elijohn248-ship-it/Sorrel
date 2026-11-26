@@ -12,7 +12,7 @@ namespace birch::core::ui_channel {
 
 namespace {
 
-enum class Type { kUuid, kText };
+enum class Type { kUuid, kText, kBool };
 
 struct Field {
   const char* key;
@@ -29,6 +29,9 @@ struct Schema {
 const std::vector<Schema>& Schemas() {
   static const std::vector<Schema> schemas = {
       {"ui.ready", Kind::kUiReady, {}},
+      {"update.check",Kind::kUpdateCheck,{}},
+      {"update.install",Kind::kUpdateInstall,{}},
+      {"update.automatic",Kind::kUpdateAutomatic,{{"enabled",Type::kBool}}},
       {"tab.select", Kind::kTabSelect, {{"id", Type::kUuid}}},
       {"tab.close", Kind::kTabClose, {{"id", Type::kUuid}}},
       {"tab.new", Kind::kTabNew, {}},
@@ -165,11 +168,16 @@ ParseResult Parse(const std::string& name, const std::string& args_json) {
   m.name = schema->name;
   for (const Field& f : schema->fields) {
     auto it = args.find(f.key);
+    if(f.type==Type::kBool) {
+      if(it==args.end() || !it->is_boolean()) return Refuse("missing or non-boolean setting");
+      m.enabled=it->get<bool>();continue;
+    }
     if (it == args.end() || !it->is_string()) {
       return Refuse(std::string("missing or non-string '") + f.key + "'");
     }
     const std::string& v = it->get_ref<const std::string&>();
     switch (f.type) {
+      case Type::kBool: break;
       case Type::kUuid: {
         std::string upper;
         if (v.size() != 36 || !ParseUuid(v, &upper)) {

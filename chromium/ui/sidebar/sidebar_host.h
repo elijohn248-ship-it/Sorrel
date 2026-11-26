@@ -31,6 +31,7 @@ class SidebarHost : public engine::UiPageObserver {
   void Update(core::ui_channel::SidebarState state);
   // Ctrl+T / "+ New Tab": an empty address field takes the typing.
   void BeginNewTab();
+  void UpdateStatus(const std::string& json);
   // Ctrl+L: the address field with the full address, selected.
   void FocusAddress();
   void EndAddressEditing();
@@ -53,6 +54,7 @@ class SidebarHost : public engine::UiPageObserver {
   WindowActions* actions_;
   std::unique_ptr<engine::UiPage> page_;
   core::ui_channel::SidebarState state_;
+  std::string update_status_ = "{\"supported\":false}";
   bool new_tab_mode_ = false;
   bool focus_pending_ = false;
 };

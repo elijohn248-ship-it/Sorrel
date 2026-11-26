@@ -58,6 +58,9 @@ void Shell::Load(const std::string& profile_dir) {
 }
 
 void Shell::OnEngineReady() {
+  updater_=std::make_unique<ui::UpdateHost>([this] {
+    for(const auto& window:windows_) window->RefreshUpdate();
+  });
   engine::SetBrowserClosedListener([this] { MaybeQuit(); });
   std::vector<core::WindowSession> sessions = store_->RestoreWindows();
   for (const auto& session : sessions) {
@@ -67,6 +70,7 @@ void Shell::OnEngineReady() {
     CefRefPtr<ui::MainWindow> w = new ui::MainWindow(ctx);
     windows_.push_back(w); w->Open();
   }
+  if(platform::EnvOn("BIRCH_INTERACTIVE_TEST")) ScheduleUpdateCheck(30000);
   if (platform::IsTestRun()) {
     tests::StartTests();
   }
@@ -208,6 +212,8 @@ void Shell::Quit(const std::string& why) {
   if (quitting_) {
     return;
   }
+  if(UpdateInstalling()) return;
+  if(updater_) updater_->CancelCheck();
   SaveNow();  // Freeze all normal-window selections before native teardown.
   quitting_ = true;
   platform::Log("app: shutdown (" + why + ")");
@@ -289,5 +295,19 @@ void Shell::UpdateSidebarSettings(double edge,double overshoot,double delay,doub
   settings_.sidebarHideDelay=delay;settings_.sidebarAnimationDuration=speed;
   core::SaveSettings(profile_dir_,settings_);
   for(const auto& window:windows_) if(!window->destroyed()) window->SynchronizeSidebar();
+}
+}
+
+namespace birch::app {
+void Shell::SetAutomaticUpdateChecks(bool enabled) {
+  settings_.checkForUpdates=enabled;core::SaveSettings(profile_dir_,settings_);
+  for(const auto& window:windows_) window->RefreshUpdate();
+}
+void Shell::ScheduleUpdateCheck(int64_t delay_ms) {
+  Post([this] {
+    if(quitting_) return;
+    if(settings_.checkForUpdates && updater_) updater_->Check();
+    ScheduleUpdateCheck(1800000);
+  },delay_ms);
 }
 }

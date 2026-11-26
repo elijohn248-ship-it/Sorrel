@@ -41,6 +41,11 @@ class WindowHost {
   // The window's store changed (debounced save for normal windows).
   virtual void StoreChanged(MainWindow* window) = 0;
   virtual void OpenPrivateWindow() = 0;
+  virtual void SetAutomaticUpdateChecks(bool enabled) = 0;
+  virtual void CheckForUpdates() = 0;
+  virtual void InstallUpdate() = 0;
+  virtual bool UpdateInstalling() const = 0;
+  virtual std::string UpdateStatus() const = 0;
   virtual void OpenNormalWindow() = 0;
   virtual void UpdateSidebarSettings(double edge,double overshoot,double delay,double speed) = 0;
   virtual std::set<std::string> ProtectedTabs(bool archive = true) const = 0;
@@ -111,6 +116,10 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   // WindowActions
   void SelectTab(const std::string& item_id) override;
+  void RefreshUpdate();
+  void SetAutomaticUpdateChecks(bool enabled) override {if(!ctx_.is_private) ctx_.host->SetAutomaticUpdateChecks(enabled);}
+  void CheckForUpdates() override {if(!ctx_.is_private) ctx_.host->CheckForUpdates();}
+  void InstallUpdate() override {if(!ctx_.is_private) ctx_.host->InstallUpdate();}
   void SidebarClosed() override;
   void SidebarAction(const core::ui_channel::Message& message) override;
   void SelectSpace(const std::string& id);

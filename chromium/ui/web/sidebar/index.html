@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="sidebar.css">
 <script src="shared/motion.js" defer></script>
 <script src="shared/channel.js" defer></script>
+<script src="update.js" defer></script>
 <script src="sidebar.js" defer></script>
 </head>
 <body>
@@ -48,6 +49,14 @@
   </details>
 </div>
 <ul class="tabs" id="tabs" aria-label="Tabs"></ul>
+<section id="test-update" class="test-update" hidden aria-live="polite">
+  <strong>Linux test updates</strong>
+  <p id="update-message"></p>
+  <small id="update-version"></small>
+  <label><input id="update-auto" type="checkbox"> Check automatically</label>
+  <div><button id="update-check" type="button">Check for updates</button>
+       <button id="update-install" type="button" hidden>Install update…</button></div>
+</section>
 <footer class="bottom">
   <button id="new-tab" class="new-tab motion-glide">
     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>

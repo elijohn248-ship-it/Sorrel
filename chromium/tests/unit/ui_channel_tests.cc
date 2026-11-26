@@ -39,6 +39,11 @@ int main() {
   std::string id = kId;
 
   // Every listed name with its proper arguments is accepted.
+  Check("update auto", "accepted", Verdict("update.automatic", "{\"enabled\":true}"));
+  Check("update auto type", "refused", Verdict("update.automatic", "{\"enabled\":1}"));
+  Check("update.check", "accepted", Verdict("update.check", "{}"));
+  Check("update.install", "accepted", Verdict("update.install", "{}"));
+  Check("update arbitrary path", "refused", Verdict("update.install", "{\"path\":\"/tmp/a.deb\"}"));
   Check("ui.ready", "accepted", Verdict("ui.ready", "{}"));
   Check("tab.select", "accepted", Verdict("tab.select", "{\"id\":" + id + "}"));
   Check("tab.close", "accepted", Verdict("tab.close", "{\"id\":" + id + "}"));
@@ -50,7 +55,7 @@ int main() {
         Verdict("address.submit", "{\"text\":\"example.com\"}"));
   Check("address.cancel", "accepted", Verdict("address.cancel", "{}"));
   Check("address.blur", "accepted", Verdict("address.blur", "{}"));
-  Check("names listed", "11", std::to_string(uc::Names().size()));
+  Check("names listed", "14", std::to_string(uc::Names().size()));
   {
     uc::ParseResult r =
         Parse("tab.select", "{\"id\":\"0f8fad5b-d9cb-469f-a165-70867728950e\"}");

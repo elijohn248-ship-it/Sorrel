@@ -1,8 +1,7 @@
 Birch Chromium Test — Zorin OS 18.1 / Ubuntu 24.04, Intel/AMD 64-bit
 
 This is an early interface test, not the finished private browser. It has
-basic tabs, the HTML sidebar, navigation and private windows. Spaces editing,
-ad/tracker blocking, production extensions, permission prompts and updates
+basic tabs, the HTML sidebar, navigation and private windows. Ad/tracker blocking, production extensions and permission prompts
 are not finished. Use it to test the interface, not sensitive daily browsing.
 
 INSTALL
@@ -39,5 +38,15 @@ or disable Chromium's sandbox.
 REMOVE
 Remove Birch Chromium Test through Software. The separate test profile is
 left in place so you do not lose test tabs/downloads by uninstalling.
-This test package has no automatic updater; replace it with a newer test
-package when offered. It is not a published Birch release.
+UPDATES (UPDATER-ENABLED BUILDS)
+The Linux test updates card checks a separate, signed test channel. It can
+check automatically 30 seconds after launch and every 30 minutes; turn off
+"Check automatically" to use manual checks only. Click Install update to
+download and verify the package, then approve the system authentication
+prompt. Nothing is installed without that approval. Quit and reopen Birch
+after a successful install. Canceling authentication leaves this build in place.
+Your saved tabs/settings and test downloads stay in the separate test profile.
+A failed signature, checksum, edition or downgrade check prevents installation.
+System package-manager errors are reported and the browser stays open.
+Older builds without the card need one manual installation of this new .deb.
+This test channel is separate from production releases and the Mac updater.

@@ -179,6 +179,7 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
     });
   }
   Refresh();
+  RefreshUpdate();
   ScheduleMaintenance(20000);
   WatchSidebar();
   window_->Show();
@@ -293,6 +294,7 @@ bool MainWindow::RunCommand(const std::string& id) {
 }
 
 bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
+  if(!ctx_.is_private && ctx_.host->UpdateInstalling()) return false;
   if (!closing_window_) {
     closing_window_ = true;
     // An overlay hosting a browser view must be gone before the window
@@ -674,5 +676,11 @@ std::string MainWindow::ThemeSurround() const {
   auto color=window_?window_->GetThemeColor(CEF_ColorPrimaryBackground):CefColorSetARGB(255,255,255,255);
   bool dark=(CefColorGetR(color)+CefColorGetG(color)+CefColorGetB(color))<384;
   return core::Hex(core::GradientStops(ctx_.store->CurrentSpace(ctx_.session).theme,dark).back());
+}
+}
+
+namespace birch::ui {
+void MainWindow::RefreshUpdate() {
+  if(sidebar_ && !destroyed_) sidebar_->UpdateStatus(ctx_.is_private ? "{\"supported\":false}" : ctx_.host->UpdateStatus());
 }
 }
