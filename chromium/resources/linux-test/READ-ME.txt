@@ -32,7 +32,7 @@ change the Mac app.
 SANDBOX
 The package installs a per-app AppArmor profile so Ubuntu/Zorin permits this
 executable to create Chromium's sandbox namespaces. It does not disable
-AppArmor, change system-wide namespace restrictions, add a setuid helper,
+AppArmor, change system-wide namespace restrictions, ship a setuid sandbox helper,
 or disable Chromium's sandbox.
 
 REMOVE

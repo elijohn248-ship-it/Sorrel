@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 import time
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zipfile import BadZipFile, ZipFile
@@ -318,9 +318,20 @@ def prepare(args):
         require(public.read_bytes() == PUBLIC_KEY.read_bytes(),
                 "Linux test signing key does not match the installed public key")
         archive_path = scratch / "artifact.zip"
-        download = f"{API}/actions/artifacts/{artifact['id']}/zip"
-        with client.request(download) as source, archive_path.open("wb") as target:
-            size, digest = copy_checked(source, target)
+        print(f"Preparing build {args.run}: downloading Linux artifact ({artifact['size_in_bytes'] / 2**20:.1f} MiB)", flush=True)
+        for attempt in range(3):
+            # Avoid stale cached signed redirects. Only this read-only GET is
+            # retried; publication mutations always require state inspection.
+            download = f"{API}/actions/artifacts/{artifact['id']}/zip?fresh={time.time_ns()}"
+            try:
+                with client.request(download) as source, archive_path.open("wb") as target:
+                    size, digest = copy_checked(source, target)
+                break
+            except (TimeoutError, URLError):
+                if attempt == 2:
+                    raise
+                print("Retrying the read-only artifact download", flush=True)
+                time.sleep(2 ** attempt)
         require(artifact.get("digest") == f"sha256:{digest}" and size == artifact["size_in_bytes"],
                 "CI artifact download does not match GitHub's size and digest")
         package = scratch / asset_name(args.run)

@@ -224,6 +224,20 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises((ValueError, subprocess.CalledProcessError)):
             release.verified_envelope(release.canonical(feed))
 
+    def test_prepare_retries_only_read_only_artifact_download(self):
+        original = self.github.request
+        requests = []
+        def flaky(url, *, authenticated=True):
+            requests.append(url)
+            if len(requests) == 1:
+                raise TimeoutError("transient read timeout")
+            return original(url, authenticated=authenticated)
+        with patch.object(self.github, "request", side_effect=flaky), patch.object(release.time, "sleep"):
+            candidate = self.prepare(11)
+        self.assertTrue((candidate / release.FEED_NAME).is_file())
+        self.assertGreaterEqual(len(requests), 2)
+        self.assertFalse(self.github.events)
+
     def test_publish_verifies_public_package_before_promotion(self):
         candidate = self.prepare(101)
         release.publish(Namespace(candidate=candidate))

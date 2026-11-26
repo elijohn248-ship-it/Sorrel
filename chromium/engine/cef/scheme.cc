@@ -34,7 +34,7 @@ std::string WelcomePage() {
          "address or a search in the box at the top of the sidebar and press "
          "Enter. Ctrl+T opens a new tab, Ctrl+W closes one, Ctrl+Shift+N "
          "opens a private window.</p>"
-         "<p>Birch keeps no telemetry and sends nothing in the background.</p>"
+         "<p>Birch has no telemetry. Linux test builds can check for signed updates; control those checks in the sidebar.</p>"
          "</main>";
 }
 

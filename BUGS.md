@@ -23,7 +23,7 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-_None._
+- **Linux test candidate preparation stops on a transient artifact timeout:** Repro: prepare successful updater CI run 45753526693; GitHub artifact transfer returns a read timeout. Expected: retry the safe read-only download, then verify its full size/hash. Actual: preparation exits before a candidate is signed. Cause: no retry around the streamed artifact GET. Fixed with three bounded fresh-redirect GET attempts; no publication mutation is retried. Seven local regression tests pass; real candidate preparation verification pending. **Editions:** Linux test-release tooling only (local Mac publication script).
 
 ## Fixed
 
