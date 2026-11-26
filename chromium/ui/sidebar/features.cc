@@ -28,6 +28,7 @@ void MainWindow::LayoutSidebar() {
 }
 void MainWindow::SelectSpace(const std::string& id) {
   if (!ctx_.store->FindSpace(id) || destroyed_) return;
+  sidebar_->EndAddressEditing();
   ctx_.session.current_space_id = id;
   for (auto& kv : pages_) if (auto view = kv.second.page->view()) view->SetVisible(false);
   if (auto sel = selected_id()) {

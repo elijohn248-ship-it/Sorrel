@@ -29,6 +29,10 @@ void SidebarHost::FocusAddress() {
   SendFocus();
 }
 
+void SidebarHost::EndAddressEditing() {
+  new_tab_mode_=false;focus_pending_=false;
+  page_->Send("address.dismiss", "{}");
+}
 void SidebarHost::SendFocus() {
   page_->Focus();
   focus_pending_ = !page_->ready();

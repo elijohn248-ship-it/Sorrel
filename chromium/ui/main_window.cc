@@ -174,7 +174,9 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   if (std::optional<std::string> sel = selected_id()) {
     SelectTab(*sel);
   } else if (ctx_.is_private) {
-    PostUi([self = CefRefPtr<MainWindow>(this)] { self->StartNewTab(); });
+    PostUi([self = CefRefPtr<MainWindow>(this)] {
+      if(!self->selected_id() && !self->destroyed_) self->StartNewTab();
+    });
   }
   Refresh();
   ScheduleMaintenance(20000);
@@ -362,6 +364,7 @@ void MainWindow::SelectTab(const std::string& item_id) {
     return;
   }
   if (ctx_.host->FocusExistingTab(this,item_id)) return;
+  sidebar_->EndAddressEditing();
   if (const core::Space* sp = ctx_.store->SpaceOf(item_id)) {
     ctx_.session.current_space_id = sp->id;
   }

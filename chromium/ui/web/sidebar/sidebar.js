@@ -155,6 +155,13 @@
     if (!sidebar.matches(":hover")) scheduleHide();
   });
 
+  Birch.on("address.dismiss", () => {
+    editing = false;
+    newTabMode = false;
+    input.blur();
+    showAddress();
+  });
+
   Birch.on("address.focus", (msg) => {
     newTabMode = Boolean(msg && msg.newTab);
     editing = true;

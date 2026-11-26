@@ -33,6 +33,7 @@ class SidebarHost : public engine::UiPageObserver {
   void BeginNewTab();
   // Ctrl+L: the address field with the full address, selected.
   void FocusAddress();
+  void EndAddressEditing();
   bool new_tab_mode() const { return new_tab_mode_; }
 
   // What the app last gave the sidebar (tests compare the page's DOM to it).

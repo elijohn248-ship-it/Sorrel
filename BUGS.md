@@ -23,9 +23,11 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-- **Chromium overlay sidebar stalls window close (prompt 5):** Repro: `cx-spaces-sidebar` CI 45736392089, private/download scenarios, close a private window. Expected: its browsers and native window close within the hook timeout. Actual: the close times out, then shutdown reaches its 15 s fallback. The detached sidebar browser still uses the parent-window close protocol; investigate its independent overlay lifecycle.
+- **Chromium overlay sidebar stalls window close (prompt 5):** Repro: `cx-spaces-sidebar` CI 45736392089, private/download scenarios, close a private window. Expected: its browsers and native window close within the hook timeout. Actual: the close times out, then shutdown reaches its 15 s fallback. Cause: detached UI browsers still used the parent-window close protocol; fixed with independent close completion and a native-window retry. Verification pending. **Editions:** Chromium only (CEF overlay lifecycle).
 
 ## Fixed
+
+- **Chromium new-tab editor hides a selected tab's address:** Repro: Windows channel CI 45740556011 opens a private window, then selects a page; the DOM still reports an empty address. Expected: show the selected page's real origin. Cause: the new-tab editor can retain DOM focus or a deferred focus request after native selection. Explicitly end editing on tab/space selection and ignore a stale deferred new-tab request. Verification pending. **Editions:** Chromium only (HTML sidebar/CEF focus lifecycle).
 
 - **Chromium page-card surround loses its space color:** Repro: inspect normal/private Ubuntu screenshots from CI 45709255421. Expected: the page's inset and rounded corners share the space color, including in private windows. Actual: the inset becomes the default bright background while corner images retain the intended color. Cause confirmed in CEF's view implementation: theme changes clear custom view backgrounds. Fixed by restoring them from the view's theme callback; verified in final CI 45710475328 on Windows and Ubuntu 24.04, with matching normal/private screenshot colors.
 
