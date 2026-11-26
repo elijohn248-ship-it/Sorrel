@@ -186,6 +186,30 @@ class SignedFixture(OfflineTest):
                                side_effect=lambda data: download_package(data, opener=self.urls)):
             return updater.perform(operation, self.installed_config())
 
+class DesktopProxyTests(OfflineTest):
+    def test_manual_https_proxy_is_used(self):
+        values = {("org.gnome.system.proxy", "mode"): "'manual'",
+                  ("org.gnome.system.proxy.https", "host"): "'proxy.example.test'",
+                  ("org.gnome.system.proxy.https", "port"): "8080"}
+        with mock.patch.object(updater, "proxy_value", side_effect=lambda schema, key: values[(schema,key)]):
+            self.assertEqual(updater.proxy_handler().proxies, {"https": "http://proxy.example.test:8080"})
+
+    def test_pac_socks_and_unreadable_settings_never_fall_back_to_direct(self):
+        for values in (
+            {("org.gnome.system.proxy", "mode"): "'auto'"},
+            {("org.gnome.system.proxy", "mode"): "'manual'",
+             ("org.gnome.system.proxy.https", "host"): "''",
+             ("org.gnome.system.proxy.https", "port"): "0",
+             ("org.gnome.system.proxy.socks", "host"): "'socks.example.test'"},
+        ):
+            with self.subTest(values=values), mock.patch.object(updater, "proxy_value", side_effect=lambda schema, key: values[(schema,key)]):
+                with self.assertRaises(updater.UpdateError):
+                    updater.proxy_handler()
+        with mock.patch.object(updater, "proxy_value", side_effect=OSError("unavailable")):
+            with self.assertRaises(updater.UpdateError):
+                updater.proxy_handler()
+
+
 class SignedTests(SignedFixture):
     def test_accepts_manifest_signed_by_installed_key(self):
         data = manifest_for(b"fixture")

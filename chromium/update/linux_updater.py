@@ -7,6 +7,7 @@ through /proc while this unprivileged process holds the descriptor open.
 Only the system's normal pkexec authorization may start dpkg as root.
 """
 import argparse
+import ast
 import base64
 import fcntl
 import hashlib
@@ -82,10 +83,44 @@ class Redirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def proxy_value(schema, key):
+    result = subprocess.run(["/usr/bin/gsettings", "get", schema, key],
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=3)
+    if result.returncode != 0 or len(result.stdout) > 8192:
+        raise UpdateError("Could not read desktop proxy settings; no update connection was made")
+    return result.stdout.decode().strip()
+
+
+def proxy_handler():
+    # urllib alone does not read GNOME's desktop proxy configuration. Honor
+    # manual HTTPS proxy settings and refuse PAC/SOCKS rather than bypass them.
+    try:
+        mode = ast.literal_eval(proxy_value("org.gnome.system.proxy", "mode"))
+        if mode == "none":
+            return urllib.request.ProxyHandler()  # honors explicit environment proxies
+        if mode != "manual":
+            raise UpdateError("This test updater cannot use automatic desktop proxies; download the .deb in Birch")
+        host = ast.literal_eval(proxy_value("org.gnome.system.proxy.https", "host"))
+        port = int(proxy_value("org.gnome.system.proxy.https", "port").split()[-1])
+        if not isinstance(host, str):
+            raise ValueError("Invalid proxy host")
+        if host and 0 < port <= 65535:
+            if any(c in host for c in "/@?# \t\r\n"):
+                raise ValueError("Invalid proxy host")
+            authority = f"[{host}]" if ":" in host else host
+            return urllib.request.ProxyHandler({"https": f"http://{authority}:{port}"})
+        socks = ast.literal_eval(proxy_value("org.gnome.system.proxy.socks", "host"))
+        if socks:
+            raise UpdateError("This test updater cannot use a SOCKS desktop proxy; download the .deb in Birch")
+        return urllib.request.ProxyHandler({})  # OS explicitly has no HTTPS proxy
+    except (OSError, ValueError, SyntaxError, subprocess.SubprocessError) as error:
+        raise UpdateError("Could not safely use desktop proxy settings; no update connection was made") from error
+
+
 def open_url(url):
     checked_url(url)
     # Standard OS/environment proxy behavior; no cookie jar or browser profile.
-    opener = urllib.request.build_opener(Redirects())
+    opener = urllib.request.build_opener(proxy_handler(), Redirects())
     request = urllib.request.Request(url, headers={"User-Agent": "Birch-Linux-Test-Updater",
                                                   "Accept-Encoding": "identity"})
     return opener.open(request, timeout=30)

@@ -101,7 +101,7 @@ Description: Early Birch Chromium interface test
                         if line.startswith("shlibs:Depends="))
     dependencies += ", apparmor"
     if build:
-        dependencies += ", python3, openssl, pkexec"
+        dependencies += ", python3, openssl, pkexec, libglib2.0-bin, gsettings-desktop-schemas"
     size = sum(p.stat().st_size for p in app.rglob("*") if p.is_file())
     write(root / "DEBIAN/control", f"""Package: {NAME}
 Version: {version}
