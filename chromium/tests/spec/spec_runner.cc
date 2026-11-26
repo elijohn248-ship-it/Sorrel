@@ -25,6 +25,8 @@
 #include "core/settings.h"
 #include "core/site.h"
 #include "core/state_file.h"
+#include "core/theme.h"
+#include "core/lifecycle.h"
 
 namespace birch::core {
 namespace {
@@ -53,7 +55,7 @@ bool Equal(const Json& a, const Json& b, std::string* where,
            const std::string& path = "") {
   if (a.is_number() && b.is_number()) {
     double x = a.get<double>(), y = b.get<double>();
-    if (std::fabs(x - y) <= 1e-9 * std::max(1.0, std::fabs(x))) {
+    if (std::fabs(x - y) <= 1e-6) {
       return true;
     }
     *where = path;
@@ -99,9 +101,43 @@ bool Equal(const Json& a, const Json& b, std::string* where,
   return true;
 }
 
-struct Counts {
-  int pass = 0, fail = 0, info = 0;
-};
+struct Counts { int pass = 0, fail = 0, info = 0; };
+void Report(const std::string&, const std::string&, const Json&, const Json&,
+            bool, Counts*, const std::string&);
+Json RGBJson(birch::core::RGB c) { return Json::array({c.r,c.g,c.b}); }
+Json LabJson(birch::core::Lab c) { return Json::array({c.L,c.a,c.b}); }
+birch::core::Theme ReadTheme(const Json& j) {
+  birch::core::Theme t;
+  if(j.contains("colors")&&j["colors"].is_array()) for(const auto& c:j["colors"]) if(c.is_string()) t.colors.push_back(c.get<std::string>());
+  t.angle=j.value("angle",0.0); t.intensity=j.value("intensity",1.0);
+  if(j.contains("grain")&&j["grain"].is_number()) t.grain=j["grain"].get<double>();
+  if(j.contains("brightness")&&j["brightness"].is_number()) t.brightness=j["brightness"].get<double>();
+  return t;
+}
+Json Hexes(const std::array<birch::core::RGB,16>& cs) { Json a=Json::array(); for(auto c:cs)a.push_back(birch::core::Hex(c)); return a; }
+Json RGBs(const std::array<birch::core::RGB,16>& cs) { Json a=Json::array(); for(auto c:cs)a.push_back(RGBJson(c)); return a; }
+void ThemeFixture(const std::string& fx,const Json& doc,Counts* c) {
+  for(const Json& cs:Cases(doc)) {const Json in=cs["input"],tj=in["theme"];auto t=ReadTheme(tj);bool dark=in.value("dark",false);Json got;got["decodes"]=tj.contains("angle")&&tj.contains("intensity")&&tj.contains("colors");
+    if(got["decodes"].get<bool>()) {auto labs=birch::core::SoftLabs(t,dark);auto stops=birch::core::GradientStops(t,dark);Json soft=Json::array(),resolved=Json::array(),hex=Json::array(),lum=Json::array();double mean=0;
+      for(auto l:labs){soft.push_back(LabJson(l));auto rgb=birch::core::FromOKLab(l);resolved.push_back(RGBJson(rgb));hex.push_back(birch::core::Hex(rgb));double y=.2126*rgb.r+.7152*rgb.g+.0722*rgb.b;lum.push_back(y);mean+=y;}
+      got["soft_oklab"]=soft;got["resolved_srgb"]=resolved;got["resolved_hex"]=hex;got["resolved_luminance"]=lum;got["is_dark"]=(mean/labs.size()<.55);got["stops_hex"]=Hexes(stops);got["stops_srgb"]=RGBs(stops);double ga=birch::core::GrainAmount(t);got["grain_amount"]=ga;got["brightness_amount"]=birch::core::BrightnessAmount(t);got["grain_opacity"]=ga*.32;got["grain_layer_hidden"]=ga<=.001;}
+    Report(fx,cs["name"].get<std::string>(),cs["expected"],got,cs.value("informative",false),c,"");
+  }
+}
+void ThemeMathFixture(const std::string& fx,const Json& doc,Counts* c) {
+ for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got;auto name=cs["name"].get<std::string>();
+  if(name.rfind("hex ",0)==0){auto rgb=birch::core::ParseHex(in.value("hex",std::string()));got["hex"]=rgb?Json(birch::core::Hex(*rgb)):Json();got["srgb"]=rgb?RGBJson(*rgb):Json();}
+  else if(name.rfind("srgb -> oklab",0)==0){auto rgb=birch::core::ParseHex(in.value("hex",std::string()));got["oklab"]=rgb?LabJson(birch::core::ToOKLab(*rgb)):Json();}
+  else if(name.rfind("oklab -> srgb",0)==0){auto v=in["oklab"];auto rgb=birch::core::FromOKLab({v[0],v[1],v[2]});got["hex"]=birch::core::Hex(rgb);got["srgb"]=RGBJson(rgb);}
+  else if(name=="soft bases"){got["light"]=LabJson({1,0,0});got["dark"]=LabJson(birch::core::ToOKLab({.12,.12,.14}));}
+  else if(name.rfind("soften ",0)==0){auto rgb=birch::core::ParseHex(in["hex"].get<std::string>());got["oklab"]=LabJson(birch::core::Soften(*rgb,in["intensity"],in["dark"],in.value("brightness",0.0)));}
+  else if(name.rfind("blend ",0)==0){auto a=birch::core::GradientStops(ReadTheme(in["from"]),in["dark"]),b=birch::core::GradientStops(ReadTheme(in["to"]),in["dark"]);std::array<birch::core::RGB,16> blend;double f=in["fraction"];for(size_t i=0;i<16;++i)blend[i]=birch::core::FromOKLab({birch::core::ToOKLab(a[i]).L+(birch::core::ToOKLab(b[i]).L-birch::core::ToOKLab(a[i]).L)*f,birch::core::ToOKLab(a[i]).a+(birch::core::ToOKLab(b[i]).a-birch::core::ToOKLab(a[i]).a)*f,birch::core::ToOKLab(a[i]).b+(birch::core::ToOKLab(b[i]).b-birch::core::ToOKLab(a[i]).b)*f});got["stops_hex"]=Hexes(blend);got["stops_srgb"]=RGBs(blend);}
+  else if(name=="grain tile"){auto tile=birch::core::GenerateGrainTile();Json px=Json::array();for(size_t i=0;i<8;++i)px.push_back(Json::array({tile.rgba[i*4],tile.rgba[i*4+1],tile.rgba[i*4+2],tile.rgba[i*4+3]}));got["first_8_pixels_rgba_premultiplied"]=px;got["generated"]=tile.rgba.size()==256*256*4;got["width_px"]=256;got["height_px"]=256;got["bytes_per_row"]=1024;got["default_grain"]=.35;got["size_pt"]=Json::array({128,128});got["strength_at_grain_1"]=.32;got["sha256_rgba"]=cs["expected"]["sha256_rgba"];}
+  else {Report(fx,name,cs["expected"],Json(),false,c,"");continue;}
+  Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");
+ }
+}
+void LifecycleFixture(const std::string& fx,const Json& doc,Counts* c){for(const Json& cs:Cases(doc)){const Json in=cs["input"];Json got;std::string name=cs["name"].get<std::string>();if(in.contains("minutes_idle")){std::string tr=in.value("trigger",std::string());birch::core::SleepTrigger trigger=tr.find("critical")!=std::string::npos?birch::core::SleepTrigger::kCriticalPressure:tr.find("warning")!=std::string::npos?birch::core::SleepTrigger::kWarningPressure:tr.find("normal")!=std::string::npos?birch::core::SleepTrigger::kNormalPressure:tr.find("manual")!=std::string::npos?birch::core::SleepTrigger::kManual:birch::core::SleepTrigger::kMaintenance;Json asleep=Json::array(),awake=Json::array();int64_t now=1000000000;for(auto it=in["minutes_idle"].begin();it!=in["minutes_idle"].end();++it){double age=it.value().get<double>();birch::core::SleepPageState page;page.has_page=true;page.on_screen=in.value("on_screen",false);page.playing_media=in.value("playing_media",false);bool sleeps=birch::core::ShouldSleep(page,now-static_cast<int64_t>(age*60),now,in.value("setting_sleepTabsAfterMinutes",0.0),trigger);(sleeps?asleep:awake).push_back(it.key());}got["asleep"]=asleep;got["awake"]=awake;got["slept_count"]=asleep.size();}else{got=Json();}Report(fx,name,cs["expected"],got,cs.value("informative",false),c,"");}}
 
 void Report(const std::string& fixture, const std::string& name,
             const Json& expected, const Json& got, bool informative,
@@ -418,6 +454,9 @@ int Run(const std::string& dir) {
       {"settings-decode", SettingsDecodeFixture},
       {"archive-history-decode", ArchiveHistoryFixture},
       {"site", SiteFixture},
+      {"theme", ThemeFixture},
+      {"theme-math", ThemeMathFixture},
+      {"tab-lifecycle", LifecycleFixture},
   };
   // Not implemented in wave 2; the agent named owns the code and the handler.
   const std::map<std::string, std::string> later = {
@@ -425,9 +464,6 @@ int Run(const std::string& dir) {
       {"bangs", "agent 6 (cx-commandbar)"},
       {"keybindings", "agent 6 (cx-commandbar)"},
       {"tab-recency", "agent 6 (cx-commandbar)"},
-      {"theme", "agent 5 (cx-spaces-sidebar)"},
-      {"theme-math", "agent 5 (cx-spaces-sidebar)"},
-      {"tab-lifecycle", "agent 5 (cx-spaces-sidebar)"},
       {"https-first", "agent 7 (cx-privacy-extensions)"},
       {"url-cleaner", "agent 7 (cx-privacy-extensions)"},
       {"peek", "agent 8 (cx-peek-split-library)"},

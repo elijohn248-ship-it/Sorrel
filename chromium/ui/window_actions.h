@@ -4,12 +4,14 @@
 #define BIRCH_UI_WINDOW_ACTIONS_H_
 
 #include <string>
+#include "core/ui_channel.h"
 
 namespace birch::ui {
 
 class WindowActions {
  public:
   virtual ~WindowActions() = default;
+  virtual void SidebarAction(const core::ui_channel::Message&) {}
   virtual void SelectTab(const std::string& item_id) = 0;
   virtual void CloseTab(const std::string& item_id) = 0;
   // Ctrl+T / "+ New Tab": the address field takes typing for a new tab.

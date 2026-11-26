@@ -17,10 +17,13 @@
 #include <vector>
 
 #include "include/views/cef_panel.h"
+#include "include/views/cef_overlay_controller.h"
 #include "include/views/cef_window.h"
 #include "include/views/cef_window_delegate.h"
 
 #include "core/settings.h"
+#include "core/lifecycle.h"
+#include <set>
 #include "core/store.h"
 #include "engine/engine.h"
 #include "ui/sidebar/sidebar_host.h"
@@ -38,6 +41,10 @@ class WindowHost {
   // The window's store changed (debounced save for normal windows).
   virtual void StoreChanged(MainWindow* window) = 0;
   virtual void OpenPrivateWindow() = 0;
+  virtual std::set<std::string> ProtectedTabs(bool archive = true) const = 0;
+  virtual bool FocusExistingTab(MainWindow* source, const std::string& id) = 0;
+  virtual void EvictTab(const std::string& id) = 0;
+  virtual bool HasLiveTab(const std::string& id) const = 0;
   // The window starts closing (its session is still readable).
   virtual void WindowClosing(MainWindow* window) = 0;
   // The window is gone; the host releases it.
@@ -102,6 +109,12 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
 
   // WindowActions
   void SelectTab(const std::string& item_id) override;
+  void SidebarAction(const core::ui_channel::Message& message) override;
+  void SelectSpace(const std::string& id);
+  void SleepTabs(core::SleepTrigger trigger);
+  void MaintainTabs(bool manual_archive = false, bool manual_sleep = false);
+  std::set<std::string> VisibleTabs() const;
+  void SleepPage(const std::string& id);
   void CloseTab(const std::string& item_id) override;
   void StartNewTab() override;
   void GoBack() override;
@@ -120,6 +133,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   cef_runtime_style_t GetWindowRuntimeStyle() override;
   bool OnAccelerator(CefRefPtr<CefWindow> window, int command_id) override;
   void OnThemeChanged(CefRefPtr<CefView> view) override;
+  CefSize GetPreferredSize(CefRefPtr<CefView> view) override;
+  void OnLayoutChanged(CefRefPtr<CefView> view, const CefRect& bounds) override;
 
  private:
   class TabObserver;
@@ -139,6 +154,8 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   void Refresh();
   void PushSidebar();
   void ApplySurroundColor();
+  void LayoutSidebar();
+  void ScheduleMaintenance(int64_t delay_ms);
   void UpdateTitle();
   void ScheduleSidebarRebuild();
   std::optional<std::string> UrlOf(const std::string& item_id) const;
@@ -147,10 +164,13 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   WindowContext ctx_;
   CefRefPtr<CefWindow> window_;
   std::unique_ptr<SidebarHost> sidebar_;
+  CefRefPtr<CefPanel> sidebar_spacer_;
+  CefRefPtr<CefOverlayController> sidebar_overlay_;
   CefRefPtr<CefPanel> frame_;    // the coloured surround of the page card
   CefRefPtr<CefPanel> content_;  // the page card
   std::unique_ptr<RoundedCard> rounded_card_;
   std::string surround_;
+  std::string sidebar_mode_ = "pinned";
   std::map<std::string, Live> pages_;
   std::vector<Live> closing_;
   bool rebuild_pending_ = false;

@@ -50,7 +50,7 @@ int main() {
         Verdict("address.submit", "{\"text\":\"example.com\"}"));
   Check("address.cancel", "accepted", Verdict("address.cancel", "{}"));
   Check("address.blur", "accepted", Verdict("address.blur", "{}"));
-  Check("names listed", "10", std::to_string(uc::Names().size()));
+  Check("names listed", "11", std::to_string(uc::Names().size()));
   {
     uc::ParseResult r =
         Parse("tab.select", "{\"id\":\"0f8fad5b-d9cb-469f-a165-70867728950e\"}");
@@ -94,6 +94,22 @@ int main() {
                 "{\"text\":\"a\"," + std::string(17000, ' ') + "}"));
   Check("text at the limit", "accepted",
         Verdict("address.submit", "{\"text\":\"" + std::string(4096, 'a') + "\"}"));
+
+  {
+    Json a={{"action","space.select"},{"id","x"},{"target",""},{"index",0},
+            {"text",""},{"extra",""},{"value",0}};
+    Check("sidebar typed action","accepted",Verdict("sidebar.action",a.dump()));
+    a["action"]="script.execute";
+    Check("sidebar unknown action","refused",Verdict("sidebar.action",a.dump()));
+    a["action"]="space.select";a["index"]=-1;
+    Check("sidebar negative index","refused",Verdict("sidebar.action",a.dump()));
+    a["index"]=0;a["value"]="number";
+    Check("sidebar wrong number type","refused",Verdict("sidebar.action",a.dump()));
+    a["value"]=0;a["injected"]=true;
+    Check("sidebar extra key","refused",Verdict("sidebar.action",a.dump()));
+    a.erase("injected");a["text"]="a\n";
+    Check("sidebar control text","refused",Verdict("sidebar.action",a.dump()));
+  }
 
   // App -> UI: page-controlled text stays a JSON string value.
   {

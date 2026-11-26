@@ -1,8 +1,10 @@
 #include "core/store.h"
 
+#include <algorithm>
 #include <set>
 
 #include "core/codec.h"
+#include "core/lifecycle.h"
 
 namespace birch::core {
 
@@ -32,18 +34,28 @@ Item* FindInMutable(std::vector<Item>& items, const std::string& id) {
   return nullptr;
 }
 
-// Removes the tab |id| from |items| (at any depth). A split left with one
-// pane dissolves into that tab.
-bool RemoveFrom(std::vector<Item>& items, const std::string& id) {
+// Removes or extracts an item at any depth. A split left with one pane
+// dissolves into that tab.
+bool RemoveFrom(std::vector<Item>& items, const std::string& id,
+                Item* removed = nullptr) {
   for (size_t i = 0; i < items.size(); ++i) {
     if (items[i].id == id) {
+      if (removed) {
+        *removed = std::move(items[i]);
+      }
       items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
       return true;
     }
-    if (RemoveFrom(items[i].children, id)) {
-      if (items[i].IsSplit() && items[i].children.size() == 1) {
-        Item only = items[i].children[0];
-        items[i] = only;
+    if (RemoveFrom(items[i].children, id, removed)) {
+      if (items[i].IsSplit()) {
+        if (items[i].children.empty()) {
+          items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+        } else if (items[i].children.size() == 1) {
+          Item only = std::move(items[i].children.front());
+          items[i] = std::move(only);
+        } else {
+          items[i].split->fractions.clear();
+        }
       }
       return true;
     }
@@ -51,18 +63,67 @@ bool RemoveFrom(std::vector<Item>& items, const std::string& id) {
   return false;
 }
 
+const Item* SplitWithPane(const std::vector<Item>& items, const std::string& id) {
+  for (const Item& item : items) {
+    if (item.IsSplit() && FindIn(item.children, id)) {
+      return &item;
+    }
+    if (item.is_folder) {
+      if (const Item* split = SplitWithPane(item.children, id)) {
+        return split;
+      }
+    }
+  }
+  return nullptr;
+}
+
+void UpdatePinnedAddresses(Item& item, bool pinned) {
+  if (item.IsTab()) {
+    if (!pinned) {
+      item.pinned_url.reset();
+    } else if (!item.pinned_url) {
+      item.pinned_url = item.url;
+    }
+    return;
+  }
+  for (Item& child : item.children) {
+    UpdatePinnedAddresses(child, pinned);
+  }
+}
+
+bool ResetPinnedAddress(Item& item) {
+  if (item.IsTab()) {
+    if (item.pinned_url && item.url != item.pinned_url) {
+      item.url = item.pinned_url;
+      return true;
+    }
+    return false;
+  }
+  bool changed = false;
+  for (Item& child : item.children) {
+    changed = ResetPinnedAddress(child) || changed;
+  }
+  return changed;
+}
+
 void AddRows(const std::vector<Item>& items, SidebarRow::Kind kind, int depth,
+             const std::string& section, const std::string& parent_id,
              std::vector<SidebarRow>* rows) {
-  for (const Item& it : items) {
+  for (size_t index = 0; index < items.size(); ++index) {
+    const Item& it = items[index];
     SidebarRow row;
     row.item_id = it.id;
     row.title = it.DisplayTitle();
     row.depth = depth;
+    row.parent_id = parent_id;
+    row.index = index;
+    row.section = section;
     if (it.is_folder) {
       row.kind = SidebarRow::Kind::kFolder;
+      row.expanded = it.expanded;
       rows->push_back(row);
       if (it.expanded) {
-        AddRows(it.children, kind, depth + 1, rows);
+        AddRows(it.children, kind, depth + 1, section, it.id, rows);
       }
       continue;
     }
@@ -208,19 +269,174 @@ bool Store::IsFavorite(const std::string& item_id) const {
   return FindIn(state_.favorites, item_id) != nullptr;
 }
 
+bool Store::IsPinned(const std::string& item_id) const {
+  const Space* space = SpaceOf(item_id);
+  return space && FindIn(space->pinned, item_id);
+}
+
 std::vector<SidebarRow> Store::SidebarRows(const std::string& space_id) const {
   std::vector<SidebarRow> rows;
-  AddRows(state_.favorites, SidebarRow::Kind::kFavorite, 0, &rows);
+  AddRows(state_.favorites, SidebarRow::Kind::kFavorite, 0, "favorites", {}, &rows);
   const Space* sp = FindSpace(space_id);
   if (!sp) {
     return rows;
   }
-  AddRows(sp->pinned, SidebarRow::Kind::kPinned, 0, &rows);
+  AddRows(sp->pinned, SidebarRow::Kind::kPinned, 0, "pinned", {}, &rows);
   SidebarRow sep;
   sep.kind = SidebarRow::Kind::kSeparator;
   rows.push_back(sep);
-  AddRows(sp->today, SidebarRow::Kind::kToday, 0, &rows);
+  AddRows(sp->today, SidebarRow::Kind::kToday, 0, "today", {}, &rows);
   return rows;
+}
+
+std::string Store::AddSpace(const std::string& name, const std::string& icon,
+                            const std::optional<Theme>& theme) {
+  Space space;
+  space.id = NewUuid();
+  space.name = TrimSpaces(name).empty() ? "New Space" : name;
+  space.icon = icon.empty() ? "✨" : icon;
+  const auto& presets = Theme::Presets();
+  space.theme = theme.value_or(presets[state_.spaces.size() % presets.size()]);
+  state_.spaces.push_back(std::move(space));
+  dirty_ = true;
+  return state_.spaces.back().id;
+}
+
+bool Store::EditSpace(const std::string& space_id,
+                      const std::optional<std::string>& name,
+                      const std::optional<std::string>& icon,
+                      const std::optional<Theme>& theme) {
+  Space* space = MutableSpace(space_id);
+  if (!space) {
+    return false;
+  }
+  if (name && !TrimSpaces(*name).empty() && space->name != *name) {
+    space->name = *name;
+    dirty_ = true;
+  }
+  if (icon && !icon->empty() && space->icon != *icon) {
+    space->icon = *icon;
+    dirty_ = true;
+  }
+  if (theme) {
+    space->theme = *theme;
+    dirty_ = true;
+  }
+  return true;
+}
+
+bool Store::MoveSpace(const std::string& space_id, size_t index) {
+  auto& spaces = state_.spaces;
+  const auto source = std::find_if(spaces.begin(), spaces.end(),
+      [&space_id](const Space& space) { return space.id == space_id; });
+  if (source == spaces.end()) {
+    return false;
+  }
+  const auto target = spaces.begin() +
+      static_cast<std::ptrdiff_t>(std::min(index, spaces.size() - 1));
+  if (source < target) {
+    std::rotate(source, source + 1, target + 1);
+  } else if (source > target) {
+    std::rotate(target, source, source + 1);
+  } else {
+    return true;
+  }
+  dirty_ = true;
+  return true;
+}
+
+bool Store::SetSeparateLogins(const std::string& space_id, bool separate) {
+  Space* space = MutableSpace(space_id);
+  if (!space) {
+    return false;
+  }
+  if (separate != space->profile_id.has_value()) {
+    space->profile_id = separate ? std::optional{NewUuid()} : std::nullopt;
+    dirty_ = true;
+  }
+  return true;
+}
+
+std::string Store::AddFolder(const std::string& space_id,
+                             const std::string& title,
+                             const std::string& parent_folder_id) {
+  Space* space = MutableSpace(space_id);
+  if (!space) {
+    return {};
+  }
+  std::vector<Item>* list = &space->pinned;
+  if (!parent_folder_id.empty()) {
+    Item* folder = FindInMutable(space->pinned, parent_folder_id);
+    if (!folder || !folder->is_folder) {
+      return {};
+    }
+    folder->expanded = true;
+    list = &folder->children;
+  }
+  Item folder;
+  folder.id = NewUuid();
+  folder.is_folder = true;
+  folder.title = title;
+  folder.last_active = NowSeconds();
+  list->push_back(std::move(folder));
+  dirty_ = true;
+  return list->back().id;
+}
+
+bool Store::SetFolderExpanded(const std::string& folder_id, bool expanded) {
+  Item* folder = MutableItem(folder_id);
+  if (!folder || !folder->is_folder) {
+    return false;
+  }
+  if (folder->expanded != expanded) {
+    folder->expanded = expanded;
+    dirty_ = true;
+  }
+  return true;
+}
+
+bool Store::MoveItem(const std::string& item_id,
+                     const SidebarDestination& destination,
+                     std::optional<size_t> index) {
+  const SidebarSection section = destination.section;
+  std::vector<Item>* source = nullptr;
+  if (IsFavorite(item_id)) {
+    source = &state_.favorites;
+  } else if (const Space* space = SpaceOf(item_id)) {
+    Space* mutable_space = MutableSpace(space->id);
+    source = FindIn(space->pinned, item_id) ? &mutable_space->pinned
+                                           : &mutable_space->today;
+  }
+  if (!source || !MutableSidebarList(destination)) {
+    return false;
+  }
+
+  Item* item = FindInMutable(*source, item_id);
+  if (section != SidebarSection::kFavorites) {
+    if (const Item* split = SplitWithPane(*source, item_id)) {
+      item = FindInMutable(*source, split->id);
+    }
+  }
+  if ((section == SidebarSection::kFavorites && !item->IsTab()) ||
+      (section == SidebarSection::kToday && item->is_folder) ||
+      (section == SidebarSection::kFolder &&
+       (item->id == destination.folder_id ||
+        FindIn(item->children, destination.folder_id)))) {
+    return false;
+  }
+
+  Item moved;
+  const std::string moving_id = item->id;
+  RemoveFrom(*source, moving_id, &moved);
+  // Erasing an item can shift the destination folder in its owning vector.
+  auto& target = *MutableSidebarList(destination);
+  UpdatePinnedAddresses(moved, section != SidebarSection::kToday);
+  const size_t slot = std::min(index.value_or(target.size()), target.size());
+  target.insert(target.begin() + static_cast<std::ptrdiff_t>(slot),
+                std::move(moved));
+  PruneSavedSelections();
+  dirty_ = true;
+  return true;
 }
 
 std::string Store::AddTab(const std::string& space_id, const std::string& url,
@@ -238,17 +454,15 @@ std::string Store::AddTab(const std::string& space_id, const std::string& url,
 }
 
 Store::CloseResult Store::CloseTab(const std::string& item_id) {
-  if (IsFavorite(item_id)) {
+  if (IsFavorite(item_id) || IsPinned(item_id)) {
+    dirty_ = ResetPinnedAddress(*MutableItem(item_id)) || dirty_;
     return CloseResult::kKeptPinned;
   }
+  // The supplied id may refer to an item erased by RemoveFrom.
+  const std::string id = item_id;
   for (Space& sp : state_.spaces) {
-    if (FindIn(sp.pinned, item_id)) {
-      return CloseResult::kKeptPinned;
-    }
-    if (RemoveFrom(sp.today, item_id)) {
-      if (sp.selected_id == item_id) {
-        sp.selected_id.reset();
-      }
+    if (RemoveFrom(sp.today, id)) {
+      PruneSavedSelections();
       dirty_ = true;
       return CloseResult::kRemoved;
     }
@@ -313,6 +527,103 @@ void Store::Touch(const std::string& item_id, int64_t now_seconds) {
   }
 }
 
+std::vector<ArchivedTab> Store::ArchiveStale(
+    int64_t now_seconds, double older_than_hours,
+    const std::set<std::string>& protected_ids,
+    std::vector<std::string>* removed_tab_ids) {
+  std::vector<ArchivedTab> archived;
+  if (removed_tab_ids) {
+    removed_tab_ids->clear();
+  }
+  bool removed = false;
+  for (Space& space : state_.spaces) {
+    const auto can_archive = [&](const Item& tab) {
+      return tab.IsTab() && !protected_ids.contains(tab.id) &&
+             IsPastIdleLimit(tab.last_active, now_seconds, older_than_hours * 3600);
+    };
+    const auto archive_tab = [&](const Item& tab) {
+      if (tab.url && IsWebAddress(*tab.url)) {
+        archived.push_back({*tab.url, tab.DisplayTitle(), space.id, now_seconds});
+      }
+      if (removed_tab_ids) {
+        removed_tab_ids->push_back(tab.id);
+      }
+    };
+    std::erase_if(space.today, [&](const Item& entry) {
+      if (entry.IsSplit()) {
+        if (entry.children.empty() || protected_ids.contains(entry.id) ||
+            !std::all_of(entry.children.begin(), entry.children.end(), can_archive)) {
+          return false;
+        }
+        for (const Item& pane : entry.children) {
+          archive_tab(pane);
+        }
+      } else {
+        if (!can_archive(entry)) {
+          return false;
+        }
+        archive_tab(entry);
+      }
+      removed = true;
+      return true;
+    });
+  }
+  if (removed) {
+    PruneSavedSelections();
+    dirty_ = true;
+  }
+  std::reverse(archived.begin(), archived.end());
+  return archived;
+}
+
+Space* Store::MutableSpace(const std::string& space_id) {
+  for (Space& space : state_.spaces) {
+    if (space.id == space_id) {
+      return &space;
+    }
+  }
+  return nullptr;
+}
+
+std::vector<Item>* Store::MutableSidebarList(
+    const SidebarDestination& destination) {
+  if (destination.section == SidebarSection::kFavorites) {
+    return &state_.favorites;
+  }
+  Space* space = MutableSpace(destination.space_id);
+  if (!space) {
+    return nullptr;
+  }
+  if (destination.section == SidebarSection::kPinned) {
+    return &space->pinned;
+  }
+  if (destination.section == SidebarSection::kToday) {
+    return &space->today;
+  }
+  Item* folder = FindInMutable(space->pinned, destination.folder_id);
+  return folder && folder->is_folder ? &folder->children : nullptr;
+}
+
+void Store::PruneSavedSelections() {
+  const auto valid = [&](const std::string& space_id, const std::string& item_id) {
+    const Space* space = FindSpace(space_id);
+    return space && (IsFavorite(item_id) || FindIn(space->pinned, item_id) ||
+                     FindIn(space->today, item_id));
+  };
+  for (Space& space : state_.spaces) {
+    if (space.selected_id && !valid(space.id, *space.selected_id)) {
+      space.selected_id.reset();
+    }
+  }
+  if (state_.windows) {
+    for (BrowserWindowState& window : *state_.windows) {
+      std::erase_if(window.selections, [&](const auto& selection) {
+        return !valid(selection.first, selection.second);
+      });
+    }
+  }
+}
+
 Item* Store::MutableItem(const std::string& item_id) {
   if (Item* f = FindInMutable(state_.favorites, item_id)) {
     return f;
@@ -329,3 +640,9 @@ Item* Store::MutableItem(const std::string& item_id) {
 }
 
 }  // namespace birch::core
+
+namespace birch::core {
+void Store::SetSidebarCollapsed(bool collapsed) {
+  if(state_.sidebar_collapsed!=collapsed) {state_.sidebar_collapsed=collapsed;dirty_=true;}
+}
+}

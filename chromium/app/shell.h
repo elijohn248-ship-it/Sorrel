@@ -44,6 +44,10 @@ class Shell : public ui::WindowHost {
   // ui::WindowHost
   void StoreChanged(ui::MainWindow* window) override;
   void OpenPrivateWindow() override { OpenPrivate(); }
+  std::set<std::string> ProtectedTabs(bool archive = true) const override;
+  bool FocusExistingTab(ui::MainWindow* source,const std::string& id) override;
+  void EvictTab(const std::string& id) override;
+  bool HasLiveTab(const std::string& id) const override;
   void WindowClosing(ui::MainWindow* window) override;
   void WindowDestroyed(ui::MainWindow* window) override;
 

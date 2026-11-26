@@ -29,6 +29,7 @@ constexpr size_t kMaxTextBytes = 4096;
 
 // UI -> app.
 enum class Kind {
+  kSidebarAction,   // sidebar.action: typed sidebar operation
   kUiReady,         // ui.ready        {}
   kTabSelect,       // tab.select      {id: uuid}
   kTabClose,        // tab.close       {id: uuid}
@@ -46,6 +47,9 @@ struct Message {
   std::string name;
   std::string id;    // tab.select / tab.close: an item id, uppercase UUID
   std::string text;  // address.submit
+  std::string action, target, extra;
+  size_t index = 0;
+  double value = 0;
 };
 
 struct ParseResult {
@@ -66,6 +70,10 @@ std::vector<std::string> Names();
 // box text (real origin) and the selected tab's full address for editing.
 struct SidebarState {
   std::string space_title;
+  std::vector<Space> spaces;
+  std::string current_space, sidebar_mode = "pinned";
+  Theme theme;
+  double reveal_width = 14, overshoot = 90, hide_delay = .12, slide_speed = .2;
   bool is_private = false;
   std::vector<std::string> colors;  // the space's "#RRGGBB" colours
   std::string background;           // "#RRGGBB": the page card's surround

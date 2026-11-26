@@ -56,6 +56,8 @@ class Profile {
   // Cookies, cache, storage and history live in memory and go when the last
   // page using it closes.
   static std::shared_ptr<Profile> NewPrivate();
+  // Stable, isolated normal-space storage; UUIDs only, never paths from UI.
+  static std::shared_ptr<Profile> ForSpace(const std::string& profile_id);
 
   bool is_private() const { return private_; }
   CefRefPtr<CefRequestContext> context() const { return context_; }
@@ -112,6 +114,8 @@ class Page {
   bool CanGoBack() const;
   bool CanGoForward() const;
   bool IsLoading() const;
+  // Native media/capture facts only; unknown monitoring state refuses sleep.
+  bool SafeToSleep() const;
   bool HasBrowser() const;
   const std::string& committed_url() const;
   const std::string& title() const;

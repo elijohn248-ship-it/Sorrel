@@ -8,6 +8,7 @@
 #include "include/views/cef_fill_layout.h"
 
 #include "core/codec.h"
+#include "core/json.h"
 #include "core/typed_url.h"
 #include "core/ui_channel.h"
 #include "platform/platform.h"
@@ -126,6 +127,7 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   CefRefPtr<CefBoxLayout> layout = window_->SetToBoxLayout(row);
 
   int width = static_cast<int>(ctx_.store->state().sidebar_width);
+  sidebar_mode_ = ctx_.store->state().sidebar_collapsed ? "hidden" : "pinned";
   sidebar_ = std::make_unique<SidebarHost>(this, std::clamp(width, 180, 480),
                                            ctx_.is_private);
   // The page card sits inset in a panel of the space's colour, so it reads
@@ -139,9 +141,13 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   content_ = rounded_card_->view();
   frame_->AddChildView(content_);
   frame_layout->SetFlexForView(content_, 1);
-  window_->AddChildView(sidebar_->view());
+  sidebar_spacer_ = CefPanel::CreatePanel(this);
+  window_->AddChildView(sidebar_spacer_);
   window_->AddChildView(frame_);
   layout->SetFlexForView(frame_, 1);
+  sidebar_overlay_ = window_->AddOverlayView(sidebar_->view(), CEF_DOCKING_MODE_CUSTOM, true);
+  sidebar_overlay_->SetVisible(true);
+  LayoutSidebar();
   rounded_card_->Attach(window_);
   ApplySurroundColor();
 
@@ -161,6 +167,7 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
     PostUi([self = CefRefPtr<MainWindow>(this)] { self->StartNewTab(); });
   }
   Refresh();
+  ScheduleMaintenance(20000);
   window_->Show();
 }
 
@@ -269,6 +276,7 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
 
 void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) {
   destroyed_ = true;
+  sidebar_overlay_ = nullptr; sidebar_spacer_ = nullptr;
   rounded_card_.reset();
   pages_.clear();
   closing_.clear();
@@ -309,6 +317,7 @@ void MainWindow::SelectTab(const std::string& item_id) {
   if (destroyed_ || !ctx_.store->FindItem(item_id)) {
     return;
   }
+  if (ctx_.host->FocusExistingTab(this,item_id)) return;
   if (const core::Space* sp = ctx_.store->SpaceOf(item_id)) {
     ctx_.session.current_space_id = sp->id;
   }
@@ -329,7 +338,14 @@ void MainWindow::ShowPage(const std::string& item_id) {
                                         : std::string("about:blank");
     Live live;
     live.observer = std::make_unique<TabObserver>(this, item_id);
-    live.page = engine::Page::Create(ctx_.profile, url, live.observer.get());
+    auto profile = ctx_.profile;
+    if (!ctx_.is_private) {
+      const core::Space* owner = ctx_.store->SpaceOf(item_id);
+      // Favorites deliberately use the shared normal login store.
+      profile = owner && owner->profile_id ? engine::Profile::ForSpace(*owner->profile_id)
+                                          : engine::Profile::Normal();
+    }
+    live.page = engine::Page::Create(profile, url, live.observer.get());
     content_->AddChildView(live.page->view());
     pages_[item_id] = std::move(live);
   }
@@ -411,6 +427,7 @@ void MainWindow::UpdateTitle() {
 }
 
 void MainWindow::PageLoading(const std::string& id) {
+  if (auto* page = PageFor(id); page && !page->IsLoading()) ctx_.store->Touch(id,core::NowSeconds());
   if (selected_id() == id) {
     Refresh();
   }
@@ -456,6 +473,12 @@ void MainWindow::PushSidebar() {
   std::optional<std::string> url = sel ? UrlOf(*sel) : std::nullopt;
   core::ui_channel::SidebarState st;
   st.space_title = space_title();
+  st.spaces = ctx_.store->state().spaces; st.current_space = space.id;
+  st.theme = space.theme; st.sidebar_mode = sidebar_mode_;
+  st.reveal_width = ctx_.settings->sidebarHoverEdgeWidth;
+  st.overshoot = ctx_.settings->sidebarOvershootReach;
+  st.hide_delay = ctx_.settings->sidebarHideDelay;
+  st.slide_speed = ctx_.settings->sidebarAnimationDuration;
   st.is_private = ctx_.is_private;
   st.colors = space.theme.colors;
   st.background = core::ui_channel::SurroundColor(st.colors, ctx_.is_private);
@@ -582,3 +605,13 @@ std::string MainWindow::AddressForEditing() const {
 }
 
 }  // namespace birch::ui
+
+namespace birch::ui {
+void MainWindow::SleepPage(const std::string& id) {
+  auto it=pages_.find(id);
+  if(it==pages_.end()) return;
+  if(auto view=it->second.page->view()) view->SetVisible(false);
+  it->second.page->Close();
+  closing_.push_back(std::move(it->second));pages_.erase(it);
+}
+}

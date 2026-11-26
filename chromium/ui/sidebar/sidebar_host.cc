@@ -61,6 +61,9 @@ bool SidebarHost::IsShownTab(const std::string& id) const {
 
 void SidebarHost::OnUiMessage(const uc::Message& m) {
   switch (m.kind) {
+    case uc::Kind::kSidebarAction:
+      actions_->SidebarAction(m);
+      break;
     case uc::Kind::kUiReady:
       page_->Send("state", uc::SidebarStateJson(state_));
       if (focus_pending_ || new_tab_mode_) {

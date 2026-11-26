@@ -15,6 +15,8 @@
 #include "include/views/cef_browser_view_delegate.h"
 #include "include/views/cef_panel.h"
 
+#include "core/codec.h"
+#include <map>
 #include "engine/cef/internal.h"
 #include "engine/engine.h"
 #include "engine/privacy/privacy.h"
@@ -135,6 +137,23 @@ std::shared_ptr<Profile> Profile::NewPrivate() {
                                              new PrivateContextHandler()));
 }
 
+std::shared_ptr<Profile> Profile::ForSpace(const std::string& profile_id) {
+  std::string id;
+  if (!core::ParseUuid(profile_id, &id)) return Normal();
+  static std::map<std::string, std::shared_ptr<Profile>> profiles;
+  auto found = profiles.find(id);
+  if (found != profiles.end()) return found->second;
+  CefRequestContextSettings settings;
+  if (!platform::IsTestRun() || platform::EnvOn("BIRCH_PERSIST")) {
+    CefString(&settings.cache_path) = core::JoinPath(
+      core::JoinPath(platform::ProfileDir(), "Chromium"), "Space-" + id);
+  }
+  auto profile = std::make_shared<Profile>(false,
+    CefRequestContext::CreateContext(settings, new PrivateContextHandler()));
+  profiles[id] = profile;
+  return profile;
+}
+
 // ---- the per-page client ----------------------------------------------------------------
 
 class Page::Client : public CefClient,
@@ -238,9 +257,11 @@ class Page::Client : public CefClient,
   void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
     browser_ = browser;
     NoteBrowserCreated();
-    if (platform::IsTestRun()) {
-      devtools_ = browser->GetHost()->AddDevToolsMessageObserver(this);
-    }
+    devtools_ = browser->GetHost()->AddDevToolsMessageObserver(this);
+    // Native lifecycle observations only. No evaluation, page binding or
+    // page-controlled command. Retain media pages conservatively until closed.
+    browser->GetHost()->ExecuteDevToolsMethod(1, "Media.enable", nullptr);
+    browser->GetHost()->ExecuteDevToolsMethod(2, "WebAudio.enable", nullptr);
   }
   bool DoClose(CefRefPtr<CefBrowser>) override {
     if (!closing_single_ || window_closing_) {
@@ -382,10 +403,22 @@ class Page::Client : public CefClient,
     return true;
   }
 
-  // CefDevToolsMessageObserver (test runs only)
+  void OnMediaAccessChange(CefRefPtr<CefBrowser>, bool video, bool audio) override {
+    capturing_ = video || audio;
+  }
+  void OnDevToolsEvent(CefRefPtr<CefBrowser>, const CefString& method,
+                       const void*, size_t) override {
+    auto name = method.ToString();
+    if (name == "Media.playersCreated" || name == "WebAudio.contextCreated")
+      has_media_ = true;
+  }
+  // The only production calls are fixed native media subscriptions above.
+  // Arbitrary protocol calls below remain restricted to scratch-profile tests.
   void OnDevToolsMethodResult(CefRefPtr<CefBrowser>, int message_id,
                               bool success, const void* result,
                               size_t result_size) override {
+    if (message_id == 1) { media_monitor_ = success; return; }
+    if (message_id == 2) { audio_monitor_ = success; return; }
     auto it = pending_.find(message_id);
     if (it == pending_.end()) {
       return;
@@ -414,6 +447,7 @@ class Page::Client : public CefClient,
   CefRefPtr<CefBrowser> browser_;
   CefRefPtr<CefRegistration> devtools_;
   std::string committed_url_, title_;
+  bool has_media_ = false, capturing_ = false, media_monitor_ = false, audio_monitor_ = false;
   bool loading_ = false, can_back_ = false, can_forward_ = false;
   bool closing_single_ = false, window_closing_ = false, closed_ = false;
   std::map<int, DevToolsCallback> pending_;
@@ -515,6 +549,10 @@ const std::string& Page::committed_url() const {
 }
 const std::string& Page::title() const {
   return client_->title_;
+}
+bool Page::SafeToSleep() const {
+  return client_->media_monitor_ && client_->audio_monitor_ && !client_->has_media_ &&
+    !client_->capturing_ && !client_->loading_;
 }
 bool Page::closed() const {
   return client_->closed_;

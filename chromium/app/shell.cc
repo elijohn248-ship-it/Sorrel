@@ -60,16 +60,13 @@ void Shell::Load(const std::string& profile_dir) {
 void Shell::OnEngineReady() {
   engine::SetBrowserClosedListener([this] { MaybeQuit(); });
   std::vector<core::WindowSession> sessions = store_->RestoreWindows();
-  // The wave-2 shell opens one normal window: the first saved one.
-  ui::WindowContext ctx;
-  ctx.store = store_.get();
-  ctx.session = sessions.front();
-  ctx.profile = engine::Profile::Normal();
-  ctx.settings = &settings_;
-  ctx.host = this;
-  CefRefPtr<ui::MainWindow> w = new ui::MainWindow(ctx);
-  windows_.push_back(w);
-  w->Open();
+  for (const auto& session : sessions) {
+    ui::WindowContext ctx;
+    ctx.store = store_.get(); ctx.session = session;
+    ctx.profile = engine::Profile::Normal(); ctx.settings = &settings_; ctx.host = this;
+    CefRefPtr<ui::MainWindow> w = new ui::MainWindow(ctx);
+    windows_.push_back(w); w->Open();
+  }
   if (platform::IsTestRun()) {
     tests::StartTests();
   }
@@ -240,3 +237,32 @@ void Shell::FinalSave() {
 }
 
 }  // namespace birch::app
+
+namespace birch::app {
+std::set<std::string> Shell::ProtectedTabs(bool archive) const {
+  std::set<std::string> ids;
+  for (const auto& window: windows_) {
+    auto visible = window->VisibleTabs(); ids.insert(visible.begin(),visible.end());
+    if(archive) for (const auto& pair: window->session().selections) ids.insert(pair.second);
+  }
+  return ids;
+}
+bool Shell::FocusExistingTab(ui::MainWindow* source,const std::string& id) {
+  if (source->is_private()) return false;
+  for (const auto& window: windows_) if (window.get()!=source && !window->is_private() &&
+      !window->destroyed() && window->VisibleTabs().count(id)) {
+    window->Activate(); return true;
+  }
+  return false;
+}
+bool Shell::HasLiveTab(const std::string& id) const {
+  for (const auto& window: windows_) if (window->PageFor(id)) return true;
+  return false;
+}
+} // namespace birch::app
+
+namespace birch::app {
+void Shell::EvictTab(const std::string& id) {
+  for(const auto& window:windows_) window->SleepPage(id);
+}
+}

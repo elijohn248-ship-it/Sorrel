@@ -1,8 +1,11 @@
 #include "core/ui_channel.h"
 
 #include <cstdio>
+#include <cmath>
+#include <set>
 
 #include "core/codec.h"
+#include "core/theme.h"
 #include "core/json.h"
 
 namespace birch::core::ui_channel {
@@ -123,6 +126,27 @@ ParseResult Parse(const std::string& name, const std::string& args_json) {
       schema = &s;
     }
   }
+  if (name == "sidebar.action") {
+    if (args_json.size() > kMaxArgsBytes) return Refuse("arguments too large");
+    Json a;
+    if (!ParseJson(args_json, &a) || !a.is_object() || a.size() != 7)
+      return Refuse("bad sidebar arguments");
+    for (const char* key : {"action", "id", "target", "text", "extra"}) {
+      if (!a.contains(key) || !a[key].is_string() || !TextOk(a[key].get<std::string>()))
+        return Refuse("bad sidebar text");
+    }
+    if (!a.contains("index") || !a["index"].is_number_integer() ||
+        a["index"].get<double>() < 0 || a["index"].get<double>() > 1000000 ||
+        !a.contains("value") || !a["value"].is_number() || !std::isfinite(a["value"].get<double>()))
+      return Refuse("bad sidebar number");
+    static const std::set<std::string> actions = {"space.select", "space.create", "space.edit",
+      "space.move", "folder.create", "folder.toggle", "item.move", "sidebar.mode", "archive.now", "tabs.sleepNow"};
+    if (!actions.count(a["action"].get<std::string>())) return Refuse("unknown sidebar action");
+    Message m; m.kind = Kind::kSidebarAction; m.name = name;
+    m.action = a["action"]; m.id = a["id"]; m.target = a["target"];
+    m.text = a["text"]; m.extra = a["extra"]; m.index = a["index"].get<size_t>(); m.value = a["value"];
+    return {std::move(m), {}};
+  }
   if (!schema) {
     return Refuse("unknown name");
   }
@@ -172,6 +196,7 @@ std::vector<std::string> Names() {
   for (const Schema& s : Schemas()) {
     out.push_back(s.name);
   }
+  out.push_back("sidebar.action");
   return out;
 }
 
@@ -182,7 +207,8 @@ std::string SidebarStateJson(const SidebarState& s) {
                     {"id", r.item_id},
                     {"target", r.target_id},
                     {"title", r.title},
-                    {"depth", r.depth}});
+                    {"depth", r.depth}, {"parent",r.parent_id}, {"index",r.index},
+                    {"expanded",r.expanded}, {"section",r.section}});
   }
   Json colors = Json::array();
   for (const std::string& c : s.colors) {
@@ -208,6 +234,25 @@ std::string SidebarStateJson(const SidebarState& s) {
                 {"forward", s.can_go_forward},
                 {"reload", s.can_reload},
                 {"loading", s.loading}}}};
+  Json spaces = Json::array();
+  for (const Space& sp : s.spaces) spaces.push_back({{"id",sp.id},{"name",sp.name},{"icon",sp.icon}});
+  out["spaces"] = spaces; out["currentSpace"] = s.current_space; out["sidebarMode"] = s.sidebar_mode;
+  out["settings"] = {{"sidebarHoverEdgeWidth",s.reveal_width},{"sidebarOvershootReach",s.overshoot},
+    {"sidebarHideDelay",s.hide_delay},{"sidebarAnimationDuration",s.slide_speed}};
+  out["theme"] = {{"colors",s.theme.colors},{"angle",s.theme.angle},{"intensity",s.theme.intensity},
+    {"grain",GrainAmount(s.theme)},{"brightness",s.theme.brightness.value_or(0)},
+    {"separateLogins",false}};
+  for (bool dark : {false,true}) {
+    Json stops=Json::array(), locations=Json::array();
+    auto gradient=GradientStops(s.theme,dark);
+    for (size_t i=0;i<gradient.size();++i) {
+      const auto& c=gradient[i]; stops.push_back({{"r",c.r},{"g",c.g},{"b",c.b},{"a",1}});
+      locations.push_back(static_cast<double>(i)/15);
+    }
+    out["theme"][dark?"dark":"light"]={{"stops",stops},{"locations",locations},{"grain",GrainAmount(s.theme)}};
+  }
+  for (const Space& sp : s.spaces) if (sp.id == s.current_space)
+    out["theme"]["separateLogins"] = sp.profile_id.has_value();
   return out.dump(-1, ' ', false, Json::error_handler_t::replace);
 }
 

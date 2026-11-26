@@ -10,10 +10,12 @@
 #define BIRCH_CORE_STORE_H_
 
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "core/archive_history.h"
 #include "core/model.h"
 
 namespace birch::core {
@@ -38,6 +40,18 @@ struct SidebarRow {
   std::string target_id;  // the tab a click selects ("" = not selectable)
   std::string title;
   int depth = 0;
+  std::string parent_id;  // folder id for nested rows
+  size_t index = 0;       // position within the section or folder
+  bool expanded = false;
+  std::string section;   // favorites, pinned or today
+};
+
+enum class SidebarSection { kFavorites, kPinned, kToday, kFolder };
+
+struct SidebarDestination {
+  SidebarSection section;
+  std::string space_id;   // ignored for favorites
+  std::string folder_id;  // used only for kFolder
 };
 
 class Store {
@@ -67,9 +81,34 @@ class Store {
   // The space holding |item_id| (nullptr for favorites or unknown).
   const Space* SpaceOf(const std::string& item_id) const;
   bool IsFavorite(const std::string& item_id) const;
+  bool IsPinned(const std::string& item_id) const;
+  void SetSidebarCollapsed(bool collapsed);
   // Rows for the plain sidebar: favorites, pinned (folders expanded),
   // separator, today.
   std::vector<SidebarRow> SidebarRows(const std::string& space_id) const;
+
+  // ---- sidebar editing ------------------------------------------------------------
+  // The caller selects a new space in its window session.
+  std::string AddSpace(const std::string& name = "New Space",
+                       const std::string& icon = "✨",
+                       const std::optional<Theme>& theme = std::nullopt);
+  bool EditSpace(const std::string& space_id,
+                 const std::optional<std::string>& name,
+                 const std::optional<std::string>& icon,
+                 const std::optional<Theme>& theme = std::nullopt);
+  bool MoveSpace(const std::string& space_id, size_t index);
+  // The caller must rebuild any live pages with the new engine context.
+  bool SetSeparateLogins(const std::string& space_id, bool separate);
+  std::string AddFolder(const std::string& space_id,
+                        const std::string& title = "New Folder",
+                        const std::string& parent_folder_id = {});
+  bool SetFolderExpanded(const std::string& folder_id, bool expanded);
+  // The index is the final slot within the destination, after removal.
+  // With no index the item goes at the end. Panes move with their split
+  // unless an individual pane is moved to favorites.
+  bool MoveItem(const std::string& item_id,
+                const SidebarDestination& destination,
+                std::optional<size_t> index = std::nullopt);
 
   // ---- tab operations -------------------------------------------------------------
   // A new unpinned tab at the top of |space_id|'s today list. Returns its id.
@@ -89,8 +128,17 @@ class Store {
                   const std::optional<std::string>& url,
                   const std::optional<std::string>& title);
   void Touch(const std::string& item_id, int64_t now_seconds);
+  // Protect every visible pane and the focused window's per-space selections.
+  // Returns newest-first HTTP(S) records and optionally all removed leaf IDs.
+  std::vector<ArchivedTab> ArchiveStale(
+      int64_t now_seconds, double older_than_hours,
+      const std::set<std::string>& protected_ids,
+      std::vector<std::string>* removed_tab_ids = nullptr);
 
  private:
+  Space* MutableSpace(const std::string& space_id);
+  std::vector<Item>* MutableSidebarList(const SidebarDestination& destination);
+  void PruneSavedSelections();
   Item* MutableItem(const std::string& item_id);
 
   AppState state_;
