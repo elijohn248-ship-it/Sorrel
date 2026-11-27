@@ -8,14 +8,14 @@ name: linux-test-updater
 
 on:
   push:
-    branches: [codex/linux-test-updater]
+    branches: [codex/linux-test-updater, codex/linux-sidebar-polish]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: codex/linux-test-updater
+  group: linux-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -328,6 +328,12 @@ def test_sidebar():
            "PASS" if ok else "FAIL", ev)
 
 
+def test_sidebar_layout():
+    run = run_app("sidebarlayout", {"BIRCH_TEST": "sidebarlayout"}, 160)
+    record("sidebar hover dismissal and layout through resize and fullscreen",
+           "PASS" if passed(run) else "FAIL", check_lines(run))
+
+
 def test_restore(shell_run):
     state = os.path.join(shell_run["home"], "state.json")
     if not os.path.exists(state):
@@ -690,6 +696,8 @@ def main():
             test_updateui()
         if want("sidebar"):
             test_sidebar()
+        if want("sidebarlayout"):
+            test_sidebar_layout()
         if want("corrupt"):
             test_corrupt()
         if want("private"):

@@ -23,7 +23,7 @@ Still to check by hand (owner): a clicked download starts without a prompt; the 
 
 ## Open
 
-_None._
+- **Chromium sidebar hover/fullscreen and washed-out colours (owner, 2026-11-26):** Repro: on Zorin, hide the sidebar, reveal it at the left edge, move back onto the page; also enter fullscreen and compare a vivid space theme with Mac. Expected: the hover overlay hides after the configured delay, its controls stay inside the window at every size, and colours/grain retain the chosen theme. Actual: owner reports the sidebar stays open, fullscreen does not fit, and colours look dimmer/softer. Investigation and scratch-profile regressions pending. **Editions:** Chromium (CEF overlay/HTML rendering); Mac reference behaviour already exists.
 
 ## Fixed
 

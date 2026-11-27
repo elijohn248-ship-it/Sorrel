@@ -220,6 +220,26 @@ BIRCH_TEST_SCENARIO(sidebar) {
     Check("sidebar settings applied",app::Shell::Get().settings().sidebarHoverEdgeWidth==18 &&
       app::Shell::Get().settings().sidebarHideDelay==.24);
   });
+  SidebarEvalStep("read the color and grain blends by sidebar mode", Main,
+                  "theme-blend", R"js((() => {
+    const mode = document.body.dataset.mode;
+    const surface = document.getElementById('sidebar-surface');
+    const grain = document.getElementById('grain');
+    const gutter = 'calc(100% - 8px)';
+    document.body.dataset.mode = 'pinned';
+    const pinned = getComputedStyle(surface).backgroundImage.includes(gutter) &&
+                   getComputedStyle(grain).maskImage.includes(gutter);
+    document.body.dataset.mode = 'peeking';
+    const floatingBackground = getComputedStyle(surface).backgroundImage;
+    const floating = floatingBackground.match(/linear-gradient\(/g)?.length === 1 &&
+                     getComputedStyle(grain).maskImage === 'none';
+    document.body.dataset.mode = mode;
+    return [pinned, floating].join('|');
+  })())js");
+  Then("verify space colors reach the sidebar gutter", [] {
+    Expect("sidebar", "blend limited to the pinned gutter and absent while peeking",
+           "true|true", Value("theme-blend"));
+  });
   const auto second=std::make_shared<CefRefPtr<ui::MainWindow>>();
   Do("open a second normal window",[second] {*second=app::Shell::Get().OpenNormal();},
      [second] {return *second && (*second)->sidebar_page() && (*second)->sidebar_page()->ready();});
