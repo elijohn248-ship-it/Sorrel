@@ -20,26 +20,6 @@ namespace birch::ui {
 
 namespace {
 
-// Commands, named after the Mac's command ids (spec/keybindings.md). The
-// Windows/Linux mapping of the Mac's Cmd is Ctrl. Wave-3 agent 6 replaces this
-// fixed table with the keybindings registry.
-enum Command {
-  kTabNew = 1,      // tab.new        Ctrl+T
-  kTabClose,        // tab.close      Ctrl+W
-  kTabEditUrl,      // tab.editURL    Ctrl+L
-  kTabReload,       // tab.reload     Ctrl+R
-  kTabReloadF5,     //                F5
-  kNavBack,         // nav.back       Alt+Left
-  kNavForward,      // nav.forward    Alt+Right
-  kPrivateNew,      // private.new    Ctrl+Shift+N
-  kWindowClose,
-  kWindowNew, kSpaceNext, kSpacePrevious, kSidebarToggle,
-  kSpaceFirst = 100,     // window.close   Ctrl+Shift+W
-};
-
-// Windows virtual-key codes (CEF uses them on every OS).
-constexpr int kVkLeft = 0x25, kVkRight = 0x27, kVkF5 = 0x74;
-
 class FnTask : public CefTask {
  public:
   explicit FnTask(std::function<void()> fn) : fn_(std::move(fn)) {}
@@ -152,25 +132,14 @@ void MainWindow::OnWindowCreated(CefRefPtr<CefWindow> window) {
   layout->SetFlexForView(frame_, 1);
   sidebar_overlay_ = window_->AddOverlayView(sidebar_->view(), CEF_DOCKING_MODE_CUSTOM, true);
   sidebar_overlay_->SetVisible(true);
+  bar_ = std::make_unique<CommandBarHost>(this, ctx_.is_private);
+  bar_overlay_ = window_->AddOverlayView(bar_->view(), CEF_DOCKING_MODE_CUSTOM, true);
+  bar_overlay_->SetVisible(false);
   LayoutSidebar();
   rounded_card_->Attach(window_);
   ApplySurroundColor();
 
-  window_->SetAccelerator(kTabNew, 'T', false, true, false, true);
-  window_->SetAccelerator(kTabClose, 'W', false, true, false, true);
-  window_->SetAccelerator(kTabEditUrl, 'L', false, true, false, true);
-  window_->SetAccelerator(kTabReload, 'R', false, true, false, true);
-  window_->SetAccelerator(kTabReloadF5, kVkF5, false, false, false, true);
-  window_->SetAccelerator(kNavBack, kVkLeft, false, false, true, true);
-  window_->SetAccelerator(kNavForward, kVkRight, false, false, true, true);
-  window_->SetAccelerator(kPrivateNew, 'N', true, true, false, true);
-  window_->SetAccelerator(kWindowClose, 'W', true, true, false, true);
-
-  window_->SetAccelerator(kWindowNew,'N',false,true,false,true);
-  window_->SetAccelerator(kSpaceNext,kVkRight,false,true,true,true);
-  window_->SetAccelerator(kSpacePrevious,kVkLeft,false,true,true,true);
-  window_->SetAccelerator(kSidebarToggle,'S',false,true,false,true);
-  for(int i=0;i<9;++i) window_->SetAccelerator(kSpaceFirst+i,'1'+i,false,true,true,true);
+  RegisterShortcuts();
   if (std::optional<std::string> sel = selected_id()) {
     SelectTab(*sel);
   } else if (ctx_.is_private) {
@@ -222,37 +191,20 @@ void MainWindow::OnThemeChanged(CefRefPtr<CefView> view) {
 }
 
 bool MainWindow::OnAccelerator(CefRefPtr<CefWindow>, int command_id) {
-  if(command_id>=kSpaceFirst && command_id<kSpaceFirst+9)
-    return RunCommand("space."+std::to_string(command_id-kSpaceFirst+1));
-  switch (command_id) {
-    case kWindowNew: return RunCommand("window.new");
-    case kSpaceNext: return RunCommand("space.next");
-    case kSpacePrevious: return RunCommand("space.previous");
-    case kSidebarToggle: return RunCommand("sidebar.toggle");
-    case kTabNew:
-      return RunCommand("tab.new");
-    case kTabClose:
-      return RunCommand("tab.close");
-    case kTabEditUrl:
-      return RunCommand("tab.editURL");
-    case kTabReload:
-    case kTabReloadF5:
-      return RunCommand("tab.reload");
-    case kNavBack:
-      return RunCommand("nav.back");
-    case kNavForward:
-      return RunCommand("nav.forward");
-    case kPrivateNew:
-      return RunCommand("private.new");
-    case kWindowClose:
-      return RunCommand("window.close");
-    default:
-      return false;
+  const int index = command_id - kAcceleratorBase;
+  if (index < 0 || static_cast<size_t>(index) >= accel_strokes_.size()) {
+    return false;
   }
+  return HandleStroke(accel_strokes_[static_cast<size_t>(index)]);
 }
 
-bool MainWindow::RunCommand(const std::string& id) {
+bool MainWindow::RunCommand(const std::string& id, bool physical) {
   platform::Log("command: " + id);
+  last_command_ = id;
+  if (id != "tab.new" && id != "tab.editURL" && id != "tab.cycleNext" &&
+      id != "tab.cyclePrevious") {
+    CloseCommandBar(false);  // any other command puts the bar away
+  }
   if (id == "window.new") {
     if(!ctx_.is_private) ctx_.host->OpenNormalWindow();
   } else if (id == "space.next" || id == "space.previous") {
@@ -264,6 +216,8 @@ bool MainWindow::RunCommand(const std::string& id) {
   } else if (id.size()==7 && id.rfind("space.",0)==0 && id[6]>='1' && id[6]<='9') {
     size_t index=static_cast<size_t>(id[6]-'1');
     if(index<ctx_.store->state().spaces.size()) SelectSpace(ctx_.store->state().spaces[index].id);
+  } else if (id.size()==12 && id.rfind("tab.select.",0)==0 && id[11]>='1' && id[11]<='9') {
+    SelectNumbered(static_cast<size_t>(id[11]-'0'));
   } else if (id == "sidebar.toggle") {
     core::ui_channel::Message message;message.action="sidebar.mode";
     message.text=sidebar_mode_=="pinned"?"hidden":"pinned";SidebarAction(message);
@@ -271,12 +225,18 @@ bool MainWindow::RunCommand(const std::string& id) {
     MaintainTabs(id=="archive.now",id=="tabs.sleepNow");
   } else if (id == "tab.new") {
     StartNewTab();
+  } else if (id == "tab.cycleNext" || id == "tab.cyclePrevious") {
+    CycleTabs(id == "tab.cycleNext", physical);
+  } else if (id == "tab.next" || id == "tab.previous") {
+    StepTab(id == "tab.next");
+  } else if (id == "config.reload") {
+    ReloadConfig();
   } else if (id == "tab.close") {
     if (std::optional<std::string> sel = selected_id()) {
       CloseTab(*sel);
     }
   } else if (id == "tab.editURL") {
-    sidebar_->FocusAddress();
+    OpenCommandBar(true);
   } else if (id == "tab.reload") {
     Reload();
   } else if (id == "nav.back") {
@@ -304,6 +264,11 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
       sidebar_overlay_ = nullptr;
     }
     sidebar_->page()->CloseDetached();
+    if (bar_overlay_) {
+      bar_overlay_->Destroy();
+      bar_overlay_ = nullptr;
+    }
+    if (bar_) bar_->page()->CloseDetached();
     ctx_.host->WindowClosing(this);
   }
   bool ready = true;
@@ -319,12 +284,16 @@ bool MainWindow::CanClose(CefRefPtr<CefWindow>) {
     bool r = sidebar_->page()->closed();
     ready = r && ready;
   }
+  if (bar_) {
+    bool r = bar_->page()->closed();
+    ready = r && ready;
+  }
   return ready;
 }
 
 void MainWindow::OnWindowDestroyed(CefRefPtr<CefWindow>) {
   destroyed_ = true;
-  sidebar_overlay_ = nullptr; sidebar_spacer_ = nullptr;
+  sidebar_overlay_ = nullptr; sidebar_spacer_ = nullptr; bar_overlay_ = nullptr;
   rounded_card_.reset();
   pages_.clear();
   closing_.clear();
@@ -366,6 +335,7 @@ void MainWindow::SelectTab(const std::string& item_id) {
     return;
   }
   if (ctx_.host->FocusExistingTab(this,item_id)) return;
+  OnTabSelected(selected_id(), item_id);
   sidebar_->EndAddressEditing();
   if (const core::Space* sp = ctx_.store->SpaceOf(item_id)) {
     ctx_.session.current_space_id = sp->id;
@@ -411,6 +381,7 @@ void MainWindow::CloseTab(const std::string& item_id) {
   if (destroyed_) {
     return;
   }
+  recency_.Forget(item_id);
   std::string space = ctx_.store->CurrentSpace(ctx_.session).id;
   bool was_selected = selected_id() == item_id;
   std::optional<std::string> next =
@@ -595,7 +566,7 @@ std::string MainWindow::space_title() const {
 // ---- WindowActions ---------------------------------------------------------------------
 
 void MainWindow::StartNewTab() {
-  sidebar_->BeginNewTab();
+  OpenCommandBar(false);
 }
 
 void MainWindow::GoBack() {
@@ -625,7 +596,11 @@ void MainWindow::Reload() {
 }
 
 void MainWindow::SubmitAddress(const std::string& text, bool in_new_tab) {
-  std::string url = core::Destination(text, ctx_.settings->searchEngineURL);
+  LoadAddress(core::Destination(text, ctx_.settings->searchEngineURL, &BangsTable()),
+              in_new_tab);
+}
+
+void MainWindow::LoadAddress(const std::string& url, bool in_new_tab) {
   std::optional<std::string> sel = selected_id();
   if (in_new_tab || !sel) {
     NewTab(url, true);

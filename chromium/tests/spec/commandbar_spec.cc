@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <set>
 
@@ -160,17 +159,12 @@ std::vector<CaseOut> RunBangs(const Json& doc) {
     const Json t = doc["table"];
     Bangs b = LoadBangs("", false);
     Sha256 sha;
-    std::string tsv;
     for (const auto& e : b.table()) {
       auto with_query = b.Resolve("!" + e.first + " " + t["query"].get<std::string>());
       auto without = b.Resolve("!" + e.first);
       std::string line = e.first + "\t" + (with_query ? with_query->url : "-") + "\t" +
                          (without ? without->url : "-") + "\n";
       sha.Add(line);
-      tsv += line;
-    }
-    if (const char* path = std::getenv("BIRCH_BANGS_TSV")) {  // for diffing against the Mac's file
-      WriteFileAtomic(path, tsv);
     }
     Json expected = {{"trigger_count", t["trigger_count"]}, {"sha256", t["sha256"]}};
     Json got = {{"trigger_count", b.size()}, {"sha256", sha.Hex()}};

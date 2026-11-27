@@ -162,6 +162,25 @@ void SidebarEvaluate(ui::MainWindow* w, const std::string& key,
   }
 }
 
+// Runtime.evaluate on any UI page (the command bar's); the value lands in |key|.
+void UiEvaluate(engine::UiPage* ui, const std::string& key,
+                const std::string& expression) {
+  g_results.erase(key);
+  CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+  params->SetString("expression", expression);
+  params->SetBool("returnByValue", true);
+  params->SetBool("awaitPromise", true);
+  params->SetBool("userGesture", true);
+  bool sent = ui && ui->DevToolsForTest(
+                        "Runtime.evaluate", params,
+                        [key](bool ok, const std::string& json) {
+                          g_results[key] = ok ? ValueOf(json) : "devtools-error";
+                        });
+  if (!sent) {
+    g_results[key] = "not-sent";
+  }
+}
+
 const char kDomSummary[] =
     "(function(){var r=[].map.call(document.querySelectorAll("
     "'#tabs li.tab:not(.leaving) .title'),function(e){return e.textContent})"
@@ -294,6 +313,27 @@ void SidebarEvalStep(const std::string& name, std::function<ui::MainWindow*()> w
   Do(
       name, [w, key, expression] { SidebarEvaluate(w(), key, expression); },
       [key] { return g_results.count(key) > 0; }, timeout_ms);
+}
+
+void UiEvalStep(const std::string& name, std::function<engine::UiPage*()> page,
+                const std::string& key, const std::string& expression,
+                int timeout_ms) {
+  Do(
+      name, [page, key, expression] { UiEvaluate(page(), key, expression); },
+      [key] { return g_results.count(key) > 0; }, timeout_ms);
+}
+
+void BarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                 const std::string& key, const std::string& text) {
+  UiEvalStep(
+      name, [w] { return w() ? w()->command_bar_page() : nullptr; }, key,
+      "new Promise(function(done){var i=document.getElementById('text'),n=0;"
+      "(function go(){if((document.getElementById('bar').hidden||"
+      "document.activeElement!==i)&&n++<30){setTimeout(go,100);return}"
+      "var f=document.activeElement===i;i.value=" + core::ui_channel::JsonQuote(text) +
+      ";i.dispatchEvent(new Event('input',{bubbles:true}));"
+      "i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));"
+      "done(f?'focused':'not-focused')})()})");
 }
 
 void SidebarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,

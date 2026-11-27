@@ -14,7 +14,7 @@ CefSize MainWindow::GetPreferredSize(CefRefPtr<CefView> view) {
   return CefWindowDelegate::GetPreferredSize(view);
 }
 void MainWindow::OnLayoutChanged(CefRefPtr<CefView> view, const CefRect&) {
-  if (window_ && view->IsSame(window_)) LayoutSidebar();
+  if (window_ && view->IsSame(window_)) { LayoutSidebar(); PlaceBar(); }
 }
 void MainWindow::LayoutSidebar() {
   if (!window_ || !sidebar_spacer_ || !sidebar_overlay_) return;

@@ -282,18 +282,18 @@ BIRCH_TEST_SCENARIO(shell) {
      },
      [] { return M()->new_tab_mode(); }, 5000);
   Then("new-tab mode", [] {
-    Expect("shell", "tab.new puts the address field in new-tab mode", "yes",
+    Expect("shell", "tab.new opens the command bar in new-tab mode", "yes",
            YesNo(M()->new_tab_mode()));
   });
-  SidebarTypeStep("Enter in the sidebar's new-tab field", M, "newtabtyped",
-                  Site("c") + "/page1.html");
+  BarTypeStep("Enter in the command bar", M, "newtabtyped",
+              Site("c") + "/page1.html");
   Do("new tab opens", [] {},
      [] {
        return Settled(SelectedPage(M())) && M()->sidebar_titles().size() == 3;
      });
   Then("third tab", [c] {
     *c = M()->selected_id().value_or("");
-    Expect("shell", "tab.new focuses the sidebar's address field", "focused",
+    Expect("shell", "tab.new focuses the command bar's field", "focused",
            Value("newtabtyped"));
     Expect("shell", "Enter in new-tab mode opens a tab", "c.birch.test|3",
            M()->address_text() + "|" +

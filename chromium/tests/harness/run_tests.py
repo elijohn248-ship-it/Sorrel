@@ -348,6 +348,26 @@ def test_sidebar_layout():
            "PASS" if passed(run) else "FAIL", check_lines(run) + (run["during"] or []))
 
 
+def test_commandbar():
+    """Command bar, bangs, keybindings and Control+Tab (agent 6)."""
+    def shots(proc):
+        paths = []
+        for stage, marker in (("switcher", None), ("bar", "commandbar: bar screenshot")):
+            if marker and not wait_marker(proc, proc.birch_log, marker, timeout=40):
+                break
+            path = os.path.abspath(os.path.join(A.out, f"commandbar-{stage}-{A.platform}.png"))
+            if screenshot(path):
+                paths.append(path)
+        return paths
+
+    run = run_app("commandbar", {"BIRCH_TEST": "commandbar", "BIRCH_HOLD": "2"}, 240,
+                  marker="commandbar: switcher screenshot", during=shots)
+    record("command bar: Ctrl+T/Ctrl+L bar, bangs, suggestions, shortcuts file, Control+Tab switcher",
+           "PASS" if passed(run) else "FAIL",
+           check_lines(run) + [f"screenshots: {run['during']}",
+                               f"exit={run['exit']} clean={run['clean_exit']}"])
+
+
 def test_restore(shell_run):
     state = os.path.join(shell_run["home"], "state.json")
     if not os.path.exists(state):
@@ -712,6 +732,8 @@ def main():
             test_sidebar()
         if want("sidebarlayout"):
             test_sidebar_layout()
+        if want("commandbar"):
+            test_commandbar()
         if want("corrupt"):
             test_corrupt()
         if want("private"):

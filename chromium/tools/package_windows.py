@@ -33,7 +33,7 @@ def main():
             shutil.copy2(p, t)
     shutil.copy(os.path.join(HERE, "..", "resources", "README-windows.txt"),
                 os.path.join(stage, "READ ME.txt"))
-    for needed in ("birch.exe", "birch.dll", "libcef.dll", "birch.png", "licenses"):
+    for needed in ("birch.exe", "birch.dll", "libcef.dll", "birch.png", "bangs.json", "licenses"):
         if not os.path.exists(os.path.join(stage, needed)):
             sys.exit(f"package: {needed} missing")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:

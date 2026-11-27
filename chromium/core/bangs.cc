@@ -1,6 +1,7 @@
 #include "core/bangs.h"
 
 #include <cctype>
+#include <cstddef>
 #include <cstring>
 
 #include "core/codec.h"
@@ -220,7 +221,7 @@ std::optional<BangMatch> Bangs::Resolve(const std::string& text) const {
   if (!found) {
     return std::nullopt;
   }
-  words.erase(words.begin() + static_cast<long>(index));
+  words.erase(words.begin() + static_cast<std::ptrdiff_t>(index));
   std::string query;
   for (size_t i = 0; i < words.size(); ++i) {
     query += (i ? " " : "") + words[i];

@@ -1,0 +1,65 @@
+/* The command bar and the Control+Tab switcher. The page fills an overlay
+   the app sizes to the rows, so the card is the whole page. */
+:root {
+  --card: #f9f8fc;
+  --card-line: rgba(40, 36, 70, 0.16);
+  --chosen: rgba(110, 100, 220, 0.16);
+  --hover: rgba(110, 100, 220, 0.08);
+  --accent: #5a50d6;
+}
+:root.private {
+  --card: #2d2a36;
+  --card-line: rgba(255, 255, 255, 0.16);
+  --chosen: rgba(160, 150, 255, 0.24);
+  --hover: rgba(160, 150, 255, 0.12);
+  --accent: #a9a0ff;
+}
+html, body { background: var(--card); }
+body { border: 1px solid var(--card-line); }
+[hidden] { display: none !important; }
+
+#bar { display: flex; flex-direction: column; height: 100%; }
+.field {
+  display: flex; align-items: center; gap: 10px;
+  height: 56px; padding: 0 16px; flex: none;
+}
+.glass { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--text-soft); stroke-width: 1.6; stroke-linecap: round; }
+#text {
+  flex: 1; min-width: 0; height: 36px; border: 0; outline: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 16px; user-select: text; -webkit-user-select: text;
+}
+#text::placeholder { color: var(--text-soft); }
+#results {
+  list-style: none; margin: 0; padding: 0 8px 8px; overflow: hidden; flex: 1;
+}
+#results:empty { padding: 0; }
+.row {
+  display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 10px;
+  border-radius: 9px; cursor: default;
+}
+.row:hover { background: var(--hover); }
+.row.chosen { background: var(--chosen); }
+.row .icon {
+  width: 22px; height: 22px; flex: none; border-radius: 6px; display: grid; place-items: center;
+  background: var(--hover); color: var(--accent); font-size: 12px; font-weight: 600;
+}
+.row .text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .subtitle { color: var(--text-soft); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .hint { color: var(--text-soft); font-size: 12px; flex: none; }
+
+#switcher { height: 100%; display: flex; align-items: center; padding: 0 12px; overflow: hidden; }
+#tiles { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; width: 100%; }
+.tile {
+  flex: none; width: 148px; height: 92px; border-radius: 12px; padding: 12px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  cursor: default;
+}
+.tile:hover { background: var(--hover); }
+.tile.chosen { background: var(--chosen); box-shadow: inset 0 0 0 2px var(--accent); }
+.tile .avatar {
+  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex: none;
+  background: var(--hover); color: var(--accent); font-size: 16px; font-weight: 600;
+}
+.tile .name { width: 100%; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .host { width: 100%; font-size: 11px; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

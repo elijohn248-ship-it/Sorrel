@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Birch command bar</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/motion.css">
+<link rel="stylesheet" href="commandbar.css">
+<script src="shared/motion.js" defer></script>
+<script src="shared/channel.js" defer></script>
+<script src="commandbar.js" defer></script>
+</head>
+<body>
+<!-- Ctrl+T (centred) and Ctrl+L (in place): type, arrow, Return, Esc -->
+<section id="bar" hidden>
+  <div class="field">
+    <svg class="glass" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+    <input id="text" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Search or enter address" aria-label="Search or enter address"
+           role="combobox" aria-expanded="false" aria-controls="results">
+  </div>
+  <ul id="results" role="listbox" aria-label="Suggestions"></ul>
+</section>
+<!-- Ctrl+Tab: the tabs in recently used order while Control is held -->
+<section id="switcher" hidden aria-label="Switch tabs">
+  <ul id="tiles"></ul>
+</section>
+</body>
+</html>

@@ -108,8 +108,10 @@ int main() {
 
     in.text = "";
     auto r = Suggest(in);
-    Check("empty bar lists recent tabs without the current one", "tab:B|tab:C",
-          r.size() == 2 ? r[0].key + "|" + r[1].key : N(r.size()));
+    Check("empty bar lists recent tabs without the current one", "Cat pictures|Dog news",
+          r.size() == 2 ? r[0].title + "|" + r[1].title : N(r.size()));
+    Check("keys are opaque", "no", r.size() == 2 && r[0].key.find('B') == std::string::npos &&
+                                         r[0].key.rfind("tab:", 0) == 0 ? "no" : "yes");
     in.text = "!w cats";
     r = Suggest(in);
     Check("a bang comes first", "bang", r.empty() ? "-" : r[0].kind);

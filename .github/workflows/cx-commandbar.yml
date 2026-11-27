@@ -1,0 +1,193 @@
+# Birch, Chromium edition (wave 3, prompt 6: command bar, bangs and shortcuts; adapted from cx-spaces-sidebar.yml). Builds chromium/ on
+# Windows x64 and Linux x64 (Ubuntu 24.04, the owner's Zorin OS 18.1 base) against the pinned CEF distribution, runs core's
+# spec-fixture tests and the app tests against local fixtures, and uploads a
+# Windows zip and a Zorin/Ubuntu test .deb as CI artifacts (not a
+# release). Never runs on main, publishes nothing, uses no repository
+# secrets. Downloads are verified against chromium/deps.json.
+name: cx-commandbar
+
+on:
+  push:
+    branches: [cx-commandbar]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cx-commandbar
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    if: github.ref == 'refs/heads/cx-commandbar'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Runner
+        shell: pwsh
+        run: |
+          (Get-CimInstance Win32_OperatingSystem).Caption
+          python --version
+          cmake --version | Select-Object -First 1
+      - id: deps-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: birch-deps-windows64-${{ hashFiles('chromium/deps.json', 'chromium/tools/fetch_deps.py') }}
+      - name: Fetch and verify CEF + nlohmann/json
+        run: python -I chromium/tools/fetch_deps.py --platform windows64 --dest deps
+      - if: steps.deps-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: birch-deps-windows64-${{ hashFiles('chromium/deps.json', 'chromium/tools/fetch_deps.py') }}
+      - name: Configure
+        run: cmake -S chromium -B out -A x64 -DBIRCH_DEPS="${{ github.workspace }}/deps" -DCEF_ROOT="${{ github.workspace }}/deps/cef"
+      - name: Build
+        shell: pwsh
+        run: |
+          $t = Measure-Command { cmake --build out --config Release --parallel 2>&1 | Tee-Object -FilePath build.log | Out-Host }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "build: seconds=$([int]$t.TotalSeconds)"
+          $own = Select-String -Path build.log -Pattern 'chromium[\\/](core|engine|ui|platform|app|tests)[\\/].*warning' | Measure-Object
+          "build: warnings in Birch's own code: $($own.Count)"
+          "build: warning lines anywhere (CEF wrapper included): $((Select-String -Path build.log -Pattern ': warning ' | Measure-Object).Count)"
+          if ($own.Count -ne 0) { exit 1 }
+          Get-ChildItem out/Release | Select-Object Name,Length | Format-Table -AutoSize
+      - name: Spec fixtures (core)
+        shell: pwsh
+        run: |
+          out/Release/birch_spec_tests.exe spec/fixtures | Tee-Object -FilePath spec-windows.txt | Select-String -Pattern 'passed=|not covered|FAIL|INFO'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -I chromium/tests/spec/check_grain.py out/Release/birch_spec_tests.exe spec/fixtures/theme-math.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: UI channel message checks (core)
+        shell: pwsh
+        run: |
+          out/Release/birch_ui_channel_tests.exe | Tee-Object -FilePath ui-channel-windows.txt | Select-String -Pattern 'summary|FAIL'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          out/Release/birch_sidebar_store_tests.exe | Tee-Object -FilePath sidebar-store-windows.txt | Select-String -Pattern 'passed|FAIL'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          out/Release/birch_commandbar_tests.exe | Tee-Object -FilePath commandbar-windows.txt | Select-String -Pattern 'summary|FAIL'
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Package the Windows zip
+        run: python -I chromium/tools/package_windows.py out/Release stage Birch-Chromium-windows-x64.zip
+      - name: App tests
+        run: python -I chromium/tests/harness/run_tests.py --app out/Release/birch.exe --platform windows --out results --zip Birch-Chromium-windows-x64.zip
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Birch (Chromium) for Windows
+          path: stage
+          retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-windows
+          path: |
+            results
+            build.log
+            spec-windows.txt
+            ui-channel-windows.txt
+            sidebar-store-windows.txt
+            commandbar-windows.txt
+          retention-days: 14
+
+  linux:
+    if: github.ref == 'refs/heads/cx-commandbar'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libx11-dev xvfb libnss3 libgbm1 libxkbcommon0 libxcomposite1 \
+            libxdamage1 libxrandr2 libasound2t64 libatk-bridge2.0-0t64 libcups2t64 \
+            libpango-1.0-0 libgtk-3-0t64 imagemagick dpkg-dev >/dev/null
+          lsb_release -ds; gcc --version | head -1; cmake --version | head -1
+      - id: deps-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: birch-deps-linux64-${{ hashFiles('chromium/deps.json', 'chromium/tools/fetch_deps.py') }}
+      - name: Fetch and verify CEF + nlohmann/json
+        run: python3 -I chromium/tools/fetch_deps.py --platform linux64 --dest deps
+      - if: steps.deps-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: deps
+          key: birch-deps-linux64-${{ hashFiles('chromium/deps.json', 'chromium/tools/fetch_deps.py') }}
+      - name: Configure
+        run: cmake -S chromium -B out -DCMAKE_BUILD_TYPE=Release -DBIRCH_DEPS=$GITHUB_WORKSPACE/deps -DCEF_ROOT=$GITHUB_WORKSPACE/deps/cef
+      - name: Build
+        run: |
+          start=$(date +%s)
+          cmake --build out --parallel 4 2>&1 | tee build.log
+          test ${PIPESTATUS[0]} -eq 0
+          echo "build: seconds=$(( $(date +%s) - start ))"
+          own=$(grep -cE 'chromium/(core|engine|ui|platform|app|tests)/.*warning' build.log || true)
+          echo "build: warnings in Birch's own code: $own"
+          echo "build: warning lines anywhere (CEF wrapper included): $(grep -c 'warning:' build.log || true)"
+          test "$own" -eq 0
+          ls -la out/Release
+      - name: Spec fixtures (core)
+        run: |
+          set -o pipefail
+          out/Release/birch_spec_tests spec/fixtures | tee spec-linux.txt | grep -E 'passed=|not covered|FAIL|INFO'
+          python3 -I chromium/tests/spec/check_grain.py out/Release/birch_spec_tests spec/fixtures/theme-math.json
+      - name: UI channel message checks (core)
+        run: |
+          set -o pipefail
+          out/Release/birch_ui_channel_tests | tee ui-channel-linux.txt | grep -E 'summary|FAIL'
+          out/Release/birch_sidebar_store_tests | tee sidebar-store-linux.txt | grep -E 'passed|FAIL'
+          out/Release/birch_commandbar_tests | tee commandbar-linux.txt | grep -E 'summary|FAIL'
+      - name: Package the Zorin and Ubuntu test deb
+        run: |
+          python3 -I chromium/tools/package_linux_test.py out/Release linux-package-work dist-linux "${{ github.sha }}"
+          dpkg-deb --field dist-linux/Birch-Chromium-Test-amd64.deb Package Version Architecture Depends
+          dpkg-deb --extract dist-linux/Birch-Chromium-Test-amd64.deb linux-unpacked
+          for file in linux-package-work/root/DEBIAN/postinst linux-package-work/root/DEBIAN/postrm linux-unpacked/usr/bin/birch-chromium-test; do
+            sh -n "$file"
+          done
+          apparmor_parser -Q -T linux-unpacked/etc/apparmor.d/birch-chromium-test
+      - name: AppArmor profile so the Chromium sandbox can use user namespaces (tests only)
+        run: |
+          APP=$GITHUB_WORKSPACE/linux-unpacked/opt/birch-chromium-test/birch
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile birch "%s" flags=(unconfined) {\n  userns,\n  include if exists <local/birch>\n}\n' "$APP" > birch.apparmor
+          cat birch.apparmor
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = "1" ]; then
+            sudo install -m 644 birch.apparmor /etc/apparmor.d/birch
+            sudo apparmor_parser -r /etc/apparmor.d/birch
+            echo "apparmor: profile loaded"
+          else
+            echo "apparmor: restriction not active on this runner; no profile needed"
+          fi
+      - name: Core dumps off for test runs
+        run: |
+          # Ubuntu pipes crashed processes' core dumps to apport, which kept a
+          # deliberately crashed renderer alive for minutes (CEF prototype).
+          # Test environment only; the browser and its sandbox are unchanged.
+          sudo sysctl -q -w kernel.core_pattern=core fs.suid_dumpable=0
+      - name: App tests
+        run: |
+          ulimit -c 0
+          xvfb-run -a -s "-screen 0 1440x900x24" python3 -I chromium/tests/harness/run_tests.py --app linux-unpacked/opt/birch-chromium-test/birch --platform linux --out results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Birch Chromium Test for Zorin and Ubuntu
+          path: dist-linux
+          retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-linux
+          path: |
+            results
+            build.log
+            spec-linux.txt
+            ui-channel-linux.txt
+            sidebar-store-linux.txt
+            commandbar-linux.txt
+          retention-days: 14

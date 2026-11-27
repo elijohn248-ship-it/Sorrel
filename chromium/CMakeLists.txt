@@ -192,6 +192,8 @@ add_custom_command(TARGET birch POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${CEF_TARGET_OUT_DIR}/licenses"
   VERBATIM)
 COPY_SINGLE_FILE(birch "${BIRCH_ICON_DIR}/birch.png" "${CEF_TARGET_OUT_DIR}/birch.png")
+# The bundled bang list: the Mac app's own file (spec/address-and-search.md).
+COPY_SINGLE_FILE(birch "${BIRCH_REPO}/Resources/bangs.json" "${CEF_TARGET_OUT_DIR}/bangs.json")
 COPY_SINGLE_FILE(birch "${BIRCH_ICON_DIR}/birch.ico" "${CEF_TARGET_OUT_DIR}/birch.ico")
 COPY_SINGLE_FILE(birch "${BIRCH_REPO}/LICENSE" "${CEF_TARGET_OUT_DIR}/licenses/Birch-LICENSE.txt")
 COPY_SINGLE_FILE(birch "${BIRCH_DEPS}/nlohmann/LICENSE.MIT" "${CEF_TARGET_OUT_DIR}/licenses/nlohmann-json-LICENSE.txt")

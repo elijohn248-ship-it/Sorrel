@@ -26,6 +26,10 @@
 #include <set>
 #include "core/store.h"
 #include "engine/engine.h"
+#include "core/archive_history.h"
+#include "core/bangs.h"
+#include "core/tab_recency.h"
+#include "ui/commandbar/commandbar_host.h"
 #include "ui/sidebar/sidebar_host.h"
 #include "ui/rounded_card.h"
 #include "ui/window_actions.h"
@@ -67,7 +71,9 @@ struct WindowContext {
   WindowHost* host = nullptr;
 };
 
-class MainWindow : public CefWindowDelegate, public WindowActions {
+class MainWindow : public CefWindowDelegate,
+                   public WindowActions,
+                   public CommandBarActions {
  public:
   explicit MainWindow(WindowContext context);
   ~MainWindow() override;
@@ -84,10 +90,24 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   core::Store& store() { return *ctx_.store; }
   std::optional<std::string> selected_id() const;
 
-  // Runs a command by its Mac command id (spec/keybindings.md): tab.new,
-  // tab.close, tab.editURL, tab.reload, nav.back, nav.forward, private.new,
-  // window.close. Shortcuts call this; agent 6's registry replaces the list.
-  bool RunCommand(const std::string& id);
+  // Runs a command by its Mac command id (spec/keybindings.md); false when
+  // this window has no such command yet. |physical| = a real shortcut with
+  // its modifier held (Control+Tab then shows the switcher).
+  bool RunCommand(const std::string& id, bool physical = false);
+  // The command bar (ui/commandbar/): Ctrl+T is a centred bar, Ctrl+L the
+  // same bar anchored near the address pill.
+  void OpenCommandBar(bool edit);
+  void CloseCommandBar(bool focus_page);
+  // "none" before the page exists, "hidden", "new", "edit" or "switcher".
+  std::string command_bar_mode() const;
+  engine::UiPage* command_bar_page() const;
+  CefRect BarBounds() const;
+  std::set<std::string> accelerator_strokes() const;
+  // For tests: what a keyboard stroke ("ctrl+t") does, without a keyboard.
+  bool HandleStroke(const std::string& stroke);
+  const std::string& last_command() const { return last_command_; }
+  const std::vector<std::string>& switcher_order() const { return recency_.switcher(); }
+  void ReloadConfig();
 
   // A new tab with |url| at the top of the current space. Returns its id.
   std::string NewTab(const std::string& url, bool foreground);
@@ -96,7 +116,7 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   size_t LivePageCount() const { return pages_.size(); }
 
   CefRefPtr<CefWindow> cef_window() const { return window_; }
-  bool new_tab_mode() const { return sidebar_ && sidebar_->new_tab_mode(); }
+  bool new_tab_mode() const { return command_bar_mode() == "new"; }
   // "Private", or the current space's icon and name.
   std::string space_title() const;
   // The HTML sidebar's page (tests drive and read it through DevTools).
@@ -137,6 +157,18 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   void CancelAddress() override;
   std::string AddressForEditing() const override;
 
+  // CommandBarActions
+  core::SuggestInput BarSuggestInput(const std::string& text) override;
+  void BarGo(const std::string& url) override;
+  void BarSelectTab(const std::string& id) override;
+  void BarRunCommand(const std::string& id) override;
+  void BarSubmit(const std::string& text) override;
+  void BarCancelled() override;
+  void BarRowsChanged(size_t rows) override;
+  void SwitcherReleased() override;
+  void SwitcherPicked(const std::string& id) override;
+  void SwitcherCancelled() override;
+
   // CefWindowDelegate
   void OnWindowCreated(CefRefPtr<CefWindow> window) override;
   void OnWindowDestroyed(CefRefPtr<CefWindow> window) override;
@@ -175,12 +207,33 @@ class MainWindow : public CefWindowDelegate, public WindowActions {
   void ScheduleSidebarRebuild();
   std::optional<std::string> UrlOf(const std::string& item_id) const;
   void SetIcon();
+  void LoadAddress(const std::string& url, bool in_new_tab);
+  // ui/commandbar/commandbar_window.cc
+  static constexpr int kAcceleratorBase = 1000;
+  void RegisterShortcuts();
+  void PlaceBar();
+  core::Bangs& BangsTable();
+  std::vector<std::string> CycleOrder() const;
+  void CycleTabs(bool forward, bool physical);
+  void ShowSwitcher();
+  void HideSwitcher();
+  void OnTabSelected(const std::optional<std::string>& previous, const std::string& id);
+  void StepTab(bool forward);
+  void SelectNumbered(size_t n);
 
   WindowContext ctx_;
   CefRefPtr<CefWindow> window_;
   std::unique_ptr<SidebarHost> sidebar_;
   CefRefPtr<CefPanel> sidebar_spacer_;
   CefRefPtr<CefOverlayController> sidebar_overlay_;
+  std::unique_ptr<CommandBarHost> bar_;
+  CefRefPtr<CefOverlayController> bar_overlay_;
+  core::TabRecency recency_;
+  bool cycling_select_ = false;
+  std::string cycle_modifier_ = "Control", last_command_;
+  size_t bar_switcher_count_ = 0;
+  std::vector<std::string> accel_strokes_;
+  std::vector<core::HistoryEntry> bar_history_;
   CefRefPtr<CefPanel> frame_;    // the coloured surround of the page card
   CefRefPtr<CefPanel> content_;  // the page card
   std::unique_ptr<RoundedCard> rounded_card_;

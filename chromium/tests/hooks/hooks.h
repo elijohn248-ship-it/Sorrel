@@ -21,6 +21,7 @@ class MainWindow;
 }
 namespace birch::engine {
 class Page;
+class UiPage;
 }
 
 namespace birch::tests {
@@ -83,6 +84,14 @@ void SidebarEvalStep(const std::string& name, std::function<ui::MainWindow*()> w
 // Types |text| into the sidebar's address field and presses Enter, through
 // the page's own handlers (so it travels the UI channel). Waits up to 3 s for
 // the field to have focus first; Value(key) is "focused" or "not-focused".
+// Runtime.evaluate on a UI page (|page| is asked when the step runs); the
+// value lands in Value(key). BarTypeStep types into the command bar's field
+// and presses Return with no row chosen.
+void UiEvalStep(const std::string& name, std::function<engine::UiPage*()> page,
+                const std::string& key, const std::string& expression,
+                int timeout_ms = 15000);
+void BarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,
+                 const std::string& key, const std::string& text);
 void SidebarTypeStep(const std::string& name, std::function<ui::MainWindow*()> w,
                      const std::string& key, const std::string& text);
 // Clicks the sidebar element |css| (a fixed selector) once it is enabled.

@@ -64,7 +64,7 @@ def main():
         shutil.copyfile(source, target)
         # Never carry setuid/setgid bits into the test package.
         target.chmod(0o755 if source.stat().st_mode & 0o111 else 0o644)
-    for needed in ("birch", "libcef.so", "birch.png", "licenses"):
+    for needed in ("birch", "libcef.so", "birch.png", "bangs.json", "licenses"):
         if not (app / needed).exists():
             sys.exit("package: missing " + needed)
     (app / "birch").chmod(0o755)

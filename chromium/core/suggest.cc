@@ -48,6 +48,24 @@ bool Contains(const std::string& hay, const std::string& needle) {
   return hay.find(needle) != std::string::npos;
 }
 
+// Row keys: unique, stable per target, opaque (the page never sees addresses
+// or tab ids; it sends a key back and the host looks the row up).
+void Seal(std::vector<SuggestResult>* rows) {
+  std::set<std::string> used;
+  for (SuggestResult& r : (*rows)) {
+    uint32_t h = 2166136261u;  // FNV-1a of the key: the page never sees addresses or ids
+    for (unsigned char c : r.key) h = (h ^ c) * 16777619u;
+    char hex[9];
+    std::snprintf(hex, sizeof hex, "%08x", h);
+    r.key = r.kind + ":" + hex;
+    std::string k = r.key;
+    int n = 1;
+    while (used.count(k)) k = r.key + "#" + std::to_string(++n);
+    used.insert(k);
+    r.key = k;
+  }
+}
+
 }  // namespace
 
 std::vector<HistoryEntry> SearchHistory(const std::vector<HistoryEntry>& all,
@@ -111,6 +129,7 @@ std::vector<SuggestResult> Suggest(const SuggestInput& in) {
       out.push_back(tab_row(*t, HostOfUrl(t->url)));
       if (++n == 6) break;
     }
+    Seal(&out);
     return out;
   }
   SuggestResult search;
@@ -206,19 +225,7 @@ std::vector<SuggestResult> Suggest(const SuggestInput& in) {
     out.push_back(r);
     ++shown;
   }
-  std::set<std::string> used;  // row keys: unique, stable per target, opaque
-  for (SuggestResult& r : out) {
-    uint32_t h = 2166136261u;  // FNV-1a of the key: the page never sees addresses or ids
-    for (unsigned char c : r.key) h = (h ^ c) * 16777619u;
-    char hex[9];
-    std::snprintf(hex, sizeof hex, "%08x", h);
-    r.key = r.kind + ":" + hex;
-    std::string k = r.key;
-    int n = 1;
-    while (used.count(k)) k = r.key + "#" + std::to_string(++n);
-    used.insert(k);
-    r.key = k;
-  }
+  Seal(&out);
   if (out.size() > kMaxSuggestions) out.resize(kMaxSuggestions);
   return out;
 }
