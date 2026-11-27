@@ -16,7 +16,7 @@ The iPhone/iPad app keeps the same list for its own changes in `~/birch-mobile/d
 
 | Date | Change (branch / commit) | Still needed by | Why not done yet / what's left |
 |---|---|---|---|
-| | _none_ | | |
+| 2026-11-27 | `cx-commandbar`: the Mac fixture `keybindings` (and `Commands.shared.all` listing) predates `find.next` / `find.previous` (Cmd+G, added with the find bar). Regenerate the fixtures with `SORREL_SPECDUMP` and bump the spec to 2.1.0 (new cases only), then drop the two test filters in `chromium/tests/spec/commandbar_spec.cc`. | **Mac** (regenerate fixtures) | needs a Mac session; the Chromium edition ignores those two for now |
 
 Prompt 5 (`cx-spaces-sidebar`, 2026-11-25) ports existing Mac space/sidebar behavior. Its overlay shutdown, address focus, engine storage and native cursor fixes are specific to CEF/HTML UI; they create no owed change in Mac or iOS. Shared spec behavior was preserved.
 
@@ -25,3 +25,5 @@ The Linux test updater (`codex/linux-test-updater`, 2026-11-25) is platform/chan
 Linux sidebar polish (`codex/linux-sidebar-polish`, 2026-11-26) corrects Chromium HTML gradient/grain rendering and clarifies its existing auto-hide button. Mac/iOS do not use this HTML overlay; palettes, theme fixtures and saved mode behaviour are unchanged. No parity debt.
 
 Managed maximize and fullscreen coverage is specific to Linux Chromium CI. Openbox supplies X11 window management for the sidebar test, which checks the native window geometry and windowed size restoration.
+
+Command bar, bangs and shortcuts (`cx-commandbar`, 2026-11-27) is new Chromium work, not a change to the Mac or iOS. Its Windows/Linux shortcut table is platform-specific (Ctrl for Cmd, Alt for the Mac's Control strokes); the resolver, bangs, keybindings grammar and recency behave exactly as the Mac fixtures say (nothing owed).
