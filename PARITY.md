@@ -23,3 +23,5 @@ Prompt 5 (`cx-spaces-sidebar`, 2026-11-25) ports existing Mac space/sidebar beha
 The Linux test updater (`codex/linux-test-updater`, 2026-11-25) is platform/channel-specific: Debian packaging, polkit authorization and Linux sealed files. Mac/iOS updates are unchanged; future Windows updater work can reuse the signed feed format when that feature is ported. No parity debt is created.
 
 Linux sidebar polish (`codex/linux-sidebar-polish`, 2026-11-26) corrects Chromium HTML gradient/grain rendering and clarifies its existing auto-hide button. Mac/iOS do not use this HTML overlay; palettes, theme fixtures and saved mode behaviour are unchanged. No parity debt.
+
+Managed maximize and fullscreen coverage is specific to Linux Chromium CI. Openbox supplies X11 window management for the sidebar test, which checks the native window geometry and windowed size restoration.

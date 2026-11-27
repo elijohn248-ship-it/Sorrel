@@ -34,6 +34,52 @@ std::string BoundsText(const CefRect& bounds) {
   return std::to_string(bounds.x) + "," + std::to_string(bounds.y) + " " +
          SizeText(bounds);
 }
+
+CefRect DisplayWorkAreaInPixels(CefRefPtr<CefDisplay> display) {
+  const auto area = display->GetWorkArea();
+  CefPoint origin(area.x, area.y);
+  CefPoint end(area.x + area.width, area.y + area.height);
+  display->ConvertPointToPixels(origin);
+  display->ConvertPointToPixels(end);
+  return CefRect(origin.x, origin.y, end.x - origin.x, end.y - origin.y);
+}
+
+CefRect X11FrameBounds() {
+  const char* name = std::getenv("DISPLAY");
+  Display* display = name && name[0] == ':' ? XOpenDisplay(name) : nullptr;
+  if (!display) {
+    return {};
+  }
+  // Walk up to Openbox's outer frame so decorations count toward the work area.
+  Window window = Main()->cef_window()->GetWindowHandle();
+  Window root = None;
+  Window parent = None;
+  while (window != None) {
+    Window* children = nullptr;
+    unsigned int child_count = 0;
+    const auto ok = XQueryTree(display, window, &root, &parent, &children,
+                              &child_count);
+    if (children) {
+      XFree(children);
+    }
+    if (!ok || parent == root) {
+      break;
+    }
+    window = parent;
+  }
+  XWindowAttributes frame{};
+  const bool found = window != None && parent == root &&
+                     XGetWindowAttributes(display, window, &frame) != 0;
+  XCloseDisplay(display);
+  return found ? CefRect(frame.x, frame.y, frame.width, frame.height) : CefRect();
+}
+
+bool CoversWorkArea(const CefRect& frame, const CefRect& work_area) {
+  return work_area.width > 0 && work_area.height > 0 &&
+         frame.x <= work_area.x && frame.y <= work_area.y &&
+         frame.x + frame.width >= work_area.x + work_area.width &&
+         frame.y + frame.height >= work_area.y + work_area.height;
+}
 #endif
 
 bool MovePointer(int client_x, int client_y) {
@@ -156,6 +202,59 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
 
 #if defined(__linux__)
   auto windowed_bounds = std::make_shared<CefRect>();
+  auto work_area = std::make_shared<CefRect>();
+  Do("maximize the native window and wait for its frame to cover the work area",
+     [windowed_bounds, work_area] {
+       *windowed_bounds = ClientBounds();
+       auto window = Main()->cef_window();
+       if (auto display = window->GetDisplay()) {
+         *work_area = DisplayWorkAreaInPixels(display);
+       }
+       window->Maximize();
+     },
+     [windowed_bounds, work_area] {
+       const auto bounds = ClientBounds();
+       return Main()->cef_window()->IsMaximized() &&
+              CoversWorkArea(X11FrameBounds(), *work_area) &&
+              bounds.width > windowed_bounds->width &&
+              bounds.height > windowed_bounds->height;
+     },
+     5000);
+  Then("verify native maximized geometry", [windowed_bounds, work_area] {
+    const auto frame = X11FrameBounds();
+    const auto bounds = ClientBounds();
+    platform::Log("sidebarlayout: maximized frame " + BoundsText(frame) +
+                  ", work area " + BoundsText(*work_area));
+    Expect(kArea, "maximized frame covers the display work area", "yes",
+           YesNo(CoversWorkArea(frame, *work_area)));
+    Expect(kArea, "maximized client grew from windowed size", "yes",
+           YesNo(bounds.width > windowed_bounds->width &&
+                 bounds.height > windowed_bounds->height));
+  });
+  Sleep(350);
+  CheckMode("pinned sidebar stays pinned when maximized", "pinned");
+  CheckLayout("maximized", false);
+  Then("mark the maximized screenshot", [] {
+    platform::Log("sidebarlayout: maximized screenshot");
+  });
+  Sleep(3500);
+
+  Do("restore the native window from maximized",
+     [] { Main()->cef_window()->Restore(); },
+     [windowed_bounds] {
+       const auto bounds = ClientBounds();
+       return !Main()->cef_window()->IsMaximized() &&
+              bounds.width == windowed_bounds->width &&
+              bounds.height == windowed_bounds->height;
+     },
+     5000);
+  Then("verify size restored from maximized", [windowed_bounds] {
+    Expect(kArea, "restored client size after maximizing", SizeText(*windowed_bounds),
+           SizeText(ClientBounds()));
+  });
+  Sleep(350);
+  CheckLayout("window after maximizing", true);
+
   auto display_bounds = std::make_shared<CefRect>();
   Do("enter native fullscreen and wait for the window manager to expand it",
      [windowed_bounds, display_bounds] {
