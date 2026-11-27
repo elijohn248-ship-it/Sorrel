@@ -122,6 +122,14 @@ void SidebarHost::OnUiMessage(const uc::Message& m) {
     case uc::Kind::kAddressBlur:
       new_tab_mode_ = false;
       break;
+    case uc::Kind::kCommandBarQuery:
+    case uc::Kind::kCommandBarSubmit:
+    case uc::Kind::kCommandBarPick:
+    case uc::Kind::kCommandBarCancel:
+    case uc::Kind::kSwitcherRelease:
+    case uc::Kind::kSwitcherPick:
+    case uc::Kind::kSwitcherCancel:
+      break;  // not the sidebar's messages
   }
 }
 

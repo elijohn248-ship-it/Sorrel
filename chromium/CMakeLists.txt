@@ -88,6 +88,11 @@ add_executable(birch_sidebar_store_tests tests/unit/sidebar_store_tests.cc)
 birch_strict(birch_sidebar_store_tests)
 target_link_libraries(birch_sidebar_store_tests birch_core)
 
+# The command bar's engine-free parts (shortcut table, chords, suggestions).
+add_executable(birch_commandbar_tests tests/unit/commandbar_tests.cc)
+birch_strict(birch_commandbar_tests)
+target_link_libraries(birch_commandbar_tests birch_core)
+
 if(NOT BIRCH_WITH_CEF)
   return()
 endif()
@@ -96,7 +101,7 @@ endif()
 SET_CEF_TARGET_OUT_DIR()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # The spec runner beside the app, in out/Release on every generator.
-set_target_properties(birch_spec_tests birch_ui_channel_tests birch_sidebar_store_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CEF_TARGET_OUT_DIR}")
+set_target_properties(birch_spec_tests birch_ui_channel_tests birch_sidebar_store_tests birch_commandbar_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CEF_TARGET_OUT_DIR}")
 
 # Every module folder is globbed, so wave-3 agents add files without editing
 # this list (fewer merge conflicts). Platform files are picked per OS.

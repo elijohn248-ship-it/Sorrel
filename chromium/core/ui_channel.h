@@ -19,6 +19,7 @@
 
 #include "core/site.h"
 #include "core/store.h"
+#include "core/suggest.h"
 
 namespace birch::core::ui_channel {
 
@@ -41,6 +42,15 @@ enum class Kind {
   kAddressSubmit,   // address.submit  {text: string}
   kAddressCancel,   // address.cancel  {}            (Escape: back to the page)
   kAddressBlur,     // address.blur    {}            (focus left the field)
+  // The command bar page (wave 3, agent 6). The host acts only on rows it
+  // sent (keys) and tabs it shows (ids); none of these carries a path or script.
+  kCommandBarQuery,   // commandbar.query   {text}  typed text: send the rows
+  kCommandBarSubmit,  // commandbar.submit  {text}  Return with no row chosen
+  kCommandBarPick,    // commandbar.pick    {key}   Return/click on a row sent
+  kCommandBarCancel,  // commandbar.cancel  {}      Escape or focus left
+  kSwitcherRelease,   // switcher.release   {}      the modifier came up
+  kSwitcherPick,      // switcher.pick      {id}    a tile was clicked
+  kSwitcherCancel,    // switcher.cancel    {}      Escape
 };
 
 struct Message {
@@ -93,6 +103,26 @@ struct SidebarState {
 std::string SidebarStateJson(const SidebarState& state);
 // {"newTab":bool,"full":"…"}: put the keyboard in the address field.
 std::string FocusAddressJson(bool new_tab, const std::string& full_url);
+
+// ---- command bar and Control+Tab switcher (app -> UI) -----------------------------------
+struct SwitcherTab {
+  std::string id, title, host;
+};
+// {"mode":"new"|"edit","text":…,"private":bool,"colors":[…],"background":"#RRGGBB"}
+std::string CommandBarShowJson(const std::string& mode, const std::string& text,
+                               bool is_private,
+                               const std::vector<std::string>& colors,
+                               const std::string& background);
+// {"text":…,"results":[{"key","kind","title","subtitle","hint"}…]}; the
+// page never sees URLs or ids, only what it draws.
+std::string CommandBarResultsJson(const std::string& text,
+                                  const std::vector<SuggestResult>& results);
+// {"tabs":[{"id","title","host"}…],"selected":id,"modifier":"Control",…}
+std::string SwitcherShowJson(const std::vector<SwitcherTab>& tabs,
+                             const std::string& selected_id,
+                             const std::string& modifier, bool is_private,
+                             const std::vector<std::string>& colors,
+                             const std::string& background);
 
 // The window colour around the page card for |colors| (a light tint of the
 // space's last colour; private windows are dark). Shared by the sidebar's

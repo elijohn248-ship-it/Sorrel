@@ -55,7 +55,22 @@ int main() {
         Verdict("address.submit", "{\"text\":\"example.com\"}"));
   Check("address.cancel", "accepted", Verdict("address.cancel", "{}"));
   Check("address.blur", "accepted", Verdict("address.blur", "{}"));
-  Check("names listed", "14", std::to_string(uc::Names().size()));
+  Check("commandbar.query", "accepted", Verdict("commandbar.query", "{\"text\":\"cats\"}"));
+  Check("commandbar.query empty text", "accepted", Verdict("commandbar.query", "{\"text\":\"\"}"));
+  Check("commandbar.query control characters", "refused", Verdict("commandbar.query", "{\"text\":\"a\\u0007\"}"));
+  Check("commandbar.query too long", "refused", Verdict("commandbar.query", "{\"text\":\"" + std::string(5000, 'a') + "\"}"));
+  Check("commandbar.query extra key", "refused", Verdict("commandbar.query", "{\"text\":\"a\",\"path\":\"/etc\"}"));
+  Check("commandbar.submit", "accepted", Verdict("commandbar.submit", "{\"text\":\"!w cats\"}"));
+  Check("commandbar.submit number", "refused", Verdict("commandbar.submit", "{\"text\":3}"));
+  Check("commandbar.pick", "accepted", Verdict("commandbar.pick", "{\"key\":\"tab:1\"}"));
+  Check("commandbar.pick missing key", "refused", Verdict("commandbar.pick", "{}"));
+  Check("commandbar.cancel", "accepted", Verdict("commandbar.cancel", "{}"));
+  Check("commandbar.cancel with args", "refused", Verdict("commandbar.cancel", "{\"x\":1}"));
+  Check("switcher.release", "accepted", Verdict("switcher.release", "{}"));
+  Check("switcher.cancel", "accepted", Verdict("switcher.cancel", "{}"));
+  Check("switcher.pick", "accepted", Verdict("switcher.pick", "{\"id\":" + id + "}"));
+  Check("switcher.pick not an id", "refused", Verdict("switcher.pick", "{\"id\":\"../x\"}"));
+  Check("names listed", "21", std::to_string(uc::Names().size()));
   {
     uc::ParseResult r =
         Parse("tab.select", "{\"id\":\"0f8fad5b-d9cb-469f-a165-70867728950e\"}");

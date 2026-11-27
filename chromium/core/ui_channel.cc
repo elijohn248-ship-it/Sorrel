@@ -41,6 +41,13 @@ const std::vector<Schema>& Schemas() {
       {"address.submit", Kind::kAddressSubmit, {{"text", Type::kText}}},
       {"address.cancel", Kind::kAddressCancel, {}},
       {"address.blur", Kind::kAddressBlur, {}},
+      {"commandbar.query", Kind::kCommandBarQuery, {{"text", Type::kText}}},
+      {"commandbar.submit", Kind::kCommandBarSubmit, {{"text", Type::kText}}},
+      {"commandbar.pick", Kind::kCommandBarPick, {{"key", Type::kText}}},
+      {"commandbar.cancel", Kind::kCommandBarCancel, {}},
+      {"switcher.release", Kind::kSwitcherRelease, {}},
+      {"switcher.pick", Kind::kSwitcherPick, {{"id", Type::kUuid}}},
+      {"switcher.cancel", Kind::kSwitcherCancel, {}},
   };
   return schemas;
 }
@@ -267,6 +274,53 @@ std::string SidebarStateJson(const SidebarState& s) {
 std::string FocusAddressJson(bool new_tab, const std::string& full_url) {
   Json out = {{"newTab", new_tab}, {"full", full_url}};
   return out.dump(-1, ' ', false, Json::error_handler_t::replace);
+}
+
+namespace {
+Json ValidColors(const std::vector<std::string>& colors) {
+  Json out = Json::array();
+  for (const std::string& c : colors) {
+    int rgb[3];
+    if (ParseHex(c, rgb)) out.push_back(c);
+  }
+  return out;
+}
+std::string Dump(const Json& j) {
+  return j.dump(-1, ' ', false, Json::error_handler_t::replace);
+}
+}  // namespace
+
+std::string CommandBarShowJson(const std::string& mode, const std::string& text,
+                               bool is_private,
+                               const std::vector<std::string>& colors,
+                               const std::string& background) {
+  return Dump({{"mode", mode == "edit" ? "edit" : "new"}, {"text", text},
+               {"private", is_private}, {"colors", ValidColors(colors)},
+               {"background", background}});
+}
+
+std::string CommandBarResultsJson(const std::string& text,
+                                  const std::vector<SuggestResult>& results) {
+  Json rows = Json::array();
+  for (const SuggestResult& r : results) {
+    rows.push_back({{"key", r.key}, {"kind", r.kind}, {"title", r.title},
+                    {"subtitle", r.subtitle}, {"hint", r.hint}});
+  }
+  return Dump({{"text", text}, {"results", rows}});
+}
+
+std::string SwitcherShowJson(const std::vector<SwitcherTab>& tabs,
+                             const std::string& selected_id,
+                             const std::string& modifier, bool is_private,
+                             const std::vector<std::string>& colors,
+                             const std::string& background) {
+  Json rows = Json::array();
+  for (const SwitcherTab& t : tabs) {
+    rows.push_back({{"id", t.id}, {"title", t.title}, {"host", t.host}});
+  }
+  return Dump({{"tabs", rows}, {"selected", selected_id},
+               {"modifier", modifier}, {"private", is_private},
+               {"colors", ValidColors(colors)}, {"background", background}});
 }
 
 std::string SurroundColor(const std::vector<std::string>& colors,
