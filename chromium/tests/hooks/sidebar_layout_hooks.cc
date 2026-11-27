@@ -25,6 +25,17 @@ CefRect ClientBounds() {
   return Main()->cef_window()->GetClientAreaBoundsInScreen();
 }
 
+#if defined(__linux__)
+std::string SizeText(const CefRect& bounds) {
+  return std::to_string(bounds.width) + "x" + std::to_string(bounds.height);
+}
+
+std::string BoundsText(const CefRect& bounds) {
+  return std::to_string(bounds.x) + "," + std::to_string(bounds.y) + " " +
+         SizeText(bounds);
+}
+#endif
+
 bool MovePointer(int client_x, int client_y) {
   const auto bounds = ClientBounds();
   const auto point = CefDisplay::ConvertScreenPointToPixels(
@@ -143,8 +154,38 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
   Sleep(300);
   CheckLayout("taller window", true);
 
+#if defined(__linux__)
+  auto windowed_bounds = std::make_shared<CefRect>();
+  auto display_bounds = std::make_shared<CefRect>();
+  Do("enter native fullscreen and wait for the window manager to expand it",
+     [windowed_bounds, display_bounds] {
+       *windowed_bounds = ClientBounds();
+       auto window = Main()->cef_window();
+       if (auto display = window->GetDisplay()) {
+         *display_bounds = display->GetBounds();
+       }
+       window->SetFullscreen(true);
+     },
+     [display_bounds] {
+       const auto bounds = ClientBounds();
+       return Main()->cef_window()->IsFullscreen() &&
+              bounds.x == display_bounds->x && bounds.y == display_bounds->y &&
+              bounds.width == display_bounds->width &&
+              bounds.height == display_bounds->height;
+     },
+     5000);
+  Then("verify native fullscreen geometry", [windowed_bounds, display_bounds] {
+    const auto bounds = ClientBounds();
+    Expect(kArea, "fullscreen client fills its display", BoundsText(*display_bounds),
+           BoundsText(bounds));
+    Expect(kArea, "fullscreen client grew from windowed size", "yes",
+           YesNo(bounds.width > windowed_bounds->width &&
+                 bounds.height > windowed_bounds->height));
+  });
+#else
   Do("enter native fullscreen", [] { Main()->cef_window()->SetFullscreen(true); },
      [] { return Main()->cef_window()->IsFullscreen(); }, 5000);
+#endif
   Sleep(350);
   CheckMode("pinned sidebar stays pinned in fullscreen", "pinned");
   CheckLayout("fullscreen", false);
@@ -153,8 +194,24 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
   });
   Sleep(3500);
 
+#if defined(__linux__)
+  Do("exit native fullscreen and wait for the window manager to restore it",
+     [] { Main()->cef_window()->SetFullscreen(false); },
+     [windowed_bounds] {
+       const auto bounds = ClientBounds();
+       return !Main()->cef_window()->IsFullscreen() &&
+              bounds.width == windowed_bounds->width &&
+              bounds.height == windowed_bounds->height;
+     },
+     5000);
+  Then("verify restored window size", [windowed_bounds] {
+    Expect(kArea, "restored window client size", SizeText(*windowed_bounds),
+           SizeText(ClientBounds()));
+  });
+#else
   Do("exit native fullscreen", [] { Main()->cef_window()->SetFullscreen(false); },
      [] { return !Main()->cef_window()->IsFullscreen(); }, 5000);
+#endif
   Sleep(350);
   CheckLayout("window after fullscreen", true);
 
