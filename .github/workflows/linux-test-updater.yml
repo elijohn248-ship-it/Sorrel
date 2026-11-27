@@ -8,7 +8,7 @@ name: linux-test-updater
 
 on:
   push:
-    branches: [codex/linux-test-updater, codex/linux-sidebar-polish]
+    branches: [codex/linux-test-updater, codex/linux-sidebar-polish, cx-commandbar]
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   windows:
-    if: github.ref != 'refs/heads/main' && github.ref_type == 'branch'
+    # cx-commandbar.yml runs the Windows suite independently of the Linux feed.
+    if: github.ref != 'refs/heads/main' && github.ref_type == 'branch' && github.ref != 'refs/heads/cx-commandbar'
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
@@ -144,6 +145,9 @@ jobs:
           set -o pipefail
           out/Release/birch_ui_channel_tests | tee ui-channel-linux.txt | grep -E 'summary|FAIL'
           out/Release/birch_sidebar_store_tests | tee sidebar-store-linux.txt | grep -E 'passed|FAIL'
+          if [ -x out/Release/birch_commandbar_tests ]; then
+            out/Release/birch_commandbar_tests | tee commandbar-linux.txt | grep -E 'summary|FAIL'
+          fi
       - name: Package the Zorin and Ubuntu test deb
         run: |
           python3 -I chromium/tools/package_linux_test.py out/Release linux-package-work dist-linux "${{ github.sha }}" --build "${{ github.run_id }}"
