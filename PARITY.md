@@ -21,3 +21,5 @@ The iPhone/iPad app keeps the same list for its own changes in `~/birch-mobile/d
 Prompt 5 (`cx-spaces-sidebar`, 2026-11-25) ports existing Mac space/sidebar behavior. Its overlay shutdown, address focus, engine storage and native cursor fixes are specific to CEF/HTML UI; they create no owed change in Mac or iOS. Shared spec behavior was preserved.
 
 The Linux test updater (`codex/linux-test-updater`, 2026-11-25) is platform/channel-specific: Debian packaging, polkit authorization and Linux sealed files. Mac/iOS updates are unchanged; future Windows updater work can reuse the signed feed format when that feature is ported. No parity debt is created.
+
+Linux sidebar polish (`codex/linux-sidebar-polish`, 2026-11-26) corrects Chromium HTML gradient/grain rendering and clarifies its existing auto-hide button. Mac/iOS do not use this HTML overlay; palettes, theme fixtures and saved mode behaviour are unchanged. No parity debt.
