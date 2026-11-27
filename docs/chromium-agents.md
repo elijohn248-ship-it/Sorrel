@@ -14,6 +14,39 @@ Written 2026-11-23 for the owner to paste into Claude Code sessions. It carries 
 | 4. Windows release | 9 Installer, updater, release script · 10 Security audit | Wave 3 is merged and you tried a Windows build |
 | 5. Linux | 11 Linux packaging and release | Agent 9's branch is merged |
 
+### Change of order (owner, 2026-11-25): Linux first, then Windows
+
+Waves 1 and 2 are done (CEF picked; `chromium-shell` merged 2026-11-25). The owner has an Ubuntu machine that is easy to test on; their Windows install is encrypted for school and inconvenient to boot into. So from wave 3 on, **Ubuntu is the edition the owner tests first, and it gets polished before Windows**. Windows keeps building and passing its tests in CI the whole time (so it never falls behind), and the owner tries it once, after Linux is polished. This replaces the order in the table below:
+
+| Wave | Agents | Starts when |
+|---|---|---|
+| 2b. Arc-style UI host | 4b HTML UI host and its UI-only channel (below) | now |
+| 3. Features | 5 Spaces & sidebar · 6 Command bar & shortcuts · 7 Privacy & extensions · 8 Peek, splits, downloads, Library | 4b is merged |
+| 4. Linux release | 11 Linux packaging, updater and release script (does agent 9's updater/feed design, for Linux) · then 10 Security audit (Linux) | wave 3 is merged |
+| — | **Owner tests the polished Ubuntu build** | wave 4 is merged |
+| 5. Windows release | 9 Windows installer and updater (reusing wave 4's feed design) · 10 audit again for Windows | owner is happy with Linux |
+| — | **Owner tests Windows once** | wave 5 is merged |
+
+Notes for every agent from wave 3 on:
+- "CI on Windows and Linux" still means both, every time. Screenshots, the "things for the owner to try" list and feel checks are written for **Ubuntu** (the owner runs Zorin OS 18.1 = Ubuntu 24.04 base, so CI uses the `ubuntu-24.04` runner). Windows owner checks are collected for wave 5, not asked for now.
+- **UI is HTML (owner, 2026-11-25: "I want it to work like Arc did; however that works is fine").** Sidebar, command bar, Peek chrome, Library, switcher and settings are Birch's own bundled HTML/CSS pages in the UI host from prompt 4b, talking to the app only through its UI-only channel. Rule 4 still holds for everything else: no web page, extension or site ever reaches that channel.
+- Model choice (owner, 2026-11-25: fewest tokens that fit the job): Opus for 4b, 7, 9, 10 and 11's updater; Sonnet for 5, 6, 8.
+
+### Prompt 4b: HTML UI host and UI-only channel (branch `chromium-ui-host`)
+
+```text
+Follow docs/chromium-agents.md ▸ Shared rules and ▸ Change of order. Your branch: chromium-ui-host. Security-critical: you are building the one approved exception to rule 4.
+
+The owner approved (2026-11-25) a channel between Birch's OWN bundled UI pages and the app, so the Chromium edition can look and move like Arc. Build it narrowly:
+1. UI pages ship inside the app (served from the app's files under a Birch-only scheme, never from the network or the profile), each in a CEF browser of its own that never loads web content: any navigation away from the UI origin is cancelled, pop-ups refused, no extensions, DevTools off in release builds, UI and web content never share a renderer process.
+2. The channel accepts messages only from those UI browsers' main frames; the browser process checks which browser/frame sent each message and never trusts what the renderer claims. Web tabs, iframes, pop-ups, extension pages and private windows' web content get nothing (the channel's JS function must not even exist there).
+3. A fixed list of message names, each with a typed argument schema validated in the browser process; unknown names or bad arguments are refused and logged. No message runs script, reads or writes arbitrary files, or returns page content beyond what the UI shows (tab titles, URLs, favicons, state). App -> UI data goes as JSON arguments, never as JavaScript source built from strings.
+4. Replace the wave-2 plain sidebar with an HTML sidebar on this host showing the same things (tabs of the current space, selection, new/close tab, address box with the real origin and "Not secure"), styled as a starting point for Arc's look (space gradient background, rounded page card inset beside the sidebar). Put the three motion curves (settle, leave, glide) and reduce-motion handling in one shared CSS/JS file that wave 3 will use. Lay out chromium/ui/web/ so wave-3 agents each own a folder (sidebar/, commandbar/, peek/ + split/ + library/, settings privacy/extensions pages); update the module map in CLAUDE.md ▸ Chromium edition.
+5. Tests (CI, Windows and Linux, fresh BIRCH_HOME): every existing shell check still passes through the HTML sidebar; a web page, a cross-origin iframe, a pop-up and an extension page each try to reach the channel and fail (expected/got lines); a UI page cannot be navigated to a web address; unknown/malformed messages are refused; the NetLog check still shows only the fixture server; no UI browser and web tab share a process. Screenshots of the sidebar on Ubuntu as CI artifacts.
+
+Record the approval and its limits in CLAUDE.md ▸ Chromium edition (one short subsection). Don't merge.
+```
+
 Waves 1 and 3 are the parallel ones. If a prototype fails its gate (section "Gates" in prompt 1), stop there: that is the plan's stop condition, not a reason to drop protections.
 
 ## Before wave 1 (owner)
@@ -37,7 +70,7 @@ Every prompt below starts with "Follow `docs/chromium-agents.md` ▸ Shared rule
 
 1. Read `AGENTS.md`, then `docs/dual-engine-plan.md`, `PROGRESS.md`, and the parts of `CLAUDE.md` your task touches. The stricter rule wins. If this file is missing from `main`, stop: the owner hasn't merged `dual-engine-plan`.
 2. Start with `git worktree list` and `git status`. Work only in your own worktree: `cd ~/sorrel && git worktree add ../sorrel-<branch> -b <branch>` (branch name given in your prompt). Never edit, build or run `./build.sh` in `~/sorrel`.
-3. New Chromium-edition code lives under `chromium/` (prototypes under `prototypes/<name>/`, shared spec under `spec/`). Don't change the Mac app (`Sources/`, `Resources/`, `build.sh`, `Package.swift`, `tools/release.sh`, the updater, `vendor/`) unless your prompt says so; agent 3 may add one test hook.
+3. New Chromium-edition code lives under `chromium/` (prototypes under `prototypes/<name>/`, shared spec under `spec/`). Don't change the Mac app (`Sources/`, `Resources/`, `build.sh`, `Package.swift`, `tools/release.sh`, the updater, `vendor/`) unless your prompt says so; agent 3 may add one test hook. **Owner rule, 2026-11-25:** a fix or behaviour change to a feature the Mac or iOS edition also has gets a `PARITY.md` row for them (security fixes: change every edition at once); see `CLAUDE.md` ▸ Every change goes to every edition.
 4. Security and privacy rules apply to every edition: AGENTS.md 2.2–2.4 and CLAUDE.md "Security invariants". In particular: no telemetry or new runtime network destinations (Chromium's own Google services must be switched off and proven off), private windows leave nothing on disk, permissions are never auto-granted, the address bar shows the real origin, blocking is on by default, updates install only with a verified signature, and no web page ever gets a bridge into the app. **Never ship or test with `--no-sandbox`** or any switch that disables Chromium's sandbox.
 5. Dependencies (CEF, Qt, compilers, uBOL) are pinned to an exact version with a checksum, and their source and license are recorded in `chromium/THIRD_PARTY.md`. Downloaded binaries never go into git (add them to `.gitignore`). Don't install toolchains on this Mac or add Homebrew without asking the owner.
 6. **CI:** you may add your own workflow file `.github/workflows/<branch>.yml` and push **your task branch only** to `origin` to run it (the repository is public: no secrets, keys, tokens, personal data or real-profile data in commits, logs or artifacts). Workflows must not publish releases, use repository secrets, or run on `main`. To read runs and artifacts, use the GitHub REST API with the token in `~/.config/sorrel/github-token` read-only; never print it. Never push `main`, tags or other branches.
@@ -179,6 +212,8 @@ Tests in CI on Windows and Linux: hooks with expected/got lines for each feature
 
 ### Prompt 9: Windows installer, updater and release (branch `chromium-release-windows`)
 
+> **Changed 2026-11-25:** this now runs in wave 5, after the Linux edition. Reuse the update feed, edition checks and release script that wave 4 built for Linux; add windows-x64 to them rather than designing a second system.
+
 ```text
 Follow docs/chromium-agents.md ▸ Shared rules. Your branch: chromium-release-windows. Read CLAUDE.md ▸ Updates first: the Windows edition must keep every property of the Mac updater (signed with the Ed25519 update key, size + sha256 + signature checked, only newer builds, failed installs reported, never left without a browser), without changing any Mac updater file (Sources/SorrelUpdateCore, Sources/SorrelUpdater, tools/release.sh, tools/update-sign.swift are protected).
 
@@ -204,6 +239,8 @@ Write chromium/SECURITY-AUDIT.md: each finding with severity, evidence and a fix
 ## Wave 5
 
 ### Prompt 11: Linux edition (branch `chromium-linux`)
+
+> **Changed 2026-11-25 (see Change of order):** this now runs in wave 4, before Windows. Agent 9 hasn't run, so you design the signed update feed yourself, following prompt 9 ▸ 2 (editions can never cross; ask the owner whether to reuse the existing update key; signing stays on this Mac), for linux-x64 first. The owner uses Ubuntu and chose a **.deb** (2026-11-25): it installs Birch and an AppArmor profile so Chromium's sandbox works on Ubuntu 23.10+. **The owner's machine runs Zorin OS 18.1, which is based on Ubuntu 24.04 LTS**: build and test the .deb for Ubuntu 24.04 (pin the `ubuntu-24.04` CI runner rather than `ubuntu-latest`), make it install cleanly on Zorin (same packages; don't assume stock Ubuntu's desktop or that the userns restriction is on or off: check both), and write owner checks for Zorin. Propose how the .deb edition updates itself (with the signed feed above) and ask before building that part; an AppImage is not needed for now. Ignore "The Windows edition is merged" below.
 
 ```text
 Follow docs/chromium-agents.md ▸ Shared rules. Your branch: chromium-linux. The Windows edition is merged; CI has built chromium/ on Linux since wave 2. Your job is a Linux download people can install, with the same privacy and update guarantees.

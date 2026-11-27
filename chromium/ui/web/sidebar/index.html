@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Birch sidebar</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/motion.css">
+<link rel="stylesheet" href="sidebar.css">
+<script src="shared/motion.js" defer></script>
+<script src="shared/channel.js" defer></script>
+<script src="update.js" defer></script>
+<script src="sidebar.js" defer></script>
+</head>
+<body>
+<div id="hover-strip" aria-hidden="true"></div>
+<div id="sidebar-surface">
+<canvas id="grain" aria-hidden="true"></canvas>
+<header class="top">
+  <nav class="nav" aria-label="Navigation">
+    <button id="back" class="icon motion-glide" title="Back" aria-label="Back" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+    </button>
+    <button id="forward" class="icon motion-glide" title="Forward" aria-label="Forward" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+    </button>
+    <button id="reload" class="icon motion-glide" title="Reload" aria-label="Reload" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3"/></svg>
+    </button>
+    <button id="sidebar-mode" class="icon motion-glide" title="Hide Sidebar" aria-label="Hide Sidebar">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10"/></svg>
+    </button>
+  </nav>
+  <label class="address motion-glide" id="address-pill">
+    <span class="not-secure" id="not-secure" hidden>Not secure</span>
+    <input id="address" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Search or enter address" aria-label="Address">
+  </label>
+</header>
+<div class="space-heading">
+  <button class="space-title motion-glide" id="space-title" aria-label="Customize Space" title="Customize Space"></button>
+  <details id="sidebar-menu">
+    <summary class="icon motion-glide" aria-label="Sidebar Actions" title="Sidebar Actions">⋯</summary>
+    <div class="menu">
+      <button id="new-folder" type="button">New Folder</button>
+      <button id="archive-now" type="button">Archive Inactive Tabs</button>
+      <button id="sleep-now" type="button">Free Up Memory</button>
+      <button id="sidebar-settings" type="button">Sidebar Settings</button>
+    </div>
+  </details>
+</div>
+<ul class="tabs" id="tabs" aria-label="Tabs"></ul>
+<section id="test-update" class="test-update" hidden aria-live="polite">
+  <strong>Linux test updates</strong>
+  <p id="update-message"></p>
+  <small id="update-version"></small>
+  <label><input id="update-auto" type="checkbox"> Check automatically</label>
+  <div><button id="update-check" type="button">Check for updates</button>
+       <button id="update-install" type="button" hidden>Install update…</button></div>
+</section>
+<footer class="bottom">
+  <button id="new-tab" class="new-tab motion-glide">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+    <span>New Tab</span>
+  </button>
+  <div class="spaces-bar">
+    <div id="space-scroll" class="space-scroll">
+      <div id="spaces" class="spaces" role="group" aria-label="Spaces"></div>
+    </div>
+    <button id="new-space" class="icon motion-glide" aria-label="New Space" title="New Space">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+    </button>
+  </div>
+</footer>
+</div>
+<dialog id="space-editor" aria-labelledby="space-editor-title">
+  <h1 id="space-editor-title">Customize Space</h1>
+  <label class="field">Name <input id="space-name" maxlength="96" type="text" autocomplete="off" autofocus></label>
+  <label class="field">Emoji <input id="space-emoji" maxlength="24" type="text" autocomplete="off"></label>
+  <label class="field">Colors
+    <select id="color-count" aria-label="Number of colors">
+      <option value="1">One</option><option value="2">Two</option><option value="3">Three</option>
+    </select>
+  </label>
+  <div class="color-pickers">
+    <input id="color-1" type="color" aria-label="First color">
+    <input id="color-2" type="color" aria-label="Second color">
+    <input id="color-3" type="color" aria-label="Third color">
+  </div>
+  <label class="field">Angle <input id="space-angle" type="range" min="0" max="360" step="1"></label>
+  <label class="field">Intensity <input id="space-intensity" type="range" min="0" max="1" step="0.01"></label>
+  <label class="field">Brightness <input id="space-brightness" type="range" min="0" max="1" step="0.01"></label>
+  <label class="field">Grain <input id="space-grain" type="range" min="0" max="1" step="0.01"></label>
+  <label class="field separate-logins">Separate logins <input id="space-logins" type="checkbox"></label>
+  <div class="dialog-actions">
+    <button id="cancel-space" class="motion-glide">Cancel</button>
+    <button id="save-space" class="primary motion-glide">Save</button>
+  </div>
+</dialog>
+<dialog id="folder-editor" aria-labelledby="folder-editor-title">
+  <h1 id="folder-editor-title">New Folder</h1>
+  <label class="field">Name <input id="folder-name" maxlength="96" type="text" autocomplete="off" autofocus></label>
+  <div class="dialog-actions">
+    <button id="cancel-folder" class="motion-glide">Cancel</button>
+    <button id="save-folder" class="primary motion-glide">Create</button>
+  </div>
+</dialog>
+<dialog id="settings-editor" aria-labelledby="settings-editor-title">
+  <h1 id="settings-editor-title">Sidebar Settings</h1>
+  <label class="field">Reveal width <input id="hover-width" type="range" min="2" max="80" step="1" autofocus></label>
+  <label class="field">Overshoot <input id="hover-overshoot" type="range" min="0" max="300" step="1"></label>
+  <label class="field">Hide delay <input id="hover-delay" type="range" min="0" max="2" step="0.01"></label>
+  <label class="field">Slide duration <input id="hover-speed" type="range" min="0" max="1" step="0.01"></label>
+  <div class="dialog-actions">
+    <button id="cancel-settings" class="motion-glide">Cancel</button>
+    <button id="save-settings" class="primary motion-glide">Save</button>
+  </div>
+</dialog>
+</body>
+</html>

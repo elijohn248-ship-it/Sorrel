@@ -1,0 +1,35 @@
+/* Birch's motion, the same three curves as the Mac (Support.swift Motion):
+   settle (arriving), leave (going), glide (a state change). Every UI page
+   animates through these tokens or BirchMotion (motion.js), never ad-hoc
+   durations. Reduce Motion keeps fades and drops movement. */
+:root {
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-leave: cubic-bezier(0.4, 0, 1, 1);
+  --ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Movement (transform, size, position). */
+  --move-settle: 220ms;
+  --move-leave: 140ms;
+  --move-glide: 180ms;
+  /* Fades (opacity, colour). */
+  --fade-in: 140ms;
+  --fade-out: 120ms;
+  --fade-glide: 160ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --move-settle: 0ms;
+    --move-leave: 0ms;
+    --move-glide: 0ms;
+  }
+}
+
+/* Helpers for simple cases. */
+.motion-glide {
+  transition:
+    background-color var(--fade-glide) var(--ease-glide),
+    color var(--fade-glide) var(--ease-glide),
+    opacity var(--fade-glide) var(--ease-glide),
+    transform var(--move-glide) var(--ease-glide);
+}

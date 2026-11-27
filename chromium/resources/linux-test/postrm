@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+case "$1" in
+  remove|purge)
+    if [ -d /sys/kernel/security/apparmor ] &&
+       [ -f /etc/apparmor.d/birch-chromium-test ] &&
+       command -v apparmor_parser >/dev/null 2>&1; then
+      apparmor_parser -R /etc/apparmor.d/birch-chromium-test || true
+    fi
+    ;;
+esac
