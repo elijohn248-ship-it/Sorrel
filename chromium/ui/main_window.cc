@@ -374,7 +374,11 @@ void MainWindow::ShowPage(const std::string& item_id) {
     }
   }
   content_->Layout();
-  pages_[item_id].page->Focus();
+  // The switcher receives modifier key-up. Keep focus there while the
+  // selection changes underneath it during a held cycle.
+  if (!cycling_select_ || recency_.switcher().size() < 2) {
+    pages_[item_id].page->Focus();
+  }
 }
 
 void MainWindow::CloseTab(const std::string& item_id) {
