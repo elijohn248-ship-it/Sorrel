@@ -576,7 +576,7 @@
     if (mode === pendingMode || mode !== state?.sidebarMode) pendingMode = "";
     document.body.dataset.mode = mode;
     sidebar.inert = hidden;
-    const title = mode === "peeking" ? "Pin Sidebar" : "Hide Sidebar";
+    const title = mode === "peeking" ? "Pin Sidebar (Ctrl+S)" : "Enable Sidebar Auto-hide (Ctrl+S)";
     $("sidebar-mode").title = title;
     $("sidebar-mode").setAttribute("aria-label", title);
     if (mode === "peeking" && state?.sidebarMode !== mode) {

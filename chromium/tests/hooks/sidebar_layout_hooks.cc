@@ -6,6 +6,7 @@
 
 #include "include/views/cef_display.h"
 
+#include "platform/platform.h"
 #include "ui/main_window.h"
 
 #if defined(_WIN32)
@@ -126,7 +127,12 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
        Main()->cef_window()->SetSize(CefSize(900, 480));
      },
      [before_resize] { return ClientBounds().height < *before_resize; }, 5000);
+  Sleep(300);  // Let the renderer apply the native viewport resize.
   CheckLayout("short window", true);
+  Then("mark the short-window screenshot", [] {
+    platform::Log("sidebarlayout: short screenshot");
+  });
+  Sleep(3500);
 
   Do("make the browser window taller",
      [before_resize] {
@@ -134,6 +140,7 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
        Main()->cef_window()->SetSize(CefSize(900, 700));
      },
      [before_resize] { return ClientBounds().height > *before_resize; }, 5000);
+  Sleep(300);
   CheckLayout("taller window", true);
 
   Do("enter native fullscreen", [] { Main()->cef_window()->SetFullscreen(true); },
@@ -141,6 +148,10 @@ BIRCH_TEST_SCENARIO(sidebarlayout) {
   Sleep(350);
   CheckMode("pinned sidebar stays pinned in fullscreen", "pinned");
   CheckLayout("fullscreen", false);
+  Then("mark the fullscreen screenshot", [] {
+    platform::Log("sidebarlayout: fullscreen screenshot");
+  });
+  Sleep(3500);
 
   Do("exit native fullscreen", [] { Main()->cef_window()->SetFullscreen(false); },
      [] { return !Main()->cef_window()->IsFullscreen(); }, 5000);

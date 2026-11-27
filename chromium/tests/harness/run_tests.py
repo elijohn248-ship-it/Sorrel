@@ -329,9 +329,21 @@ def test_sidebar():
 
 
 def test_sidebar_layout():
-    run = run_app("sidebarlayout", {"BIRCH_TEST": "sidebarlayout"}, 160)
+    def shots(proc):
+        paths = []
+        for stage in ("short", "fullscreen"):
+            if stage == "fullscreen" and not wait_marker(
+                    proc, proc.birch_log, "sidebarlayout: fullscreen screenshot", timeout=30):
+                break
+            path = os.path.abspath(os.path.join(A.out, f"sidebar-{stage}-{A.platform}.png"))
+            if screenshot(path):
+                paths.append(path)
+        return paths
+
+    run = run_app("sidebarlayout", {"BIRCH_TEST": "sidebarlayout"}, 160,
+                  marker="sidebarlayout: short screenshot", during=shots)
     record("sidebar hover dismissal and layout through resize and fullscreen",
-           "PASS" if passed(run) else "FAIL", check_lines(run))
+           "PASS" if passed(run) else "FAIL", check_lines(run) + (run["during"] or []))
 
 
 def test_restore(shell_run):
