@@ -1,14 +1,14 @@
-// Wave-2 stand-in for typed text -> URL, so the shell's address field works.
-// It follows spec/address-and-search.md ▸ "Typed text → destination" for
-// addresses and plain searches but has NO bangs and is not checked against
-// spec/fixtures/resolver.json. Wave-3 agent 6 (cx-commandbar) owns this file
-// and replaces it with the full resolver (bangs included) that passes the
-// resolver and bangs fixtures.
+// Typed text -> destination, per spec/address-and-search.md (fixtures
+// `resolver` and `bangs`): bang, then address, then search.
+//
+// Owner: wave-3 agent 6 (cx-commandbar).
 #ifndef BIRCH_CORE_TYPED_URL_H_
 #define BIRCH_CORE_TYPED_URL_H_
 
 #include <optional>
 #include <string>
+
+#include "core/bangs.h"
 
 namespace birch::core {
 
@@ -16,9 +16,10 @@ namespace birch::core {
 std::optional<std::string> UrlFromTyped(const std::string& text);
 // The search engine template (%s = query) filled with |query|.
 std::string SearchUrl(const std::string& template_url, const std::string& query);
-// Address, else search.
+// Bang (when |bangs| is given), then address, then search.
 std::string Destination(const std::string& text,
-                        const std::string& search_template);
+                        const std::string& search_template,
+                        const Bangs* bangs = nullptr);
 
 }  // namespace birch::core
 

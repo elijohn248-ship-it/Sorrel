@@ -32,51 +32,43 @@ std::optional<std::string> UrlFromTyped(const std::string& typed) {
   for (const char* prefix : {"http://", "https://", "file://", "birch://",
                              "sorrel://", "about:"}) {
     if (StartsWithNoCase(text, prefix)) {
-      return text;
+      return NormalizeUrl(text);
     }
   }
   static const std::regex kLocal(
       R"(^(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?(/.*)?$)",
       std::regex::icase);
   if (StartsWithNoCase(text, "localhost") || std::regex_match(text, kLocal)) {
-    return "http://" + text;
+    return NormalizeUrl("http://" + text);
   }
   static const std::regex kDomain(
       R"(^([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?([/?#].*)?$)");
   if (std::regex_match(ToLowerAscii(text), kDomain)) {
-    return "https://" + text;
+    return NormalizeUrl("https://" + text);
   }
   return std::nullopt;
 }
 
 std::string SearchUrl(const std::string& template_url,
                       const std::string& query) {
-  static const char kHex[] = "0123456789ABCDEF";
-  std::string encoded;
-  for (unsigned char c : query) {
-    bool keep = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-                (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' ||
-                c == '~';
-    if (keep) {
-      encoded += static_cast<char>(c);
-    } else if (c == ' ') {
-      encoded += '+';
-    } else {
-      encoded += '%';
-      encoded += kHex[c >> 4];
-      encoded += kHex[c & 0x0F];
-    }
-  }
+  std::string encoded = EncodeQuery(query, /*space_to_plus=*/true);
   std::string out = template_url;
-  size_t pos = out.find("%s");
-  if (pos == std::string::npos) {
-    return out;
+  size_t pos = 0;
+  while ((pos = out.find("%s", pos)) != std::string::npos) {
+    out.replace(pos, 2, encoded);
+    pos += encoded.size();
   }
-  return out.replace(pos, 2, encoded);
+  return NormalizeUrl(out);
 }
 
 std::string Destination(const std::string& text,
-                        const std::string& search_template) {
+                        const std::string& search_template,
+                        const Bangs* bangs) {
+  if (bangs) {
+    if (std::optional<BangMatch> m = bangs->Resolve(text)) {
+      return m->url;
+    }
+  }
   if (std::optional<std::string> url = UrlFromTyped(text)) {
     return *url;
   }

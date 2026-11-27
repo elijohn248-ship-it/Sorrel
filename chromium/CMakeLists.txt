@@ -74,7 +74,7 @@ file(GLOB BIRCH_CORE_SRCS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/core/*.
 add_library(birch_core STATIC ${BIRCH_CORE_SRCS})
 birch_strict(birch_core)
 
-add_executable(birch_spec_tests tests/spec/spec_runner.cc)
+add_executable(birch_spec_tests tests/spec/spec_runner.cc tests/spec/commandbar_spec.cc)
 birch_strict(birch_spec_tests)
 target_link_libraries(birch_spec_tests birch_core)
 

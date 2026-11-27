@@ -27,6 +27,7 @@
 #include "core/state_file.h"
 #include "core/theme.h"
 #include "core/lifecycle.h"
+#include "tests/spec/commandbar_spec.h"
 #include "core/store.h"
 #include <set>
 
@@ -376,6 +377,10 @@ void StateDerived(const std::string& fx, const Json& doc, Counts* c) {
 
 Json SettingsJson(const Settings& s) { return ParseOrNull(EncodeSettings(s)); }
 
+void Cases2(const std::string& fx, const std::vector<spec::CaseOut>& cases, Counts* c) {
+  for (const spec::CaseOut& o : cases) Report(fx, o.name, o.expected, o.got, o.informative, c, o.note);
+}
+
 void SettingsFieldsFixture(const std::string& fx, const Json& doc, Counts* c) {
   Json defaults = SettingsJson(Settings());
   Settings missing;
@@ -511,6 +516,7 @@ void SiteFixture(const std::string& fx, const Json& doc, Counts* c) {
 using Handler = std::function<void(const std::string&, const Json&, Counts*)>;
 
 int Run(const std::string& dir) {
+  spec::SetFixturesDir(dir);
   const std::map<std::string, Handler> covered = {
       {"state-decode", StateDecode},
       {"state-derived", StateDerived},
@@ -521,13 +527,13 @@ int Run(const std::string& dir) {
       {"theme", ThemeFixture},
       {"theme-math", ThemeMathFixture},
       {"tab-lifecycle", LifecycleFixture},
+      {"resolver", [](const std::string& fx, const Json& d, Counts* c) { Cases2(fx, spec::RunResolver(d), c); }},
+      {"bangs", [](const std::string& fx, const Json& d, Counts* c) { Cases2(fx, spec::RunBangs(d), c); }},
+      {"keybindings", [](const std::string& fx, const Json& d, Counts* c) { Cases2(fx, spec::RunKeybindings(d), c); }},
+      {"tab-recency", [](const std::string& fx, const Json& d, Counts* c) { Cases2(fx, spec::RunTabRecency(d), c); }},
   };
   // Not implemented in wave 2; the agent named owns the code and the handler.
   const std::map<std::string, std::string> later = {
-      {"resolver", "agent 6 (cx-commandbar)"},
-      {"bangs", "agent 6 (cx-commandbar)"},
-      {"keybindings", "agent 6 (cx-commandbar)"},
-      {"tab-recency", "agent 6 (cx-commandbar)"},
       {"https-first", "agent 7 (cx-privacy-extensions)"},
       {"url-cleaner", "agent 7 (cx-privacy-extensions)"},
       {"peek", "agent 8 (cx-peek-split-library)"},
